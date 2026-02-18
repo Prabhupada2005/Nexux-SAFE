@@ -1,0 +1,251 @@
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, func
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import random
+
+# --- 1. DATABASE SETUP ---
+DATABASE_URL = "sqlite:///./foodtech.db"
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# --- 2. MODELS (The Tables) ---
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    password = Column(String)
+    full_name = Column(String)
+    role = Column(String)  # consumer, supplier, emergency, admin
+    phone = Column(String)
+
+class Inventory(Base):
+    __tablename__ = "inventory"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    quantity = Column(Float)
+    unit = Column(String)
+    category = Column(String)
+
+class FoodRequest(Base):
+    __tablename__ = "food_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    consumer_name = Column(String)
+    item_name = Column(String)
+    quantity = Column(Float)
+    status = Column(String, default="pending")
+
+class Message(Base):
+    __tablename__ = "messages"
+    id = Column(Integer, primary_key=True, index=True)
+    sender = Column(String)
+    content = Column(String)
+
+class RiskZone(Base):
+    __tablename__ = "risk_zones"
+    id = Column(Integer, primary_key=True, index=True)
+    lat = Column(Float)
+    lng = Column(Float)
+    radius = Column(Float)
+    reason = Column(String)
+
+# Create Tables
+Base.metadata.create_all(bind=engine)
+
+# --- 3. Pydantic Schemas (Data Validation) ---
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    full_name: str
+    role: str
+    phone: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class InventoryItem(BaseModel):
+    name: str
+    quantity: float
+    unit: str = "kg"
+    category: str = "General"
+
+class RequestItem(BaseModel):
+    consumer_name: str
+    item_name: str
+    quantity: float
+
+class MessageCreate(BaseModel):
+    sender: str
+    content: str
+
+class RiskZoneCreate(BaseModel):
+    lat: float
+    lng: float
+    radius: float
+    reason: str
+
+class PasswordReset(BaseModel):
+    email: str
+    new_password: str
+
+# --- 4. APP & CORS ---
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow all for development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# --- 5. API ENDPOINTS ---
+
+@app.post("/register")
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    new_user = User(email=user.email, password=user.password, full_name=user.full_name, role=user.role, phone=user.phone)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+@app.post("/login")
+def login(creds: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == creds.email, User.password == creds.password).first()
+    if not user:
+        return {"success": False, "message": "Invalid credentials"}
+    return {"success": True, "user": {"email": user.email, "name": user.full_name, "role": user.role}}
+
+@app.put("/reset-password")
+def reset_password(data: PasswordReset, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Email not found")
+    user.password = data.new_password
+    db.commit()
+    return {"message": "Password updated successfully"}
+
+# Inventory
+@app.get("/inventory")
+def get_inventory(db: Session = Depends(get_db)):
+    return db.query(Inventory).all()
+
+@app.post("/inventory")
+def add_item(item: InventoryItem, db: Session = Depends(get_db)):
+    db_item = Inventory(name=item.name, quantity=item.quantity, unit=item.unit, category=item.category)
+    db.add(db_item)
+    db.commit()
+    return db_item
+
+@app.put("/inventory/{item_id}")
+def update_item(item_id: int, data: InventoryItem, db: Session = Depends(get_db)): # Simplified update
+    item = db.query(Inventory).filter(Inventory.id == item_id).first()
+    if item:
+        item.quantity = data.quantity
+        db.commit()
+    return item
+
+@app.delete("/inventory/{item_id}")
+def delete_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(Inventory).filter(Inventory.id == item_id).first()
+    if item:
+        db.delete(item)
+        db.commit()
+    return {"message": "Deleted"}
+
+# Requests
+@app.get("/food-requests")
+def get_requests(db: Session = Depends(get_db)):
+    return db.query(FoodRequest).all()
+
+@app.post("/request-food")
+def request_food(req: RequestItem, db: Session = Depends(get_db)):
+    new_req = FoodRequest(consumer_name=req.consumer_name, item_name=req.item_name, quantity=req.quantity)
+    db.add(new_req)
+    db.commit()
+    return new_req
+
+# --- THE FIXED FULFILL ENDPOINT ---
+@app.post("/fulfill-request/{request_id}")
+def fulfill_request(request_id: int, db: Session = Depends(get_db)):
+    print(f"--- Processing Fulfill ID: {request_id} ---")
+    
+    req = db.query(FoodRequest).filter(FoodRequest.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # Smart Match (Case Insensitive)
+    item = db.query(Inventory).filter(func.lower(Inventory.name) == req.item_name.lower().strip()).first()
+    
+    if not item:
+        print(f"FAILED: Item '{req.item_name}' is not in Inventory.")
+        raise HTTPException(status_code=400, detail=f"Item '{req.item_name}' not in inventory! Add it first.")
+    
+    if item.quantity < req.quantity:
+        print(f"FAILED: Insufficient Stock. Have {item.quantity}, Need {req.quantity}")
+        raise HTTPException(status_code=400, detail=f"Insufficient Stock! Have: {item.quantity}, Need: {req.quantity}")
+
+    # Deduct
+    item.quantity -= req.quantity
+    db.delete(req)
+    db.commit()
+    
+    print(f"SUCCESS: Deducted {req.quantity}. New Balance: {item.quantity}")
+    return {"message": f"Success! Deducted {req.quantity}. Remaining: {item.quantity}"}
+
+# Chat & Risk
+@app.get("/messages")
+def get_messages(db: Session = Depends(get_db)):
+    return db.query(Message).all()
+
+@app.post("/messages")
+def send_message(msg: MessageCreate, db: Session = Depends(get_db)):
+    new_msg = Message(sender=msg.sender, content=msg.content)
+    db.add(new_msg)
+    db.commit()
+    return new_msg
+
+@app.get("/risk-zones")
+def get_risk_zones(db: Session = Depends(get_db)):
+    return db.query(RiskZone).all()
+
+@app.post("/risk-zones")
+def add_risk_zone(zone: RiskZoneCreate, db: Session = Depends(get_db)):
+    new_zone = RiskZone(lat=zone.lat, lng=zone.lng, radius=zone.radius, reason=zone.reason)
+    db.add(new_zone)
+    db.commit()
+    return new_zone
+
+@app.delete("/risk-zones/{zone_id}")
+def delete_risk_zone(zone_id: int, db: Session = Depends(get_db)):
+    zone = db.query(RiskZone).filter(RiskZone.id == zone_id).first()
+    if zone:
+        db.delete(zone)
+        db.commit()
+    return {"message": "Zone removed"}
+
+# IoT Simulation
+@app.get("/iot/spoilage")
+def get_iot_data():
+    return [
+        {"id": 1, "location": "Warehouse A", "temp": random.randint(20, 35), "humidity": random.randint(40, 80), "status": "normal", "food_quality": "Good"},
+        {"id": 2, "location": "Transit Truck 4", "temp": random.randint(30, 45), "humidity": random.randint(60, 90), "status": "warning", "food_quality": "Risk"}
+    ]
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
