@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -6,7 +6,7 @@ import L from 'leaflet';
 import { 
   MapPin, Utensils, TrendingUp, Shield, Users, Heart, 
   ArrowRight, Menu, X, Phone, Mail, MapPinned, ChevronDown,
-  Package, Zap, Globe, CheckCircle, Thermometer, Truck
+  Package, Zap, Globe, CheckCircle, Thermometer, Truck, Download, WifiOff
 } from 'lucide-react';
 
 // Fix Leaflet default icon
@@ -29,6 +29,37 @@ const FOOD_CENTERS = [
 const LandingPage = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const stats = [
     { label: 'Food Centers', value: '8+', icon: MapPinned },
@@ -61,6 +92,18 @@ const LandingPage = () => {
       title: 'Rapid, Safe & Reliable Relief', 
       desc: 'Combines location intelligence and quality monitoring for faster, safer aid delivery',
       color: 'purple'
+    },
+    { 
+      icon: Globe, 
+      title: 'Multi-Language Support', 
+      desc: 'Available in English, Hindi, Manipuri (Meitei Mayek), and Odia for wider accessibility',
+      color: 'indigo'
+    },
+    { 
+      icon: Download, 
+      title: 'PWA - Works Offline', 
+      desc: 'Install as website shortcut, works offline with cached data, perfect for low-connectivity areas',
+      color: 'teal'
     }
   ];
 
@@ -73,8 +116,34 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Offline Indicator */}
+      {!isOnline && (
+        <div className="fixed top-0 w-full bg-amber-500 text-white py-2 px-4 text-center text-sm font-semibold z-50 flex items-center justify-center gap-2">
+          <WifiOff size={16} />
+          You're offline - Some features may be limited
+        </div>
+      )}
+
+      {/* PWA Install Banner */}
+      {deferredPrompt && (
+        <div className="fixed top-0 w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 px-4 z-50 flex items-center justify-between shadow-lg" style={{top: isOnline ? '0' : '36px'}}>
+          <div className="flex items-center gap-3">
+            <Download size={20} />
+            <span className="text-sm font-semibold">Install SAFE website for offline access & faster performance</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleInstallClick} className="px-4 py-1.5 bg-white text-emerald-600 rounded-lg text-sm font-bold hover:bg-emerald-50 transition">
+              Install
+            </button>
+            <button onClick={() => setDeferredPrompt(null)} className="px-3 py-1.5 text-white hover:bg-white/20 rounded-lg transition">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Premium Header */}
-      <header className="fixed top-0 w-full bg-white/80 backdrop-blur-xl border-b border-slate-200 z-50">
+      <header className="fixed w-full bg-white/80 backdrop-blur-xl border-b border-slate-200 z-40" style={{top: deferredPrompt ? (isOnline ? '48px' : '84px') : (isOnline ? '0' : '36px')}}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
@@ -82,7 +151,7 @@ const LandingPage = () => {
             </div>
             <div>
               <h1 className="text-xl font-black text-slate-900">SAFE</h1>
-              <p className="text-[10px] text-slate-500 font-semibold">Smart Aid for Food Emergencies</p>
+              <p className="text-[10px] text-slate-500 font-semibold">Smart Aid for Food Emergency</p>
             </div>
           </div>
 
@@ -123,7 +192,7 @@ const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6 bg-gradient-to-br from-emerald-50 via-blue-50 to-purple-50 relative overflow-hidden">
+      <section className="pb-20 px-6 bg-gradient-to-br from-emerald-50 via-blue-50 to-purple-50 relative overflow-hidden" style={{paddingTop: deferredPrompt ? (isOnline ? '180px' : '216px') : (isOnline ? '128px' : '164px')}}>
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
@@ -140,11 +209,11 @@ const LandingPage = () => {
               </div>
               <h1 className="text-5xl md:text-7xl font-black text-slate-900 leading-tight mb-6">
                 <span className="bg-gradient-to-r from-emerald-500 via-teal-600 to-blue-600 bg-clip-text text-transparent animate-gradient">SAFE</span><br/>
-                <span className="text-slate-800">Food Relief</span><br/>
-                <span className="text-slate-700">During Crisis</span>
+                <span className="text-slate-800">Smart Aid for</span><br/>
+                <span className="text-slate-700">Food Emergency</span>
               </h1>
               <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-                A <span className="font-bold text-emerald-600">Web & IoT platform</span> designed to map safe food locations and prevent spoilage during disasters. When delayed logistics, unsafe routes, and spoiled food supplies turn relief efforts into life-threatening risks, <span className="font-bold text-blue-600">SAFE provides the smart solution</span>.
+                A <span className="font-bold text-emerald-600">Web & IoT platform</span> designed to map safe food locations and prevent spoilage during disasters. When delayed logistics, unsafe routes, and spoiled food supplies turn relief efforts into life-threatening risks, <span className="font-bold text-blue-600">SAFE (Smart Aid for Food Emergency) provides the smart solution</span>.
               </p>
               <div className="flex flex-wrap gap-4">
                 <button onClick={() => navigate('/register')} className="group px-8 py-4 bg-gradient-to-r from-emerald-500 via-teal-600 to-blue-600 text-white rounded-2xl font-bold shadow-2xl hover:shadow-3xl transition-all flex items-center gap-2 hover:scale-105 transform">
@@ -313,7 +382,7 @@ const LandingPage = () => {
               About <span className="bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">SAFE</span>
             </h2>
             <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              <span className="font-bold text-emerald-600">Smart Aid for Food Emergencies</span> - When delayed logistics, unsafe routes, and spoiled food supplies turn relief efforts into life-threatening risks, SAFE provides the smart solution with <span className="font-bold text-blue-600">Web & IoT technology</span>.
+              <span className="font-bold text-emerald-600">Smart Aid for Food Emergency</span> - When delayed logistics, unsafe routes, and spoiled food supplies turn relief efforts into life-threatening risks, SAFE provides the smart solution with <span className="font-bold text-blue-600">Web & IoT technology</span>.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -349,16 +418,27 @@ const LandingPage = () => {
             <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">Powerful Features</h2>
             <p className="text-lg text-slate-600">Everything you need for crisis food management</p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all border border-slate-200">
-                <div className={`w-14 h-14 bg-gradient-to-br from-${feature.color}-500 to-${feature.color}-600 rounded-xl flex items-center justify-center mb-4`}>
-                  <feature.icon className="text-white" size={28} />
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((feature, i) => {
+              const colorClasses = {
+                emerald: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+                red: 'bg-gradient-to-br from-red-500 to-red-600',
+                blue: 'bg-gradient-to-br from-blue-500 to-blue-600',
+                purple: 'bg-gradient-to-br from-purple-500 to-purple-600',
+                indigo: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+                teal: 'bg-gradient-to-br from-teal-500 to-teal-600'
+              };
+              
+              return (
+                <div key={i} className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all border border-slate-200">
+                  <div className={`w-14 h-14 ${colorClasses[feature.color]} rounded-xl flex items-center justify-center mb-4`}>
+                    <feature.icon className="text-white" size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
+                  <p className="text-sm text-slate-600">{feature.desc}</p>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
-                <p className="text-sm text-slate-600">{feature.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
