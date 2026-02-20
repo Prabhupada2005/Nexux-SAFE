@@ -42,7 +42,9 @@ class FoodRequest(Base):
 class Message(Base):
     __tablename__ = "messages"
     id = Column(Integer, primary_key=True, index=True)
+    center_id = Column(Integer, default=1)
     sender = Column(String)
+    sender_type = Column(String, default="consumer")
     content = Column(String)
 
 class RiskZone(Base):
@@ -82,6 +84,7 @@ class RequestItem(BaseModel):
 class MessageCreate(BaseModel):
     sender: str
     content: str
+    sender_type: str = "consumer"
 
 class RiskZoneCreate(BaseModel):
     lat: float
@@ -213,9 +216,25 @@ def fulfill_request(request_id: int, db: Session = Depends(get_db)):
 def get_messages(db: Session = Depends(get_db)):
     return db.query(Message).all()
 
+@app.get("/centers")
+def get_centers(db: Session = Depends(get_db)):
+    # Return empty list for now - centers are hardcoded in frontend
+    return []
+
+@app.get("/messages/{center_id}")
+def get_center_messages(center_id: int, db: Session = Depends(get_db)):
+    return db.query(Message).filter(Message.center_id == center_id).all()
+
 @app.post("/messages")
 def send_message(msg: MessageCreate, db: Session = Depends(get_db)):
-    new_msg = Message(sender=msg.sender, content=msg.content)
+    new_msg = Message(sender=msg.sender, content=msg.content, sender_type=msg.sender_type)
+    db.add(new_msg)
+    db.commit()
+    return new_msg
+
+@app.post("/messages/{center_id}")
+def send_center_message(center_id: int, msg: MessageCreate, db: Session = Depends(get_db)):
+    new_msg = Message(center_id=center_id, sender=msg.sender, content=msg.content, sender_type=msg.sender_type)
     db.add(new_msg)
     db.commit()
     return new_msg

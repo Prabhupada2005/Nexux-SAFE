@@ -16,14 +16,14 @@ let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const FOOD_CENTERS = [
-    { id: 1, name: "Moirang Bazar Food Center", address: "Moirang Bazar, Bishnupur", lat: 24.5167, lng: 93.7667, status: "open", crowd: "High", items: 45, cookedFood: true },
-    { id: 2, name: "Imphal Community Kitchen", address: "Thangal Bazar, Imphal West", lat: 24.8170, lng: 93.9368, status: "open", crowd: "Low", items: 62, cookedFood: true },
-    { id: 3, name: "Thoubal Relief Center", address: "Thoubal Bazar, Thoubal", lat: 24.6340, lng: 93.9856, status: "open", crowd: "Medium", items: 38, cookedFood: true },
-    { id: 4, name: "Churachandpur Food Hub", address: "Tuibong, Churachandpur", lat: 24.3333, lng: 93.6833, status: "open", crowd: "Low", items: 52, cookedFood: true },
-    { id: 5, name: "Kakching Distribution Center", address: "Kakching Khunou, Kakching", lat: 24.4980, lng: 93.9810, status: "open", crowd: "Medium", items: 41, cookedFood: false },
-    { id: 6, name: "Ukhrul Relief Station", address: "Ukhrul Town, Ukhrul", lat: 25.0500, lng: 94.3600, status: "open", crowd: "High", items: 29, cookedFood: true },
-    { id: 7, name: "Senapati Emergency Kitchen", address: "Senapati Bazar, Senapati", lat: 25.2667, lng: 94.0167, status: "open", crowd: "Low", items: 55, cookedFood: true },
-    { id: 8, name: "Jiribam Food Point", address: "Jiribam Town, Jiribam", lat: 24.8050, lng: 93.1100, status: "open", crowd: "Medium", items: 34, cookedFood: false },
+    { id: 1, name: "Moirang Bazar Food Center", address: "Moirang Bazar, Bishnupur", lat: 24.5167, lng: 93.7667, status: "open", crowd: "High", items: 45, cookedFood: true, menu: ["Rice Meals", "Dal Chawal", "Khichdi", "Vegetable Curry", "Chapati Pack"] },
+    { id: 2, name: "Imphal Community Kitchen", address: "Thangal Bazar, Imphal West", lat: 24.8170, lng: 93.9368, status: "open", crowd: "Low", items: 62, cookedFood: true, menu: ["Rice Meals", "Dal Chawal", "Hot Soup", "Chapati Pack", "Vegetable Curry"] },
+    { id: 3, name: "Thoubal Relief Center", address: "Thoubal Bazar, Thoubal", lat: 24.6340, lng: 93.9856, status: "open", crowd: "Medium", items: 38, cookedFood: true, menu: ["Khichdi", "Dal Chawal", "Rice Meals", "Hot Soup"] },
+    { id: 4, name: "Churachandpur Food Hub", address: "Tuibong, Churachandpur", lat: 24.3333, lng: 93.6833, status: "open", crowd: "Low", items: 52, cookedFood: true, menu: ["Rice Meals", "Vegetable Curry", "Chapati Pack", "Dal Chawal", "Khichdi"] },
+    { id: 5, name: "Kakching Distribution Center", address: "Kakching Khunou, Kakching", lat: 24.4980, lng: 93.9810, status: "open", crowd: "Medium", items: 41, cookedFood: false, menu: ["Rice", "Dal", "Wheat Flour", "Onion", "Potato", "Tomato"] },
+    { id: 6, name: "Ukhrul Relief Station", address: "Ukhrul Town, Ukhrul", lat: 25.0500, lng: 94.3600, status: "open", crowd: "High", items: 29, cookedFood: true, menu: ["Rice Meals", "Dal Chawal", "Chapati Pack"] },
+    { id: 7, name: "Senapati Emergency Kitchen", address: "Senapati Bazar, Senapati", lat: 25.2667, lng: 94.0167, status: "open", crowd: "Low", items: 55, cookedFood: true, menu: ["Rice Meals", "Khichdi", "Hot Soup", "Vegetable Curry", "Dal Chawal"] },
+    { id: 8, name: "Jiribam Food Point", address: "Jiribam Town, Jiribam", lat: 24.8050, lng: 93.1100, status: "open", crowd: "Medium", items: 34, cookedFood: false, menu: ["Rice", "Dal", "Wheat Flour", "Potato", "Onion"] },
 ];
 
 const ConsumerDashboard = () => {
@@ -36,15 +36,18 @@ const ConsumerDashboard = () => {
     // Modal & Feature States
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-    const [reqItem, setReqItem] = useState({ name: '', quantity: '1', plateSize: 'full' });
+    const [selectedCenter, setSelectedCenter] = useState(null);
+    const [reqItem, setReqItem] = useState({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup' });
     const [feedbackText, setFeedbackText] = useState('');
     const [isListening, setIsListening] = useState(false);
+    const [expandedMenus, setExpandedMenus] = useState({});
 
     // Routing States
     const [routePath, setRoutePath] = useState([]); // Stores the road coordinates
     const [routeInfo, setRouteInfo] = useState(null); // Stores distance/duration
     const [truckPosition, setTruckPosition] = useState(null); // Live truck location
     const [truckProgress, setTruckProgress] = useState(0); // 0-100% progress
+    const [activePickupCenter, setActivePickupCenter] = useState(null); // Track which center has active pickup
 
     // Calculate nearest low-crowded center
     const nearestCenter = useMemo(() => {
@@ -75,8 +78,9 @@ const ConsumerDashboard = () => {
 
     // Chat States
     const [activeChat, setActiveChat] = useState(null);
+    const [activeChatCenter, setActiveChatCenter] = useState(null);
     const [msgText, setMsgText] = useState("");
-    const [supplierMessages, setSupplierMessages] = useState([]);
+    const [centerMessages, setCenterMessages] = useState({});
     const [aiMessages, setAiMessages] = useState([{ sender: 'AI Bot', content: 'Hello! I am your FoodTech Assistant.', self: false }]);
 
     const toggleLanguage = () => {
@@ -87,7 +91,7 @@ const ConsumerDashboard = () => {
     };
 
     const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
-    useEffect(() => { scrollToBottom(); }, [supplierMessages, aiMessages, activeChat]);
+    useEffect(() => { scrollToBottom(); }, [centerMessages, aiMessages, activeChat]);
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -96,11 +100,34 @@ const ConsumerDashboard = () => {
                 () => alert("Please enable location for routing.")
             );
         }
+        
+        // Fetch registered centers from backend
+        axios.get('http://localhost:8000/centers').then(res => {
+            if (res.data && res.data.length > 0) {
+                // Merge with existing centers
+                const newCenters = res.data.map(c => ({
+                    ...c,
+                    cookedFood: c.menu?.some(item => ['Rice Meals', 'Dal Chawal', 'Khichdi'].includes(item))
+                }));
+                // Update centers state if needed
+            }
+        }).catch(err => console.log('No registered centers yet'));
+        
+        // Poll messages for all centers
         const interval = setInterval(() => {
-            axios.get('http://localhost:8000/messages').then(res => setSupplierMessages(res.data.reverse()));
+            centers.forEach(center => {
+                axios.get(`http://localhost:8000/messages/${center.id}`)
+                    .then(res => {
+                        setCenterMessages(prev => ({
+                            ...prev,
+                            [center.id]: res.data.reverse()
+                        }));
+                    })
+                    .catch(err => console.log(`No messages for center ${center.id}`));
+            });
         }, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [centers]);
 
     // --- Voice Command ---
     const startListening = () => {
@@ -129,7 +156,7 @@ const ConsumerDashboard = () => {
     const handleSOS = async () => { if (confirm("Send SOS?")) alert(t('sos_sent')); };
 
     // --- FETCH DYNAMIC ROAD ROUTE (OSRM API) ---
-    const getRoadRoute = async (start, end) => {
+    const getRoadRoute = async (start, end, showTruck = true) => {
         try {
             // OSRM Public API (Free, No Key Needed)
             const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
@@ -148,10 +175,16 @@ const ConsumerDashboard = () => {
                     duration: (route.duration / 60).toFixed(0) + " min"
                 });
 
-                // Start truck animation from food center
-                setTruckPosition(coordinates[0]);
-                setTruckProgress(0);
-                animateTruck(coordinates);
+                // Start truck animation only if showTruck is true (for delivery)
+                if (showTruck) {
+                    setTruckPosition(coordinates[0]);
+                    setTruckProgress(0);
+                    animateTruck(coordinates);
+                } else {
+                    // For pickup, don't show truck
+                    setTruckPosition(null);
+                    setTruckProgress(0);
+                }
             }
         } catch (error) {
             console.error("Routing Error:", error);
@@ -181,21 +214,42 @@ const ConsumerDashboard = () => {
 
         try {
             await axios.post('http://localhost:8000/request-food', {
-                consumer_name: user.name, item_name: reqItem.name, quantity: parseFloat(reqItem.quantity)
+                consumer_name: user.name, 
+                item_name: reqItem.name, 
+                quantity: parseFloat(reqItem.quantity),
+                center_id: selectedCenter?.id,
+                center_name: selectedCenter?.name,
+                delivery_type: reqItem.deliveryType
             });
             setShowRequestModal(false);
-            setReqItem({ name: '', quantity: '1', plateSize: 'full' });
-
-            // --- CALCULATE DYNAMIC ROUTE ---
-            if (userLoc) {
-                const center = centers[1]; // Defaulting to Imphal Center
-                await getRoadRoute(center, userLoc);
-                alert(`Request Sent! Showing road path from ${center.name}`);
+            
+            // Show route for both pickup and delivery
+            if (userLoc && selectedCenter) {
+                if (reqItem.deliveryType === 'delivery') {
+                    // Delivery: truck goes from center to user (with truck animation)
+                    await getRoadRoute(selectedCenter, userLoc, true);
+                    alert(`Delivery Request Sent! Truck will deliver from ${selectedCenter.name}. Track on map.`);
+                } else {
+                    // Pickup: user goes from their location to center (no truck, just directions)
+                    await getRoadRoute(userLoc, selectedCenter, false);
+                    setActivePickupCenter(selectedCenter.id); // Mark this center as having active pickup
+                    alert(`Pickup Request Confirmed! Follow the blue route on map to reach ${selectedCenter.name}.`);
+                }
             } else {
-                alert("Request Sent! (Enable location to see route)");
+                alert(reqItem.deliveryType === 'delivery' ? "Delivery Request Sent!" : "Pickup Request Confirmed!");
             }
+            
+            setReqItem({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup' });
+            setSelectedCenter(null);
 
         } catch (e) { alert("Error sending request."); }
+    };
+
+    const handleCancelPickup = (centerId) => {
+        setRoutePath([]);
+        setRouteInfo(null);
+        setActivePickupCenter(null);
+        alert('Pickup request cancelled. Route cleared.');
     };
 
     const openGoogleMaps = () => {
@@ -211,15 +265,104 @@ const ConsumerDashboard = () => {
         e.preventDefault();
         if (!msgText) return;
         const user = JSON.parse(localStorage.getItem('foodtech_user'));
-        if (activeChat === 'supplier') {
-            await axios.post('http://localhost:8000/messages', { sender: user.name, content: msgText });
-            const res = await axios.get('http://localhost:8000/messages');
-            setSupplierMessages(res.data.reverse());
+        if (activeChat === 'supplier' && activeChatCenter) {
+            try {
+                await axios.post(`http://localhost:8000/messages/${activeChatCenter.id}`, { 
+                    sender: user.name, 
+                    content: msgText,
+                    sender_type: 'consumer'
+                });
+                const res = await axios.get(`http://localhost:8000/messages/${activeChatCenter.id}`);
+                setCenterMessages(prev => ({
+                    ...prev,
+                    [activeChatCenter.id]: res.data.reverse()
+                }));
+                setMsgText(""); // Clear input after sending
+            } catch (err) {
+                console.log('Message send failed:', err);
+                alert('Could not send message. Check if backend is running.');
+            }
         } else {
+            // Add user message
             setAiMessages(prev => [...prev, { sender: 'You', content: msgText, self: true }]);
-            setTimeout(() => setAiMessages(prev => [...prev, { sender: 'AI Bot', content: "I can help you find food centers.", self: false }]), 1000);
+            const userQuery = msgText.toLowerCase();
+            setMsgText("");
+            
+            // AI Response Logic
+            setTimeout(() => {
+                let aiResponse = "";
+                
+                // Food center queries
+                if (userQuery.includes('nearest') || userQuery.includes('closest') || userQuery.includes('near')) {
+                    if (nearestCenter) {
+                        aiResponse = `The nearest food center is ${nearestCenter.name}, located ${nearestCenter.distance} km away. It has ${nearestCenter.crowd} crowd and ${nearestCenter.items} items available. ${nearestCenter.cookedFood ? 'Hot meals are available!' : ''}`;
+                    } else {
+                        aiResponse = "Please enable location access to find the nearest center.";
+                    }
+                }
+                // Open centers
+                else if (userQuery.includes('open') || userQuery.includes('available')) {
+                    const openCenters = centers.filter(c => c.status === 'open');
+                    aiResponse = `Currently ${openCenters.length} centers are open: ${openCenters.slice(0, 3).map(c => c.name).join(', ')}${openCenters.length > 3 ? ' and more.' : '.'}`;
+                }
+                // Low crowd centers
+                else if (userQuery.includes('crowd') || userQuery.includes('busy') || userQuery.includes('wait')) {
+                    const lowCrowd = centers.filter(c => c.crowd === 'Low' && c.status === 'open');
+                    if (lowCrowd.length > 0) {
+                        aiResponse = `Centers with low crowd: ${lowCrowd.map(c => c.name).join(', ')}. You can visit these for faster service.`;
+                    } else {
+                        aiResponse = "All centers are currently busy. Please try again later or request delivery.";
+                    }
+                }
+                // Hot meals
+                else if (userQuery.includes('hot') || userQuery.includes('cooked') || userQuery.includes('meal')) {
+                    const hotMealCenters = centers.filter(c => c.cookedFood && c.status === 'open');
+                    aiResponse = `${hotMealCenters.length} centers serve hot meals: ${hotMealCenters.slice(0, 3).map(c => c.name).join(', ')}.`;
+                }
+                // Request food help
+                else if (userQuery.includes('request') || userQuery.includes('order') || userQuery.includes('need food')) {
+                    aiResponse = "To request food, click the 'Request Food' button. You can choose from cooked meals, vegetables, or grains. Use the microphone icon for voice ordering!";
+                }
+                // Location help
+                else if (userQuery.includes('location') || userQuery.includes('address')) {
+                    aiResponse = "All food centers are marked on the map. Click any marker to see the full address and details. You can also get directions by clicking 'Get Directions'.";
+                }
+                // Delivery tracking
+                else if (userQuery.includes('track') || userQuery.includes('delivery') || userQuery.includes('truck')) {
+                    if (routePath.length > 0) {
+                        aiResponse = `Your delivery is ${truckProgress}% complete. Estimated time: ${routeInfo?.duration}. You can track the truck on the map in real-time.`;
+                    } else {
+                        aiResponse = "No active delivery. Request food first, and you'll be able to track the delivery truck on the map.";
+                    }
+                }
+                // Emergency/SOS
+                else if (userQuery.includes('emergency') || userQuery.includes('sos') || userQuery.includes('urgent')) {
+                    aiResponse = "For emergencies, click the red SOS button in the header. This will send an immediate alert to all nearby centers.";
+                }
+                // Language help
+                else if (userQuery.includes('language') || userQuery.includes('hindi') || userQuery.includes('translate')) {
+                    aiResponse = "You can change the language using the globe icon in the header. We support English, Hindi, Manipuri, and Odia.";
+                }
+                // List all centers
+                else if (userQuery.includes('list') || userQuery.includes('all centers') || userQuery.includes('show all')) {
+                    aiResponse = `We have ${centers.length} food centers: ${centers.map(c => c.name).join(', ')}. Check the map or scroll down to see details.`;
+                }
+                // Greetings
+                else if (userQuery.includes('hello') || userQuery.includes('hi') || userQuery.includes('hey')) {
+                    aiResponse = "Hello! I'm your FoodTech AI Assistant. I can help you find food centers, track deliveries, and answer questions. What do you need?";
+                }
+                // Help/What can you do
+                else if (userQuery.includes('help') || userQuery.includes('what can you') || userQuery.includes('how to')) {
+                    aiResponse = "I can help you with:\n• Finding nearest food centers\n• Checking which centers are open\n• Locating centers with hot meals\n• Tracking your delivery\n• Requesting food\n• Emergency assistance\n\nJust ask me anything!";
+                }
+                // Default response
+                else {
+                    aiResponse = "I can help you find food centers, check availability, track deliveries, and more. Try asking: 'Which center is nearest?' or 'Where can I get hot meals?'";
+                }
+                
+                setAiMessages(prev => [...prev, { sender: 'AI Bot', content: aiResponse, self: false }]);
+            }, 800);
         }
-        setMsgText("");
     };
 
     return (
@@ -250,10 +393,10 @@ const ConsumerDashboard = () => {
                 </div>
             </header>
 
-            <div className="flex-1 flex flex-col md:flex-row relative">
+            <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
                 {/* Premium Sidebar */}
-                <div className="w-full md:w-[420px] bg-white/80 backdrop-blur-xl shadow-2xl z-10 flex flex-col overflow-y-auto border-r border-slate-200/50 relative">
-                    <div className="p-6 space-y-5">
+                <div className="w-full md:w-[420px] bg-white/80 backdrop-blur-xl shadow-2xl z-10 flex flex-col border-r border-slate-200/50 relative overflow-hidden">
+                    <div className="p-6 space-y-5 overflow-y-auto h-full">
 
                         {/* NEAREST CENTER RECOMMENDATION */}
                         {nearestCenter && (
@@ -271,7 +414,7 @@ const ConsumerDashboard = () => {
                                     <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
                                         <span className="text-xs font-black text-white flex items-center gap-1">
                                             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                                            {nearestCenter.crowd}
+                                            {nearestCenter.crowd} Crowd
                                         </span>
                                     </div>
                                 </div>
@@ -285,15 +428,40 @@ const ConsumerDashboard = () => {
                                 </div>
 
                                 <div className="flex items-center gap-2 mb-3">
-                                    <div className="bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                                        <span className="text-xs font-bold text-white">📦 {nearestCenter.items} items</span>
-                                    </div>
                                     {nearestCenter.cookedFood && (
                                         <div className="bg-orange-500/30 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-orange-300/50">
                                             <span className="text-xs font-bold text-white">🍛 Hot Meals</span>
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Menu Available */}
+                                {nearestCenter.menu && nearestCenter.menu.length > 0 && (
+                                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 mb-3">
+                                        <button 
+                                            onClick={() => setExpandedMenus(prev => ({ ...prev, [nearestCenter.id]: !prev[nearestCenter.id] }))}
+                                            className="w-full text-left"
+                                        >
+                                            <p className="text-xs text-green-100 font-bold mb-2 flex items-center justify-between">
+                                                📋 Menu Available ({nearestCenter.menu.length} items)
+                                                <span className="text-[10px]">{expandedMenus[nearestCenter.id] ? '▼' : '▶'}</span>
+                                            </p>
+                                        </button>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {(expandedMenus[nearestCenter.id] ? nearestCenter.menu : nearestCenter.menu.slice(0, 4)).map((item, idx) => (
+                                                <span key={idx} className="text-[10px] bg-white/20 px-2 py-1 rounded-md text-white font-semibold">{item}</span>
+                                            ))}
+                                            {!expandedMenus[nearestCenter.id] && nearestCenter.menu.length > 4 && (
+                                                <button 
+                                                    onClick={() => setExpandedMenus(prev => ({ ...prev, [nearestCenter.id]: true }))}
+                                                    className="text-[10px] text-green-100 underline"
+                                                >
+                                                    +{nearestCenter.menu.length - 4} more
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <button
                                     onClick={() => {
@@ -315,7 +483,11 @@ const ConsumerDashboard = () => {
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <p className="text-xs text-emerald-100 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                            <Truck size={14} className="animate-bounce" /> Delivery Truck En Route
+                                            {truckPosition ? (
+                                                <><Truck size={14} className="animate-bounce" /> Delivery Truck En Route</>
+                                            ) : (
+                                                <><Navigation size={14} /> Directions to Center</>
+                                            )}
                                         </p>
                                         <h3 className="text-3xl font-black text-white">{routeInfo.duration}</h3>
                                         <p className="text-sm text-emerald-100 mt-1">{routeInfo.distance} away</p>
@@ -325,33 +497,56 @@ const ConsumerDashboard = () => {
                                     </button>
                                 </div>
 
-                                {/* Progress Bar */}
-                                <div className="mb-3">
-                                    <div className="flex justify-between text-xs text-white/90 mb-1">
-                                        <span>Progress</span>
-                                        <span className="font-bold">{truckProgress}%</span>
-                                    </div>
-                                    <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
-                                        <div
-                                            className="bg-white h-full rounded-full transition-all duration-300 ease-linear"
-                                            style={{ width: `${truckProgress}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
+                                {/* Progress Bar - Only show for delivery */}
+                                {truckPosition && (
+                                    <>
+                                        <div className="mb-3">
+                                            <div className="flex justify-between text-xs text-white/90 mb-1">
+                                                <span>Progress</span>
+                                                <span className="font-bold">{truckProgress}%</span>
+                                            </div>
+                                            <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
+                                                <div
+                                                    className="bg-white h-full rounded-full transition-all duration-300 ease-linear"
+                                                    style={{ width: `${truckProgress}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
 
-                                <div className="flex items-center gap-2 text-xs text-white/90 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-lg">
-                                    <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                                    {truckProgress < 100 ? 'Truck is on the way to your location' : 'Truck has arrived!'}
-                                </div>
+                                        <div className="flex items-center gap-2 text-xs text-white/90 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-lg">
+                                            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                                            {truckProgress < 100 ? 'Truck is on the way to your location' : 'Truck has arrived!'}
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Pickup directions message */}
+                                {!truckPosition && (
+                                    <div className="flex items-center gap-2 text-xs text-white/90 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-lg">
+                                        <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                                        Follow the blue route to reach the food center
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {/* Quick Actions */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <button onClick={() => setShowRequestModal(true)} className="group relative bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 hover:from-green-600 hover:via-green-700 hover:to-emerald-700 text-white py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden">
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={() => {
+                                    if (nearestCenter) {
+                                        setSelectedCenter(nearestCenter);
+                                        setReqItem({ ...reqItem, deliveryType: 'delivery' });
+                                        setShowRequestModal(true);
+                                    } else {
+                                        alert('Please enable location to find nearest center');
+                                    }
+                                }} 
+                                className="group relative bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 hover:from-orange-600 hover:via-orange-700 hover:to-red-700 text-white py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden"
+                            >
                                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <Utensils size={28} className="relative z-10" />
-                                <span className="text-sm relative z-10">{t('request_food')}</span>
+                                <Truck size={28} className="relative z-10" />
+                                <span className="text-sm relative z-10">Request Delivery</span>
                             </button>
                             <button onClick={() => setActiveChat('ai')} className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 hover:from-emerald-700 hover:via-teal-700 hover:to-teal-800 text-white py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden">
                                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -393,10 +588,7 @@ const ConsumerDashboard = () => {
                                         <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg">
                                             <div className={`w-2.5 h-2.5 rounded-full ${center.crowd === 'High' ? 'bg-red-500 animate-pulse' : center.crowd === 'Medium' ? 'bg-amber-500' : 'bg-green-500'
                                                 }`}></div>
-                                            <span className="text-[11px] font-bold text-slate-700">{center.crowd}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg">
-                                            <span className="text-[11px] font-bold text-slate-700">📦 {center.items}</span>
+                                            <span className="text-[11px] font-bold text-slate-700">{center.crowd} Crowd</span>
                                         </div>
                                         {center.cookedFood && (
                                             <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 px-3 py-1.5 rounded-lg border border-orange-200">
@@ -405,13 +597,62 @@ const ConsumerDashboard = () => {
                                         )}
                                     </div>
 
-                                    {/* Action Button */}
-                                    <button
-                                        onClick={() => setActiveChat('supplier')}
-                                        className="w-full text-[12px] bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all group-hover:scale-[1.02]"
-                                    >
-                                        <MessageCircle size={14} /> {t('chat_supplier')}
-                                    </button>
+                                    {/* Menu Available */}
+                                    {center.menu && center.menu.length > 0 && (
+                                        <div className="mb-4 bg-slate-50 rounded-xl p-3">
+                                            <button 
+                                                onClick={() => setExpandedMenus(prev => ({ ...prev, [center.id]: !prev[center.id] }))}
+                                                className="w-full text-left"
+                                            >
+                                                <p className="text-[10px] text-slate-600 font-bold mb-2 uppercase tracking-wider flex items-center justify-between">
+                                                    📋 Available Menu ({center.menu.length} items)
+                                                    <span className="text-[10px]">{expandedMenus[center.id] ? '▼' : '▶'}</span>
+                                                </p>
+                                            </button>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {(expandedMenus[center.id] ? center.menu : center.menu.slice(0, 5)).map((item, idx) => (
+                                                    <span key={idx} className="text-[9px] bg-white border border-slate-200 px-2 py-1 rounded-md text-slate-700 font-semibold">{item}</span>
+                                                ))}
+                                                {!expandedMenus[center.id] && center.menu.length > 5 && (
+                                                    <button 
+                                                        onClick={() => setExpandedMenus(prev => ({ ...prev, [center.id]: true }))}
+                                                        className="text-[9px] text-slate-500 font-semibold underline"
+                                                    >
+                                                        +{center.menu.length - 5} more
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {activePickupCenter === center.id ? (
+                                            <button
+                                                onClick={() => handleCancelPickup(center.id)}
+                                                className="text-[12px] bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
+                                            >
+                                                ✕ Cancel Pickup
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => { setSelectedCenter(center); setReqItem({ ...reqItem, deliveryType: 'pickup' }); setShowRequestModal(true); }}
+                                                className="text-[12px] bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
+                                            >
+                                                <Utensils size={13} /> Request Pickup
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => { 
+                                                setActiveChat('supplier'); 
+                                                setActiveChatCenter(center);
+                                                setMsgText(""); // Clear input when switching centers
+                                            }}
+                                            className="text-[12px] bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
+                                        >
+                                            <MessageCircle size={13} /> Chat
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -431,7 +672,7 @@ const ConsumerDashboard = () => {
                                 position={[c.lat, c.lng]}
                                 icon={L.divIcon({
                                     className: 'custom-marker',
-                                    html: `<div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); width: 40px; height: 40px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><div style="transform: rotate(45deg); color: white; font-weight: bold; font-size: 18px;">📍</div></div>`,
+                                    html: `<div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 40px; height: 40px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><div style="transform: rotate(45deg); color: white; font-weight: bold; font-size: 18px;">📍</div></div>`,
                                     iconSize: [40, 40],
                                     iconAnchor: [20, 40]
                                 })}
@@ -491,53 +732,134 @@ const ConsumerDashboard = () => {
             {activeChat && (
                 <div className="fixed bottom-6 right-6 w-96 bg-white rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden">
                     <div className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white p-4 flex justify-between items-center`}>
-                        <span className="font-black flex gap-2 text-base items-center">{activeChat === 'ai' ? <Bot size={20} /> : <MessageCircle size={20} />}{activeChat === 'ai' ? t('ai_assistant') : t('supplier_support')}</span>
-                        <button onClick={() => setActiveChat(null)} className="hover:bg-white/20 rounded-lg p-2 transition-all"><span className="text-xl">×</span></button>
+                        <div>
+                            <span className="font-black flex gap-2 text-base items-center">
+                                {activeChat === 'ai' ? <Bot size={20} /> : <MessageCircle size={20} />}
+                                {activeChat === 'ai' ? t('ai_assistant') : activeChatCenter?.name || t('supplier_support')}
+                            </span>
+                            {activeChat === 'supplier' && activeChatCenter && (
+                                <p className="text-xs text-green-100 mt-1">📍 {activeChatCenter.address}</p>
+                            )}
+                        </div>
+                        <button onClick={() => { setActiveChat(null); setActiveChatCenter(null); }} className="hover:bg-white/20 rounded-lg p-2 transition-all"><span className="text-xl">×</span></button>
                     </div>
                     <div className="h-80 p-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white space-y-3">
-                        {activeChat === 'supplier' ? supplierMessages.map((m, i) => <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.sender === (JSON.parse(localStorage.getItem('foodtech_user'))?.name) ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>{m.content}</div>) : aiMessages.map((m, i) => <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.self ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>{m.content}</div>)}
+                        {activeChat === 'supplier' ? (
+                            activeChatCenter && centerMessages[activeChatCenter.id] ? (
+                                centerMessages[activeChatCenter.id].map((m, i) => (
+                                    <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.sender_type === 'consumer' ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>
+                                        <div className="text-[10px] opacity-70 mb-1">{m.sender}</div>
+                                        {m.content}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center text-slate-400 text-sm py-8">No messages yet. Start the conversation!</div>
+                            )
+                        ) : (
+                            aiMessages.map((m, i) => <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.self ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>{m.content}</div>)
+                        )}
                         <div ref={chatEndRef} />
                     </div>
-                    <form onSubmit={sendChatMessage} className="p-4 border-t-2 border-slate-100 flex gap-3 bg-white"><input value={msgText} onChange={e => setMsgText(e.target.value)} className="flex-1 text-sm outline-none px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all" placeholder={t('type_message')} /><button type="submit" className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all`}><Send size={18} /></button></form>
+                    <form onSubmit={sendChatMessage} className="p-4 border-t-2 border-slate-100 flex gap-3 bg-white">
+                        <input 
+                            value={msgText} 
+                            onChange={e => setMsgText(e.target.value)} 
+                            className="flex-1 text-sm outline-none px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all" 
+                            placeholder={t('type_message')} 
+                        />
+                        <button 
+                            type="submit" 
+                            className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all`}
+                        >
+                            <Send size={18} />
+                        </button>
+                    </form>
                 </div>
             )}
 
             {showRequestModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white p-8 rounded-3xl w-96 shadow-2xl border border-slate-200">
+                    <div className="bg-white p-8 rounded-3xl w-96 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-black text-2xl bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-3">
-                                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                    <Utensils size={24} className="text-white" />
-                                </div>
-                                {t('request_food')}
-                            </h3>
+                            <div>
+                                <h3 className="font-black text-2xl bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                        <Utensils size={24} className="text-white" />
+                                    </div>
+                                    {t('request_food')}
+                                </h3>
+                                {selectedCenter && (
+                                    <p className="text-xs text-slate-600 mt-2 ml-16">📍 From: <span className="font-bold text-green-600">{selectedCenter.name}</span></p>
+                                )}
+                            </div>
                             <button onClick={startListening} className={`p-3 rounded-xl transition-all shadow-md ${isListening ? 'bg-gradient-to-r from-red-500 to-red-600 text-white animate-pulse' : 'bg-slate-100 hover:bg-slate-200'}`}>{isListening ? <MicOff size={20} /> : <Mic size={20} />}</button>
                         </div>
                         {isListening && <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-center"><p className="text-sm text-red-600 font-bold flex items-center justify-center gap-2"><span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>Listening...</p></div>}
                         <div className="space-y-4">
+                            {/* Delivery Type Selection */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">Collection Method</label>
+                                <div className="grid grid-cols-2 gap-2 mt-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setReqItem({ ...reqItem, deliveryType: 'pickup' })}
+                                        className={`py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all ${reqItem.deliveryType === 'pickup'
+                                                ? 'bg-green-500 text-white border-green-500'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
+                                            }`}
+                                    >
+                                        🏪 Pickup at Center
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setReqItem({ ...reqItem, deliveryType: 'delivery' })}
+                                        className={`py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all ${reqItem.deliveryType === 'delivery'
+                                                ? 'bg-orange-500 text-white border-orange-500'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                                            }`}
+                                    >
+                                        🚚 Delivery
+                                    </button>
+                                </div>
+                                {reqItem.deliveryType === 'delivery' && (
+                                    <p className="text-xs text-amber-600 mt-2 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                                        ⚠️ Delivery only available when truck is free. For urgent needs, choose pickup.
+                                    </p>
+                                )}
+                            </div>
+
                             <div>
                                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{t('food_type')}</label>
                                 <select className="w-full border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all" onChange={(e) => setReqItem({ ...reqItem, name: e.target.value })} value={reqItem.name}>
                                     <option value="">-- Select Food --</option>
-                                    <optgroup label="🍛 Cooked Food (Ready to Eat)">
-                                        <option value="Rice Meals">Rice Meals</option>
-                                        <option value="Dal Chawal">Dal Chawal</option>
-                                        <option value="Khichdi">Khichdi</option>
-                                        <option value="Vegetable Curry">Vegetable Curry</option>
-                                        <option value="Chapati Pack">Chapati Pack</option>
-                                        <option value="Hot Soup">Hot Soup</option>
-                                    </optgroup>
-                                    <optgroup label="🥬 Raw Vegetables">
-                                        <option value="Onion">Onion</option>
-                                        <option value="Potato">Potato</option>
-                                        <option value="Tomato">Tomato</option>
-                                    </optgroup>
-                                    <optgroup label="🌾 Grains & Staples">
-                                        <option value="Rice">Rice</option>
-                                        <option value="Dal">Dal</option>
-                                        <option value="Wheat Flour">Wheat Flour</option>
-                                    </optgroup>
+                                    {selectedCenter && selectedCenter.menu ? (
+                                        <optgroup label={`📋 Available at ${selectedCenter.name}`}>
+                                            {selectedCenter.menu.map((item, idx) => (
+                                                <option key={idx} value={item}>{item}</option>
+                                            ))}
+                                        </optgroup>
+                                    ) : (
+                                        <>
+                                            <optgroup label="🍛 Cooked Food (Ready to Eat)">
+                                                <option value="Rice Meals">Rice Meals</option>
+                                                <option value="Dal Chawal">Dal Chawal</option>
+                                                <option value="Khichdi">Khichdi</option>
+                                                <option value="Vegetable Curry">Vegetable Curry</option>
+                                                <option value="Chapati Pack">Chapati Pack</option>
+                                                <option value="Hot Soup">Hot Soup</option>
+                                            </optgroup>
+                                            <optgroup label="🥬 Raw Vegetables">
+                                                <option value="Onion">Onion</option>
+                                                <option value="Potato">Potato</option>
+                                                <option value="Tomato">Tomato</option>
+                                            </optgroup>
+                                            <optgroup label="🌾 Grains & Staples">
+                                                <option value="Rice">Rice</option>
+                                                <option value="Dal">Dal</option>
+                                                <option value="Wheat Flour">Wheat Flour</option>
+                                            </optgroup>
+                                        </>
+                                    )}
                                 </select>
                             </div>
 
