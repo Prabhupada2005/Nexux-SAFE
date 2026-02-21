@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck
+    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -39,7 +39,7 @@ const ConsumerDashboard = () => {
     const [showSOSModal, setShowSOSModal] = useState(false);
     const [sosReason, setSOSReason] = useState('');
     const [selectedCenter, setSelectedCenter] = useState(null);
-    const [reqItem, setReqItem] = useState({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup' });
+    const [reqItem, setReqItem] = useState({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup', unit: 'kg' });
     const [feedbackText, setFeedbackText] = useState('');
     const [isListening, setIsListening] = useState(false);
     const [expandedMenus, setExpandedMenus] = useState({});
@@ -56,8 +56,8 @@ const ConsumerDashboard = () => {
     const nearestCenter = useMemo(() => {
         if (!userLoc) return null;
 
-        // Filter out high-crowded centers
-        const availableCenters = centers.filter(c => c.crowd !== 'High' && c.status === 'open');
+        // Filter out closed centers
+        const availableCenters = centers.filter(c => c.status === 'open');
 
         if (availableCenters.length === 0) return null;
 
@@ -85,6 +85,10 @@ const ConsumerDashboard = () => {
     const [msgText, setMsgText] = useState("");
     const [centerMessages, setCenterMessages] = useState({});
     const [aiMessages, setAiMessages] = useState([{ sender: 'AI Bot', content: 'Hello! I am your FoodTech Assistant.', self: false }]);
+    // Search & Filter UI states
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeChip, setActiveChip] = useState(null); // 'open' | 'nearest' | 'low' | 'hot' | null
+    const [isTyping, setIsTyping] = useState(false);
 
     const toggleLanguage = () => {
         const langs = ['en', 'hi', 'mni', 'or'];
@@ -94,7 +98,21 @@ const ConsumerDashboard = () => {
     };
 
     const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
-    useEffect(() => { scrollToBottom(); }, [centerMessages, aiMessages, activeChat]);
+    useEffect(() => { scrollToBottom(); }, [centerMessages, aiMessages, activeChat, isTyping]);
+
+    useEffect(() => {
+        if (i18n.addResourceBundle) {
+            i18n.addResourceBundle('hi', 'translation', {
+                'nearest_center': 'निकटतम केंद्र', 'crowd': 'भीड़', 'hot_meals': 'गर्म भोजन', 'menu_available': 'मेनू उपलब्ध', 'delivery_truck': 'डिलीवरी ट्रक रास्ते में है', 'directions': 'केंद्र के लिए दिशा-निर्देश', 'away': 'दूर', 'progress': 'प्रगति', 'truck_on_way': 'ट्रक आपके स्थान के रास्ते पर है', 'truck_arrived': 'ट्रक आ गया है!', 'follow_route': 'खाद्य केंद्र तक पहुंचने के लिए नीले मार्ग का अनुसरण करें', 'request_delivery': 'डिलीवरी का अनुरोध करें', 'ai_help': 'एआई सहायता', 'nearest_centers': 'निकटतम केंद्र', 'feedback': 'प्रतिक्रिया', 'open': 'खुला', 'closed': 'बंद', 'cancel_pickup': 'पिकअप रद्द करें', 'request_pickup': 'पिकअप का अनुरोध करें', 'chat': 'चैट', 'you': 'आप', 'danger_zone': 'खतरा क्षेत्र', 'avoid_area': 'इस क्षेत्र से बचें', 'do_not_enter': 'प्रवेश न करें', 'ai_assistant': 'एआई सहायक', 'supplier_support': 'आपूर्तिकर्ता सहायता', 'type_message': 'संदेश टाइप करें...', 'request_food': 'भोजन का अनुरोध करें', 'collection_method': 'संग्रह विधि', 'pickup_at_center': 'केंद्र पर पिकअप', 'delivery': 'डिलीवरी', 'delivery_warning': 'डिलीवरी केवल तभी उपलब्ध है जब ट्रक खाली हो। तत्काल जरूरतों के लिए, पिकअप चुनें।', 'food_type': 'भोजन का प्रकार', 'select_food': '-- भोजन चुनें --', 'cooked_food': 'पकाया हुआ भोजन (खाने के लिए तैयार)', 'raw_veg': 'कच्ची सब्जियां', 'grains': 'अनाज और स्टेपल', 'plate_size': 'प्लेट का आकार', 'half_plate': 'हाफ प्लेट', 'full_plate': 'फुल प्लेट', 'quantity': 'मात्रा', 'cancel': 'रद्द करें', 'send_request': 'अनुरोध भेजें', 'send_feedback': 'प्रतिक्रिया भेजें', 'submit': 'जमा करें', 'emergency_sos': 'आपातकालीन एसओएस', 'sos_desc': 'आपका स्थान आपातकालीन कमांड सेंटर को भेजा जाएगा', 'describe_emergency': 'आपातकाल का वर्णन करें (हिंसा, बाढ़, आग, चिकित्सा आपातकाल, आदि)...', 'send_sos': 'एसओएस भेजें', 'logout': 'लॉग आउट', 'consumer_app': 'उपभोक्ता ऐप', 'sos_btn': 'एसओएस'
+            }, true, true);
+            i18n.addResourceBundle('mni', 'translation', {
+                'nearest_center': 'ꯈ꯭ꯋꯥꯏꯗꯒꯤ ꯅꯛꯄ ꯁꯦꯟꯇꯔ', 'crowd': 'ꯃꯤꯌꯥꯝ', 'hot_meals': 'ꯑꯁꯥꯕ ꯆꯥꯛ', 'menu_available': 'ꯃꯦꯅꯨ ꯐꯪꯉꯤ', 'delivery_truck': 'ꯗꯦꯂꯤꯕꯔꯤ ꯇ꯭ꯔꯛ ꯂꯥꯛꯂꯤ', 'directions': 'ꯂꯝꯕꯤ ꯇꯥꯛꯄ', 'away': 'ꯂꯥꯞꯄ', 'progress': 'ꯆꯪꯁꯤꯟꯕ', 'truck_on_way': 'ꯇ꯭ꯔꯛ ꯂꯥꯛꯂꯤ', 'truck_arrived': 'ꯇ꯭ꯔꯛ ꯌꯧꯔꯛꯂꯦ!', 'follow_route': 'ꯁꯦꯟꯇꯔ ꯌꯧꯅꯕ ꯍꯤꯒꯣꯛ ꯃꯆꯨꯒꯤ ꯂꯝꯕꯤ ꯏꯟꯕꯤꯌꯨ', 'request_delivery': 'ꯗꯦꯂꯤꯕꯔꯤ ꯅꯤꯕ', 'ai_help': 'AI ꯃꯇꯦꯡ', 'nearest_centers': 'ꯅꯛꯅꯕ ꯁꯦꯟꯇꯔꯁꯤꯡ', 'feedback': 'ꯐꯤꯗꯕꯦꯛ', 'open': 'ꯍꯥꯡꯉꯤ', 'closed': 'ꯊꯤꯡꯉꯤ', 'cancel_pickup': 'ꯄꯤꯛꯑꯞ ꯇꯣꯛꯄ', 'request_pickup': 'ꯄꯤꯛꯑꯞ ꯅꯤꯕ', 'chat': 'ꯋꯥꯔꯤ ꯁꯥꯟꯅꯕ', 'you': 'ꯅꯍꯥꯛ', 'danger_zone': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯐꯝ', 'avoid_area': 'ꯃꯐꯝ ꯑꯁꯤꯗꯒꯤ ꯂꯥꯞꯊꯣꯛꯎ', 'do_not_enter': 'ꯆꯪꯒꯅꯨ', 'ai_assistant': 'AI ꯑꯦꯁꯤꯁꯇꯦꯟ', 'supplier_support': 'ꯁꯄ꯭ꯂꯥꯏꯌꯔ ꯁꯄꯣꯔꯠ', 'type_message': 'ꯃꯦꯁꯦꯖ ꯏꯕ...', 'request_food': 'ꯆꯥꯛ-ꯊꯨꯝ ꯅꯤꯕ', 'collection_method': 'ꯂꯧꯕꯒꯤ ꯃꯑꯣꯡ', 'pickup_at_center': 'ꯁꯦꯟꯇꯔꯗ ꯂꯧꯕ', 'delivery': 'ꯗꯦꯂꯤꯕꯔꯤ', 'delivery_warning': 'ꯇ꯭ꯔꯛ ꯂꯩꯕ ꯃꯇꯝꯗꯈꯛ ꯗꯦꯂꯤꯕꯔꯤ ꯐꯪꯒꯅꯤ꯫ ꯊꯨꯅ ꯗꯔꯀꯥꯔ ꯑꯣꯏꯔꯕꯗꯤ ꯄꯤꯛꯑꯞ ꯈꯟꯕꯤꯌꯨ꯫', 'food_type': 'ꯆꯥꯛ-ꯊꯨꯝ ꯃꯈꯜ', 'select_food': '-- ꯈꯟꯕꯤꯌꯨ --', 'cooked_food': 'ꯊꯣꯡꯂꯕ ꯆꯥꯛ', 'raw_veg': 'ꯍꯤꯗꯥꯛ-ꯅꯥꯄꯤ', 'grains': 'ꯆꯦꯡ-ꯍꯋꯥꯏ', 'plate_size': 'ꯄ꯭ꯂꯦꯠ ꯁꯥꯏꯖ', 'half_plate': 'ꯍꯥꯐ ꯄ꯭ꯂꯦꯠ', 'full_plate': 'ꯐꯨꯜ ꯄ꯭ꯂꯦꯠ', 'quantity': 'ꯃꯁꯤꯡ', 'cancel': 'ꯇꯣꯛꯄ', 'send_request': 'ꯔꯤꯀ꯭ꯋꯦꯁ ꯊꯥꯕ', 'send_feedback': 'ꯐꯤꯗꯕꯦꯛ ꯊꯥꯕ', 'submit': 'ꯁꯕꯃꯤꯠ ꯇꯧꯕ', 'emergency_sos': 'ꯏꯃꯔꯖꯦꯟꯁꯤ SOS', 'sos_desc': 'ꯅꯍꯥꯛꯀꯤ ꯂꯩꯐꯝ ꯏꯃꯔꯖꯦꯟꯁꯤ ꯀꯃꯥꯟ ꯁꯦꯟꯇꯔꯗ ꯌꯧꯍꯟꯒꯅꯤ', 'describe_emergency': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯇꯧ ꯇꯥꯛꯄ (ꯏꯁꯤꯡ ꯏꯆꯥꯎ, ꯃꯩ ꯆꯥꯛꯄ, ꯑꯅꯥ-ꯂꯥꯌꯦꯡ, ꯑꯁꯤꯅꯆꯤꯡꯕ)...', 'send_sos': 'SOS ꯊꯥꯕ', 'logout': 'ꯂꯣꯒ ꯑꯥꯎꯠ', 'consumer_app': 'ꯀꯟꯁꯨꯃꯔ ꯑꯦꯞ', 'sos_btn': 'SOS'
+            }, true, true);
+            i18n.addResourceBundle('or', 'translation', {
+                'nearest_center': 'ନିକଟତମ କେନ୍ଦ୍ର', 'crowd': 'ଭିଡ଼', 'hot_meals': 'ଗରମ ଖାଦ୍ୟ', 'menu_available': 'ମେନୁ ଉପଲବ୍ଧ', 'delivery_truck': 'ଡେଲିଭରି ଟ୍ରକ୍ ରାସ୍ତାରେ ଅଛି', 'directions': 'କେନ୍ଦ୍ରକୁ ଦିଗ', 'away': 'ଦୂର', 'progress': 'ଅଗ୍ରଗତି', 'truck_on_way': 'ଟ୍ରକ୍ ଆପଣଙ୍କ ସ୍ଥାନକୁ ଆସୁଛି', 'truck_arrived': 'ଟ୍ରକ୍ ପହଞ୍ଚିଛି!', 'follow_route': 'ଖାଦ୍ୟ କେନ୍ଦ୍ରରେ ପହଞ୍ଚିବା ପାଇଁ ନୀଳ ରାସ୍ତା ଅନୁସରଣ କରନ୍ତୁ', 'request_delivery': 'ଡେଲିଭରି ଅନୁରୋଧ କରନ୍ତୁ', 'ai_help': 'AI ସାହାଯ୍ୟ', 'nearest_centers': 'ନିକଟତମ କେନ୍ଦ୍ର', 'feedback': 'ମତାମତ', 'open': 'ଖୋଲା', 'closed': 'ବନ୍ଦ', 'cancel_pickup': 'ପିକଅପ୍ ବାତିଲ୍ କରନ୍ତୁ', 'request_pickup': 'ପିକଅପ୍ ଅନୁରୋଧ କରନ୍ତୁ', 'chat': 'ଚାଟ୍', 'you': 'ଆପଣ', 'danger_zone': 'ବିପଦ ଅଞ୍ଚଳ', 'avoid_area': 'ଏହି ଅଞ୍ଚଳରୁ ଦୂରେଇ ରୁହନ୍ତୁ', 'do_not_enter': 'ପ୍ରବେଶ କରନ୍ତୁ ନାହିଁ', 'ai_assistant': 'AI ସହାୟକ', 'supplier_support': 'ଯୋଗାଣକାରୀ ସହାୟତା', 'type_message': 'ବାର୍ତ୍ତା ଟାଇପ୍ କରନ୍ତୁ...', 'request_food': 'ଖାଦ୍ୟ ଅନୁରୋଧ କରନ୍ତୁ', 'collection_method': 'ସଂଗ୍ରହ ପଦ୍ଧତି', 'pickup_at_center': 'କେନ୍ଦ୍ରରେ ପିକଅପ୍', 'delivery': 'ଡେଲିଭରି', 'delivery_warning': 'ଟ୍ରକ୍ ଖାଲି ଥିଲେ ହିଁ ଡେଲିଭରି ଉପଲବ୍ଧ। ଜରୁରୀ ଆବଶ୍ୟକତା ପାଇଁ, ପିକଅପ୍ ବାଛନ୍ତୁ।', 'food_type': 'ଖାଦ୍ୟ ପ୍ରକାର', 'select_food': '-- ଖାଦ୍ୟ ବାଛନ୍ତୁ --', 'cooked_food': 'ରନ୍ଧା ଖାଦ୍ୟ', 'raw_veg': 'କଞ୍ଚା ପରିବା', 'grains': 'ଶସ୍ୟ', 'plate_size': 'ପ୍ଲେଟ୍ ଆକାର', 'half_plate': 'ହାଫ୍ ପ୍ଲେଟ୍', 'full_plate': 'ଫୁଲ୍ ପ୍ଲେଟ୍', 'quantity': 'ପରିମାଣ', 'cancel': 'ବାତିଲ୍ କରନ୍ତୁ', 'send_request': 'ଅନୁରୋଧ ପଠାନ୍ତୁ', 'send_feedback': 'ମତାମତ ପଠାନ୍ତୁ', 'submit': 'ଦାଖଲ କରନ୍ତୁ', 'emergency_sos': 'ଜରୁରୀକାଳୀନ SOS', 'sos_desc': 'ଆପଣଙ୍କ ସ୍ଥାନ ଜରୁରୀକାଳୀନ କମାଣ୍ଡ ସେଣ୍ଟରକୁ ପଠାଯିବ', 'describe_emergency': 'ଜରୁରୀକାଳୀନ ପରିସ୍ଥିତି ବର୍ଣ୍ଣନା କରନ୍ତୁ...', 'send_sos': 'SOS ପଠାନ୍ତୁ', 'logout': 'ଲଗ୍ ଆଉଟ୍', 'consumer_app': 'ଉପଭୋକ୍ତା ଆପ୍', 'sos_btn': 'SOS'
+            }, true, true);
+        }
+    }, [i18n]);
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -134,6 +152,49 @@ const ConsumerDashboard = () => {
         }, 5000);
         return () => clearInterval(interval);
     }, [centers]);
+
+    // Filtered centers for UI (search + chips)
+    const filteredCenters = useMemo(() => {
+        const term = searchTerm.trim().toLowerCase();
+        // start from all centers
+        let list = centers.slice();
+
+        // Apply text search (name, address, menu)
+        if (term) {
+            list = list.filter(c => {
+                const inName = c.name.toLowerCase().includes(term);
+                const inAddr = c.address.toLowerCase().includes(term);
+                const inMenu = c.menu && c.menu.some(m => m.toLowerCase().includes(term));
+                return inName || inAddr || inMenu;
+            });
+        }
+
+        // Apply chip filters
+        if (activeChip === 'open') {
+            list = list.filter(c => c.status === 'open');
+        } else if (activeChip === 'low') {
+            list = list.filter(c => c.crowd === 'Low');
+        } else if (activeChip === 'hot') {
+            list = list.filter(c => c.cookedFood);
+        }
+
+        // Nearest acts as a sort (requires location)
+        if (activeChip === 'nearest' && userLoc) {
+            const R = 6371;
+            list = list.map(center => {
+                const dLat = (center.lat - userLoc.lat) * Math.PI / 180;
+                const dLng = (center.lng - userLoc.lng) * Math.PI / 180;
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(userLoc.lat * Math.PI / 180) * Math.cos(center.lat * Math.PI / 180) *
+                    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                const distance = R * c;
+                return { ...center, __distance: distance };
+            }).sort((a, b) => a.__distance - b.__distance);
+        }
+
+        return list;
+    }, [centers, searchTerm, activeChip, userLoc]);
 
     // --- Voice Command ---
     const startListening = () => {
@@ -277,7 +338,7 @@ const ConsumerDashboard = () => {
                 alert(reqItem.deliveryType === 'delivery' ? "Delivery Request Sent!" : "Pickup Request Confirmed!");
             }
             
-            setReqItem({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup' });
+            setReqItem({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup', unit: 'kg' });
             setSelectedCenter(null);
 
         } catch (e) { alert("Error sending request."); }
@@ -298,6 +359,23 @@ const ConsumerDashboard = () => {
     };
 
     const handleFeedback = async () => { alert("Feedback Sent!"); setShowFeedbackModal(false); };
+
+    // Helper: determine if selected food is a cooked/plate item
+    const isCookedFood = (name) => {
+        if (!name) return false;
+        const cookedList = ['rice meals','dal chawal','khichdi','vegetable curry','chapati pack','hot soup'];
+        return cookedList.some(k => name.toLowerCase().includes(k));
+    };
+
+    // When user picks a cooked food, clear unit (kg/l/units) since it's plate-based
+    useEffect(() => {
+        if (isCookedFood(reqItem.name)) {
+            setReqItem(prev => ({ ...prev, unit: '' }));
+        } else if (!reqItem.unit) {
+            // ensure default unit for non-cooked items
+            setReqItem(prev => ({ ...prev, unit: prev.unit || 'kg' }));
+        }
+    }, [reqItem.name]);
 
     const sendChatMessage = async (e) => {
         e.preventDefault();
@@ -323,15 +401,30 @@ const ConsumerDashboard = () => {
         } else {
             // Add user message
             setAiMessages(prev => [...prev, { sender: 'You', content: msgText, self: true }]);
-            const userQuery = msgText.toLowerCase();
+            const userQuery = msgText;
             setMsgText("");
+            setIsTyping(true);
             
             // AI Response Logic
+            try {
+                // Attempt to call backend AI service
+                const response = await axios.post('http://localhost:8000/ai-chat', {
+                    query: userQuery,
+                    context: {
+                        user_location: userLoc,
+                        centers: centers
+                    }
+                });
+                setAiMessages(prev => [...prev, { sender: 'AI Bot', content: response.data.response, self: false }]);
+                setIsTyping(false);
+            } catch (error) {
+                console.warn("AI Backend unreachable, using local fallback logic.");
             setTimeout(() => {
                 let aiResponse = "";
+                const lowerQuery = userQuery.toLowerCase();
                 
                 // Food center queries
-                if (userQuery.includes('nearest') || userQuery.includes('closest') || userQuery.includes('near')) {
+                if (lowerQuery.includes('nearest') || lowerQuery.includes('closest') || lowerQuery.includes('near')) {
                     if (nearestCenter) {
                         aiResponse = `The nearest food center is ${nearestCenter.name}, located ${nearestCenter.distance} km away. It has ${nearestCenter.crowd} crowd and ${nearestCenter.items} items available. ${nearestCenter.cookedFood ? 'Hot meals are available!' : ''}`;
                     } else {
@@ -339,12 +432,12 @@ const ConsumerDashboard = () => {
                     }
                 }
                 // Open centers
-                else if (userQuery.includes('open') || userQuery.includes('available')) {
+                else if (lowerQuery.includes('open') || lowerQuery.includes('available')) {
                     const openCenters = centers.filter(c => c.status === 'open');
                     aiResponse = `Currently ${openCenters.length} centers are open: ${openCenters.slice(0, 3).map(c => c.name).join(', ')}${openCenters.length > 3 ? ' and more.' : '.'}`;
                 }
                 // Low crowd centers
-                else if (userQuery.includes('crowd') || userQuery.includes('busy') || userQuery.includes('wait')) {
+                else if (lowerQuery.includes('crowd') || lowerQuery.includes('busy') || lowerQuery.includes('wait')) {
                     const lowCrowd = centers.filter(c => c.crowd === 'Low' && c.status === 'open');
                     if (lowCrowd.length > 0) {
                         aiResponse = `Centers with low crowd: ${lowCrowd.map(c => c.name).join(', ')}. You can visit these for faster service.`;
@@ -353,20 +446,20 @@ const ConsumerDashboard = () => {
                     }
                 }
                 // Hot meals
-                else if (userQuery.includes('hot') || userQuery.includes('cooked') || userQuery.includes('meal')) {
+                else if (lowerQuery.includes('hot') || lowerQuery.includes('cooked') || lowerQuery.includes('meal')) {
                     const hotMealCenters = centers.filter(c => c.cookedFood && c.status === 'open');
                     aiResponse = `${hotMealCenters.length} centers serve hot meals: ${hotMealCenters.slice(0, 3).map(c => c.name).join(', ')}.`;
                 }
                 // Request food help
-                else if (userQuery.includes('request') || userQuery.includes('order') || userQuery.includes('need food')) {
+                else if (lowerQuery.includes('request') || lowerQuery.includes('order') || lowerQuery.includes('need food')) {
                     aiResponse = "To request food, click the 'Request Food' button. You can choose from cooked meals, vegetables, or grains. Use the microphone icon for voice ordering!";
                 }
                 // Location help
-                else if (userQuery.includes('location') || userQuery.includes('address')) {
+                else if (lowerQuery.includes('location') || lowerQuery.includes('address')) {
                     aiResponse = "All food centers are marked on the map. Click any marker to see the full address and details. You can also get directions by clicking 'Get Directions'.";
                 }
                 // Delivery tracking
-                else if (userQuery.includes('track') || userQuery.includes('delivery') || userQuery.includes('truck')) {
+                else if (lowerQuery.includes('track') || lowerQuery.includes('delivery') || lowerQuery.includes('truck')) {
                     if (routePath.length > 0) {
                         aiResponse = `Your delivery is ${truckProgress}% complete. Estimated time: ${routeInfo?.duration}. You can track the truck on the map in real-time.`;
                     } else {
@@ -374,27 +467,27 @@ const ConsumerDashboard = () => {
                     }
                 }
                 // Emergency/SOS
-                else if (userQuery.includes('emergency') || userQuery.includes('sos') || userQuery.includes('urgent')) {
+                else if (lowerQuery.includes('emergency') || lowerQuery.includes('sos') || lowerQuery.includes('urgent')) {
                     aiResponse = "For emergencies, click the red SOS button in the header. This will send an immediate alert to all nearby centers.";
                 }
                 // Language help
-                else if (userQuery.includes('language') || userQuery.includes('hindi') || userQuery.includes('translate')) {
+                else if (lowerQuery.includes('language') || lowerQuery.includes('hindi') || lowerQuery.includes('translate')) {
                     aiResponse = "You can change the language using the globe icon in the header. We support English, Hindi, Manipuri, and Odia.";
                 }
                 // List all centers
-                else if (userQuery.includes('list') || userQuery.includes('all centers') || userQuery.includes('show all')) {
+                else if (lowerQuery.includes('list') || lowerQuery.includes('all centers') || lowerQuery.includes('show all')) {
                     aiResponse = `We have ${centers.length} food centers: ${centers.map(c => c.name).join(', ')}. Check the map or scroll down to see details.`;
                 }
                 // Greetings
-                else if (userQuery.includes('hello') || userQuery.includes('hi') || userQuery.includes('hey')) {
+                else if (lowerQuery.includes('hello') || lowerQuery.includes('hi') || lowerQuery.includes('hey')) {
                     aiResponse = "Hello! I'm your FoodTech AI Assistant. I can help you find food centers, track deliveries, and answer questions. What do you need?";
                 }
                 // Help/What can you do
-                else if (userQuery.includes('help') || userQuery.includes('what can you') || userQuery.includes('how to')) {
+                else if (lowerQuery.includes('help') || lowerQuery.includes('what can you') || lowerQuery.includes('how to')) {
                     aiResponse = "I can help you with:\n• Finding nearest food centers\n• Checking which centers are open\n• Locating centers with hot meals\n• Tracking your delivery\n• Requesting food\n• Emergency assistance\n\nJust ask me anything!";
                 }
                 // Stuck/Lost/Confused
-                else if (userQuery.includes('stuck') || userQuery.includes('lost') || userQuery.includes('confused') || userQuery.includes('don\'t know')) {
+                else if (lowerQuery.includes('stuck') || lowerQuery.includes('lost') || lowerQuery.includes('confused') || lowerQuery.includes('don\'t know')) {
                     aiResponse = "Don't worry! Here's how to use the app:\n\n1. Click 'Request Delivery' to order food from the nearest center\n2. Use the map to see all food centers and danger zones\n3. Click any center's 'Request Pickup' to collect food yourself\n4. Use 'Chat' to message a specific center\n5. Click the red SOS button for emergencies\n\nWhat would you like to do?";
                 }
                 // Default response
@@ -403,7 +496,9 @@ const ConsumerDashboard = () => {
                 }
                 
                 setAiMessages(prev => [...prev, { sender: 'AI Bot', content: aiResponse, self: false }]);
+                setIsTyping(false);
             }, 800);
+            }
         }
     };
 
@@ -431,7 +526,7 @@ const ConsumerDashboard = () => {
                     <button onClick={handleSOS} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all border border-red-500">
                         <AlertTriangle size={18} className="animate-pulse" /> {t('sos_btn')}
                     </button>
-                    <button onClick={() => navigate('/login')} className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-white/20 transition-all">{t('logout')}</button>
+                    <button onClick={() => { localStorage.removeItem('foodtech_user'); navigate('/login'); }} className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-white/20 transition-all">{t('logout')}</button>
                 </div>
             </header>
 
@@ -449,20 +544,20 @@ const ConsumerDashboard = () => {
                                             <Navigation size={20} className="text-white" />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-green-100 font-bold uppercase tracking-wider">Nearest Center</p>
-                                            <p className="text-2xl font-black text-white">{nearestCenter.distance} km</p>
+                                            <p className="text-xs text-green-100 font-bold uppercase tracking-wider">{t('nearest_center', 'Nearest Center')}</p>
+                                            <p className="text-2xl font-black text-white">{nearestCenter.distance} {t('km', 'km')}</p>
                                         </div>
                                     </div>
                                     <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
                                         <span className="text-xs font-black text-white flex items-center gap-1">
                                             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                                            {nearestCenter.crowd} Crowd
+                                            {nearestCenter.crowd} {t('crowd', 'Crowd')}
                                         </span>
                                     </div>
                                 </div>
 
                                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 mb-3">
-                                    <h4 className="font-bold text-white text-sm mb-1">{nearestCenter.name}</h4>
+                                    <h4 className="font-bold text-white text-sm mb-1">{t(`center_names.${nearestCenter.id}`, nearestCenter.name)}</h4>
                                     <p className="text-xs text-green-100 flex items-center gap-1">
                                         <MapPin size={11} />
                                         {nearestCenter.address}
@@ -472,7 +567,7 @@ const ConsumerDashboard = () => {
                                 <div className="flex items-center gap-2 mb-3">
                                     {nearestCenter.cookedFood && (
                                         <div className="bg-orange-500/30 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-orange-300/50">
-                                            <span className="text-xs font-bold text-white">🍛 Hot Meals</span>
+                                            <span className="text-xs font-bold text-white">🍛 {t('hot_meals', 'Hot Meals')}</span>
                                         </div>
                                     )}
                                 </div>
@@ -485,7 +580,7 @@ const ConsumerDashboard = () => {
                                             className="w-full text-left"
                                         >
                                             <p className="text-xs text-green-100 font-bold mb-2 flex items-center justify-between">
-                                                📋 Menu Available ({nearestCenter.menu.length} items)
+                                                📋 {t('menu_available', 'Menu Available')} ({nearestCenter.menu.length})
                                                 <span className="text-[10px]">{expandedMenus[nearestCenter.id] ? '▼' : '▶'}</span>
                                             </p>
                                         </button>
@@ -514,13 +609,13 @@ const ConsumerDashboard = () => {
                                     <div>
                                         <p className="text-xs text-emerald-100 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
                                             {truckPosition ? (
-                                                <><Truck size={14} className="animate-bounce" /> Delivery Truck En Route</>
+                                                <><Truck size={14} className="animate-bounce" /> {t('delivery_truck', 'Delivery Truck En Route')}</>
                                             ) : (
-                                                <><Navigation size={14} /> Directions to Center</>
+                                                <><Navigation size={14} /> {t('directions', 'Directions to Center')}</>
                                             )}
                                         </p>
                                         <h3 className="text-3xl font-black text-white">{routeInfo.duration}</h3>
-                                        <p className="text-sm text-emerald-100 mt-1">{routeInfo.distance} away</p>
+                                        <p className="text-sm text-emerald-100 mt-1">{routeInfo.distance} {t('away', 'away')}</p>
                                     </div>
                                     <button onClick={openGoogleMaps} className="bg-white/20 backdrop-blur-sm text-white px-3 py-2 rounded-xl hover:bg-white/30 text-xs font-bold flex items-center gap-1.5 border border-white/30 transition-all">
                                         <Navigation size={14} /> Open
@@ -532,7 +627,7 @@ const ConsumerDashboard = () => {
                                     <>
                                         <div className="mb-3">
                                             <div className="flex justify-between text-xs text-white/90 mb-1">
-                                                <span>Progress</span>
+                                                <span>{t('progress', 'Progress')}</span>
                                                 <span className="font-bold">{truckProgress}%</span>
                                             </div>
                                             <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
@@ -545,7 +640,7 @@ const ConsumerDashboard = () => {
 
                                         <div className="flex items-center gap-2 text-xs text-white/90 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-lg">
                                             <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                                            {truckProgress < 100 ? 'Truck is on the way to your location' : 'Truck has arrived!'}
+                                            {truckProgress < 100 ? t('truck_on_way', 'Truck is on the way to your location') : t('truck_arrived', 'Truck has arrived!')}
                                         </div>
                                     </>
                                 )}
@@ -554,7 +649,7 @@ const ConsumerDashboard = () => {
                                 {!truckPosition && (
                                     <div className="flex items-center gap-2 text-xs text-white/90 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-lg">
                                         <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                                        Follow the blue route to reach the food center
+                                        {t('follow_route', 'Follow the blue route to reach the food center')}
                                     </div>
                                 )}
                             </div>
@@ -576,7 +671,7 @@ const ConsumerDashboard = () => {
                             >
                                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <Truck size={28} className="relative z-10" />
-                                <span className="text-sm relative z-10">Request Delivery</span>
+                                <span className="text-sm relative z-10">{t('request_delivery', 'Request Delivery')}</span>
                             </button>
                             <button onClick={() => setActiveChat('ai')} className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 hover:from-emerald-700 hover:via-teal-700 hover:to-teal-800 text-white py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden">
                                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -587,6 +682,41 @@ const ConsumerDashboard = () => {
 
                         {/* Centers List */}
                         <div className="space-y-4">
+                            {/* Search + Filter */}
+                            <div className="mb-3 mt-2">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" size={18} />
+                                    <input
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        placeholder="Search centers, areas, or meals…"
+                                        className="w-full border-2 border-slate-200 pl-10 pr-3 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 transition placeholder-slate-500"
+                                    />
+                                </div>
+                                {searchTerm ? (
+                                    <p className="text-xs text-emerald-600 font-bold mt-2 animate-pulse">Showing nearest matching centers...</p>
+                                ) : (
+                                    <p className="text-xs text-slate-400 mt-2">Try: Imphal / Moirang / Hot meals</p>
+                                )}
+
+                                <div className="flex gap-2 mt-3 flex-wrap">
+                                    {[
+                                        { key: null, label: 'All' },
+                                        { key: 'open', label: 'Open now' },
+                                        { key: 'nearest', label: 'Nearest' },
+                                        { key: 'low', label: 'Low crowd' },
+                                        { key: 'hot', label: 'Hot meals' },
+                                    ].map(chip => (
+                                        <button
+                                            key={String(chip.key)}
+                                            onClick={() => setActiveChip(prev => prev === chip.key ? null : chip.key)}
+                                            className={`text-xs font-bold px-3 py-1.5 rounded-full border ${activeChip === chip.key ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-700 border-slate-200'}`}
+                                        >
+                                            {chip.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                             <div className="flex justify-between items-center px-1">
                                 <h3 className="font-black text-slate-800 text-base uppercase tracking-tight flex items-center gap-2">
                                     <span className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></span>
@@ -596,17 +726,17 @@ const ConsumerDashboard = () => {
                                     <ThumbsUp size={13} /> {t('feedback')}
                                 </button>
                             </div>
-                            {centers.map(center => (
+                            {filteredCenters.map(center => (
                                 <div key={center.id} className="group relative bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-5 border-2 border-slate-100 hover:border-emerald-300 transition-all shadow-md hover:shadow-2xl hover:scale-[1.02]">
                                     {/* Status Badge */}
                                     <div className="absolute top-4 right-4">
                                         <span className={`text-[9px] px-3 py-1.5 rounded-full font-black uppercase tracking-wider shadow-md ${center.status === 'open' ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white' : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
-                                            }`}>{center.status === 'open' ? '● OPEN' : '● CLOSED'}</span>
+                                            }`}>{center.status === 'open' ? `● ${t('open', 'OPEN')}` : `● ${t('closed', 'CLOSED')}`}</span>
                                     </div>
 
                                     {/* Center Info */}
                                     <div className="pr-20 mb-4">
-                                        <h4 className="font-bold text-[16px] text-slate-900 leading-tight mb-2">{center.name}</h4>
+                                        <h4 className="font-bold text-[16px] text-slate-900 leading-tight mb-2">{t(`center_names.${center.id}`, center.name)}</h4>
                                         <p className="text-[12px] text-slate-500 flex items-center gap-1.5">
                                             <MapPin size={12} className="text-emerald-600 flex-shrink-0" />
                                             <span>{center.address}</span>
@@ -618,11 +748,11 @@ const ConsumerDashboard = () => {
                                         <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg">
                                             <div className={`w-2.5 h-2.5 rounded-full ${center.crowd === 'High' ? 'bg-red-500 animate-pulse' : center.crowd === 'Medium' ? 'bg-amber-500' : 'bg-green-500'
                                                 }`}></div>
-                                            <span className="text-[11px] font-bold text-slate-700">{center.crowd} Crowd</span>
+                                            <span className="text-[11px] font-bold text-slate-700">{center.crowd} {t('crowd', 'Crowd')}</span>
                                         </div>
                                         {center.cookedFood && (
                                             <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 px-3 py-1.5 rounded-lg border border-orange-200">
-                                                <span className="text-[11px] font-black text-orange-700">🍛 Hot Meals</span>
+                                                <span className="text-[11px] font-black text-orange-700">🍛 {t('hot_meals', 'Hot Meals')}</span>
                                             </div>
                                         )}
                                     </div>
@@ -635,7 +765,7 @@ const ConsumerDashboard = () => {
                                                 className="w-full text-left"
                                             >
                                                 <p className="text-[10px] text-slate-600 font-bold mb-2 uppercase tracking-wider flex items-center justify-between">
-                                                    📋 Available Menu ({center.menu.length} items)
+                                                    📋 {t('menu_available', 'Available Menu')} ({center.menu.length})
                                                     <span className="text-[10px]">{expandedMenus[center.id] ? '▼' : '▶'}</span>
                                                 </p>
                                             </button>
@@ -662,14 +792,14 @@ const ConsumerDashboard = () => {
                                                 onClick={() => handleCancelPickup(center.id)}
                                                 className="text-[12px] bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
                                             >
-                                                ✕ Cancel Pickup
+                                                ✕ {t('cancel_pickup', 'Cancel Pickup')}
                                             </button>
                                         ) : (
                                             <button
                                                 onClick={() => { setSelectedCenter(center); setReqItem({ ...reqItem, deliveryType: 'pickup' }); setShowRequestModal(true); }}
                                                 className="text-[12px] bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
                                             >
-                                                <Utensils size={13} /> Request Pickup
+                                                <Utensils size={13} /> {t('request_pickup', 'Request Pickup')}
                                             </button>
                                         )}
                                         <button
@@ -680,7 +810,7 @@ const ConsumerDashboard = () => {
                                             }}
                                             className="text-[12px] bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
                                         >
-                                            <MessageCircle size={13} /> Chat
+                                            <MessageCircle size={13} /> {t('chat', 'Chat')}
                                         </button>
                                     </div>
                                 </div>
@@ -696,7 +826,7 @@ const ConsumerDashboard = () => {
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                         />
-                        {centers.map(c => (
+                        {filteredCenters.map(c => (
                             <Marker
                                 key={c.id}
                                 position={[c.lat, c.lng]}
@@ -714,14 +844,14 @@ const ConsumerDashboard = () => {
                             >
                                 <Popup className="custom-popup">
                                     <div className="bg-white rounded-lg p-3 min-w-[200px]">
-                                        <h3 className="font-bold text-green-600 text-sm mb-2">{c.name}</h3>
+                                        <h3 className="font-bold text-green-600 text-sm mb-2">{t(`center_names.${c.id}`, c.name)}</h3>
                                         <p className="text-xs text-gray-600 mb-2 flex items-center gap-1">
                                             <span className="text-green-500">📍</span> {c.address}
                                         </p>
                                         <div className="flex gap-2 flex-wrap mb-2">
-                                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">{c.status.toUpperCase()}</span>
-                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">{c.crowd} Crowd</span>
-                                            {c.cookedFood && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-semibold">🍛 Hot Meals</span>}
+                                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">{c.status === 'open' ? t('open', 'OPEN') : t('closed', 'CLOSED')}</span>
+                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">{c.crowd} {t('crowd', 'Crowd')}</span>
+                                            {c.cookedFood && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-semibold">🍛 {t('hot_meals', 'Hot Meals')}</span>}
                                         </div>
                                     </div>
                                 </Popup>
@@ -758,12 +888,12 @@ const ConsumerDashboard = () => {
                             >
                                 <Popup>
                                     <div className="bg-white rounded-lg p-3 text-center min-w-[160px]">
-                                        <h3 className="font-bold text-orange-600 text-sm mb-2">🚚 Delivery Truck</h3>
-                                        <p className="text-xs font-semibold text-gray-700 mb-1">Progress: {truckProgress}%</p>
+                                        <h3 className="font-bold text-orange-600 text-sm mb-2">🚚 {t('delivery_truck', 'Delivery Truck')}</h3>
+                                        <p className="text-xs font-semibold text-gray-700 mb-1">{t('progress', 'Progress')}: {truckProgress}%</p>
                                         <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                                             <div className="bg-orange-500 h-2 rounded-full transition-all" style={{ width: `${truckProgress}%` }}></div>
                                         </div>
-                                        <p className="text-xs text-gray-600">{truckProgress < 100 ? '🚀 On the way to you' : '✅ Arrived!'}</p>
+                                        <p className="text-xs text-gray-600">{truckProgress < 100 ? `🚀 ${t('truck_on_way', 'On the way to you')}` : `✅ ${t('truck_arrived', 'Arrived!')}`}</p>
                                     </div>
                                 </Popup>
                             </Marker>
@@ -795,10 +925,10 @@ const ConsumerDashboard = () => {
                                 >
                                     <Popup>
                                         <div className="bg-white rounded-lg p-3 min-w-[180px]">
-                                            <h3 className="font-bold text-red-600 text-sm mb-2">⚠️ DANGER ZONE</h3>
+                                            <h3 className="font-bold text-red-600 text-sm mb-2">⚠️ {t('danger_zone', 'DANGER ZONE')}</h3>
                                             <p className="text-xs text-gray-700 mb-2">{zone.reason}</p>
                                             <p className="text-xs text-gray-600 mb-2">Radius: {zone.radius}m</p>
-                                            <p className="text-xs font-bold text-red-600">⚠️ Avoid this area</p>
+                                            <p className="text-xs font-bold text-red-600">⚠️ {t('avoid_area', 'Avoid this area')}</p>
                                         </div>
                                     </Popup>
                                 </Circle>
@@ -818,11 +948,11 @@ const ConsumerDashboard = () => {
                                 >
                                     <Popup>
                                         <div className="bg-white rounded-lg p-3 text-center min-w-[180px]">
-                                            <h3 className="font-bold text-red-600 text-sm mb-2">⚠️ DANGER ZONE</h3>
+                                            <h3 className="font-bold text-red-600 text-sm mb-2">⚠️ {t('danger_zone', 'DANGER ZONE')}</h3>
                                             <p className="text-xs font-semibold text-gray-800 mb-2">{zone.reason}</p>
                                             <p className="text-xs text-gray-600 mb-2">Affected Radius: {zone.radius}m</p>
                                             <div className="bg-red-50 border border-red-200 rounded px-2 py-1">
-                                                <p className="text-xs font-bold text-red-700">🚫 DO NOT ENTER</p>
+                                                <p className="text-xs font-bold text-red-700">🚫 {t('do_not_enter', 'DO NOT ENTER')}</p>
                                             </div>
                                         </div>
                                     </Popup>
@@ -840,7 +970,7 @@ const ConsumerDashboard = () => {
                         <div>
                             <span className="font-black flex gap-2 text-base items-center">
                                 {activeChat === 'ai' ? <Bot size={20} /> : <MessageCircle size={20} />}
-                                {activeChat === 'ai' ? t('ai_assistant') : activeChatCenter?.name || t('supplier_support')}
+                                {activeChat === 'ai' ? t('ai_assistant', 'AI Assistant') : (activeChatCenter ? t(`center_names.${activeChatCenter.id}`, activeChatCenter.name) : t('supplier_support', 'Supplier Support'))}
                             </span>
                             {activeChat === 'supplier' && activeChatCenter && (
                                 <p className="text-xs text-green-100 mt-1">📍 {activeChatCenter.address}</p>
@@ -858,10 +988,21 @@ const ConsumerDashboard = () => {
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-center text-slate-400 text-sm py-8">No messages yet. Start the conversation!</div>
+                                <div className="text-center text-slate-400 text-sm py-8">{t('no_messages', 'No messages yet. Start the conversation!')}</div>
                             )
                         ) : (
-                            aiMessages.map((m, i) => <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.self ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>{m.content}</div>)
+                            <>
+                                {aiMessages.map((m, i) => <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.self ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>{m.sender === 'You' ? t('you', 'You') : t('ai_assistant', 'AI Bot')}: {m.content}</div>)}
+                                {isTyping && (
+                                    <div className="p-3 rounded-2xl text-sm max-w-[80%] shadow-sm bg-white border border-slate-200 mr-auto w-16">
+                                        <div className="flex gap-1 items-center h-full pl-1">
+                                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+                                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-75"></span>
+                                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-150"></span>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                         <div ref={chatEndRef} />
                     </div>
@@ -870,7 +1011,7 @@ const ConsumerDashboard = () => {
                             value={msgText} 
                             onChange={e => setMsgText(e.target.value)} 
                             className="flex-1 text-sm outline-none px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all" 
-                            placeholder={t('type_message')} 
+                            placeholder={t('type_message', 'Type message...')} 
                         />
                         <button 
                             type="submit" 
@@ -894,7 +1035,7 @@ const ConsumerDashboard = () => {
                                     {t('request_food')}
                                 </h3>
                                 {selectedCenter && (
-                                    <p className="text-xs text-slate-600 mt-2 ml-16">📍 From: <span className="font-bold text-green-600">{selectedCenter.name}</span></p>
+                                    <p className="text-xs text-slate-600 mt-2 ml-16">📍 From: <span className="font-bold text-green-600">{t(`center_names.${selectedCenter.id}`, selectedCenter.name)}</span></p>
                                 )}
                             </div>
                             <button onClick={startListening} className={`p-3 rounded-xl transition-all shadow-md ${isListening ? 'bg-gradient-to-r from-red-500 to-red-600 text-white animate-pulse' : 'bg-slate-100 hover:bg-slate-200'}`}>{isListening ? <MicOff size={20} /> : <Mic size={20} />}</button>
@@ -903,7 +1044,7 @@ const ConsumerDashboard = () => {
                         <div className="space-y-4">
                             {/* Delivery Type Selection */}
                             <div>
-                                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">Collection Method</label>
+                                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{t('collection_method', 'Collection Method')}</label>
                                 <div className="grid grid-cols-2 gap-2 mt-1">
                                     <button
                                         type="button"
@@ -913,7 +1054,7 @@ const ConsumerDashboard = () => {
                                                 : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
                                             }`}
                                     >
-                                        🏪 Pickup at Center
+                                        🏪 {t('pickup_at_center', 'Pickup at Center')}
                                     </button>
                                     <button
                                         type="button"
@@ -923,12 +1064,12 @@ const ConsumerDashboard = () => {
                                                 : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
                                             }`}
                                     >
-                                        🚚 Delivery
+                                        🚚 {t('delivery', 'Delivery')}
                                     </button>
                                 </div>
                                 {reqItem.deliveryType === 'delivery' && (
                                     <p className="text-xs text-amber-600 mt-2 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                                        ⚠️ Delivery only available when truck is free. For urgent needs, choose pickup.
+                                        ⚠️ {t('delivery_warning', 'Delivery only available when truck is free. For urgent needs, choose pickup.')}
                                     </p>
                                 )}
                             </div>
@@ -936,16 +1077,16 @@ const ConsumerDashboard = () => {
                             <div>
                                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{t('food_type')}</label>
                                 <select className="w-full border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all" onChange={(e) => setReqItem({ ...reqItem, name: e.target.value })} value={reqItem.name}>
-                                    <option value="">-- Select Food --</option>
+                                    <option value="">{t('select_food', '-- Select Food --')}</option>
                                     {selectedCenter && selectedCenter.menu ? (
-                                        <optgroup label={`📋 Available at ${selectedCenter.name}`}>
+                                        <optgroup label={`📋 ${t('menu_available', 'Available')} at ${t(`center_names.${selectedCenter.id}`, selectedCenter.name)}`}>
                                             {selectedCenter.menu.map((item, idx) => (
                                                 <option key={idx} value={item}>{item}</option>
                                             ))}
                                         </optgroup>
                                     ) : (
                                         <>
-                                            <optgroup label="🍛 Cooked Food (Ready to Eat)">
+                                            <optgroup label={`🍛 ${t('cooked_food', 'Cooked Food (Ready to Eat)')}`}>
                                                 <option value="Rice Meals">Rice Meals</option>
                                                 <option value="Dal Chawal">Dal Chawal</option>
                                                 <option value="Khichdi">Khichdi</option>
@@ -953,12 +1094,12 @@ const ConsumerDashboard = () => {
                                                 <option value="Chapati Pack">Chapati Pack</option>
                                                 <option value="Hot Soup">Hot Soup</option>
                                             </optgroup>
-                                            <optgroup label="🥬 Raw Vegetables">
+                                            <optgroup label={`🥬 ${t('raw_veg', 'Raw Vegetables')}`}>
                                                 <option value="Onion">Onion</option>
                                                 <option value="Potato">Potato</option>
                                                 <option value="Tomato">Tomato</option>
                                             </optgroup>
-                                            <optgroup label="🌾 Grains & Staples">
+                                            <optgroup label={`🌾 ${t('grains', 'Grains & Staples')}`}>
                                                 <option value="Rice">Rice</option>
                                                 <option value="Dal">Dal</option>
                                                 <option value="Wheat Flour">Wheat Flour</option>
@@ -971,7 +1112,7 @@ const ConsumerDashboard = () => {
                             {/* Plate Size Selection (Only for Cooked Food) */}
                             {['Rice Meals', 'Dal Chawal', 'Khichdi', 'Vegetable Curry', 'Chapati Pack', 'Hot Soup'].includes(reqItem.name) && (
                                 <div>
-                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">Plate Size</label>
+                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{t('plate_size', 'Plate Size')}</label>
                                     <div className="grid grid-cols-2 gap-2 mt-1">
                                         <button
                                             type="button"
@@ -981,7 +1122,7 @@ const ConsumerDashboard = () => {
                                                     : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
                                                 }`}
                                         >
-                                            🍽️ Half Plate
+                                            🍽️ {t('half_plate', 'Half Plate')}
                                         </button>
                                         <button
                                             type="button"
@@ -991,13 +1132,34 @@ const ConsumerDashboard = () => {
                                                     : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
                                                 }`}
                                         >
-                                            🍽️ Full Plate
+                                            🍽️ {t('full_plate', 'Full Plate')}
                                         </button>
                                     </div>
                                 </div>
                             )}
 
-                            <div><label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{t('quantity')}</label><input type="number" className="w-full border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all" value={reqItem.quantity} onChange={e => setReqItem({ ...reqItem, quantity: e.target.value })} /></div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">
+                                    {t('quantity')}
+                                    {!isCookedFood(reqItem.name) && (
+                                        <span className="text-xs"> (kg/L)</span>
+                                    )}
+                                </label>
+                                <div className="flex gap-2">
+                                    <input type="number" min={isCookedFood(reqItem.name) ? 1 : 0} className="flex-1 border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all" value={reqItem.quantity} onChange={e => setReqItem({ ...reqItem, quantity: e.target.value })} />
+                                    {!isCookedFood(reqItem.name) && (
+                                        <select 
+                                            className="w-24 border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all bg-white"
+                                            value={reqItem.unit}
+                                            onChange={e => setReqItem({ ...reqItem, unit: e.target.value })}
+                                        >
+                                            <option value="kg">kg</option>
+                                            <option value="l">l</option>
+                                            <option value="units">units</option>
+                                        </select>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                         <div className="flex justify-end gap-3 mt-8"><button onClick={() => setShowRequestModal(false)} className="px-6 py-3 text-slate-600 text-sm font-bold hover:bg-slate-100 rounded-xl transition-all">{t('cancel')}</button><button onClick={handleRequestFood} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all">{t('send_request')}</button></div>
                     </div>
@@ -1027,19 +1189,19 @@ const ConsumerDashboard = () => {
                             <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl flex items-center justify-center shadow-lg animate-pulse">
                                 <AlertTriangle size={24} className="text-white" />
                             </div>
-                            <h3 className="font-black text-2xl bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">Emergency SOS</h3>
+                            <h3 className="font-black text-2xl bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">{t('emergency_sos', 'Emergency SOS')}</h3>
                         </div>
-                        <p className="text-sm text-slate-600 mb-4">Your location will be sent to Emergency Command Center</p>
+                        <p className="text-sm text-slate-600 mb-4">{t('sos_desc', 'Your location will be sent to Emergency Command Center')}</p>
                         <textarea 
                             className="w-full border-2 border-red-200 p-4 rounded-xl h-32 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all resize-none" 
-                            placeholder="Describe the emergency (violence, flood, fire, medical emergency, etc.)..." 
+                            placeholder={t('describe_emergency', 'Describe the emergency (violence, flood, fire, medical emergency, etc.)...')} 
                             value={sosReason} 
                             onChange={e => setSOSReason(e.target.value)} 
                         />
                         <div className="flex justify-end gap-3 mt-6">
-                            <button onClick={() => { setShowSOSModal(false); setSOSReason(''); }} className="px-6 py-3 text-slate-600 text-sm font-bold hover:bg-slate-100 rounded-xl transition-all">Cancel</button>
+                            <button onClick={() => { setShowSOSModal(false); setSOSReason(''); }} className="px-6 py-3 text-slate-600 text-sm font-bold hover:bg-slate-100 rounded-xl transition-all">{t('cancel', 'Cancel')}</button>
                             <button onClick={sendSOSAlert} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2">
-                                <AlertTriangle size={18} /> Send SOS
+                                <AlertTriangle size={18} /> {t('send_sos', 'Send SOS')}
                             </button>
                         </div>
                     </div>

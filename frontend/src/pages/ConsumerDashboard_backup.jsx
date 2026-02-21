@@ -602,7 +602,12 @@ const ConsumerDashboard = () => {
 
                             {/* Quantity (Only for Raw Items) */}
                             {!['Rice Meals', 'Dal Chawal', 'Khichdi', 'Vegetable Curry', 'Chapati Pack', 'Hot Soup'].includes(reqItem.name) && reqItem.name && (
-                                <div><label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{t('quantity')} (kg/L)</label><input type="number" className="w-full border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all" value={reqItem.quantity} onChange={e => setReqItem({ ...reqItem, quantity: e.target.value })} /></div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{t('quantity')}
+                                        <span className="text-xs"> (kg/L)</span>
+                                    </label>
+                                    <input type="number" className="w-full border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all" value={reqItem.quantity} onChange={e => setReqItem({ ...reqItem, quantity: e.target.value })} />
+                                </div>
                             )}
 
                             {/* Number of Plates (Only for Cooked Food) */}

@@ -211,9 +211,9 @@ export default function SupplierDashboard() {
   const [chatMode, setChatMode] = useState("consumer"); // consumer | ai
   const [replyText, setReplyText] = useState("");
   const [aiMessages, setAiMessages] = useState([
-    { sender: "AI", content: "Hi Supplier 👋 Ask me about low stock, orders, or spoilage risk.", type: "received" },
+    { sender: "AI", content: "Hi Supplier 👋 I'm your AI assistant. Ask me about inventory, orders, or anything else!", type: "received" },
   ]);
-  const [chatOpen, setChatOpen] = useState(false);
+   const [isTyping, setIsTyping] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -580,24 +580,42 @@ export default function SupplierDashboard() {
     const userText = replyText.trim();
     setReplyText("");
     setAiMessages((p) => [...p, { sender: "You", content: userText, type: "sent" }]);
+    setIsTyping(true);
 
-    setTimeout(() => {
-      const q = userText.toLowerCase();
-      let reply = "Ask me: low stock, orders, spoilage risk, or restock plan.";
+    try {
+      const response = await axios.post(`${API}/ai-chat`, {
+        query: userText,
+        context: {
+          role: 'supplier',
+          inventory: inventory,
+          orders: orders,
+          low_stock: lowStockItems,
+          spoilage: spoilageRows.filter(s => s.risk)
+        }
+      });
+      setAiMessages((p) => [...p, { sender: "AI", content: response.data.response, type: "received" }]);
+      setIsTyping(false);
+    } catch (error) {
+      console.warn("AI Backend unreachable, using local fallback logic.");
+      setTimeout(() => {
+        const q = userText.toLowerCase();
+        let reply = "Ask me: low stock, orders, spoilage risk, or restock plan.";
 
-      if (q.includes("stock") || q.includes("low")) {
-        reply = lowStockItems.length
-          ? `Low stock: ${lowStockItems.map((x) => x.name).slice(0, 6).join(", ")}`
-          : "All stock looks healthy ✅";
-      } else if (q.includes("spoil") || q.includes("risk") || q.includes("quality")) {
-        const bad = spoilageRows.filter((x) => x.risk);
-        reply = bad.length ? `Risk items: ${bad.map((x) => x.location).join(", ")}` : "No current spoilage risk ✅";
-      } else if (q.includes("order")) {
-        reply = orders.length ? `You have ${orders.length} orders. Fulfill pending first.` : "No orders yet.";
-      }
+        if (q.includes("stock") || q.includes("low")) {
+          reply = lowStockItems.length
+            ? `Low stock: ${lowStockItems.map((x) => x.name).slice(0, 6).join(", ")}`
+            : "All stock looks healthy ✅";
+        } else if (q.includes("spoil") || q.includes("risk") || q.includes("quality")) {
+          const bad = spoilageRows.filter((x) => x.risk);
+          reply = bad.length ? `Risk items: ${bad.map((x) => x.location).join(", ")}` : "No current spoilage risk ✅";
+        } else if (q.includes("order")) {
+          reply = orders.length ? `You have ${orders.length} orders. Fulfill pending first.` : "No orders yet.";
+        }
 
-      setAiMessages((p) => [...p, { sender: "AI", content: reply, type: "received" }]);
-    }, 600);
+        setAiMessages((p) => [...p, { sender: "AI", content: reply, type: "received" }]);
+        setIsTyping(false);
+      }, 600);
+    }
   };
 
   return (
@@ -775,7 +793,7 @@ export default function SupplierDashboard() {
                 </button>
 
                 <button
-                  onClick={() => navigate("/login")}
+                  onClick={() => { localStorage.removeItem('foodtech_user'); navigate("/login"); }}
                   className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl text-sm font-bold inline-flex items-center gap-2 transition-all shadow-sm"
                   type="button"
                 >
@@ -1676,6 +1694,16 @@ export default function SupplierDashboard() {
                       <div className="text-sm">{m.content}</div>
                     </div>
                   ))}
+                  {isTyping && (
+                    <div className="p-3 rounded-xl shadow-sm bg-white text-slate-800 mr-12">
+                      <div className="text-[10px] font-bold mb-1 text-slate-500">AI</div>
+                      <div className="text-sm flex gap-1">
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-75"></span>
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-150"></span>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               <div ref={chatEndRef} />

@@ -98,6 +98,11 @@ const resources = {
         "nearest_center": "Nearest Center",
         "menu_available": "Menu Available",
         "available_menu": "Available Menu",
+        "nav.about": "About",
+        "nav.features": "Features",
+        "nav.how_it_works": "How It Works",
+        "nav.contact": "Contact",
+        "switch_lang": "Switch Language",
     }
   },
   hi: {
@@ -195,6 +200,11 @@ const resources = {
 "nearest_center": "निकटतम केंद्र",
 "menu_available": "मेनू उपलब्ध",
 "available_menu": "उपलब्ध मेनू",
+"nav.about": "हमारे बारे में",
+"nav.features": "विशेषताएं",
+"nav.how_it_works": "यह काम कैसे करता है",
+"nav.contact": "संपर्क करें",
+"switch_lang": "भाषा बदलें",
     }
   },
   mni: {
