@@ -197,12 +197,12 @@ const Login = () => {
           const userRole = res.data.user.role;
           
           if (activeTab !== 'emergency' && userRole !== activeTab && userRole !== 'admin') {
-             setError(`This account is registered as a ${userRole}, not ${activeTab}.`);
+             setError(`Account mismatch: This email is registered as '${userRole}', but you're trying to login as '${activeTab}'. Please select the correct role tab.`);
              setIsLoading(false);
              return;
           }
           if (activeTab === 'emergency' && userRole !== 'emergency' && userRole !== 'admin') {
-             setError(t('restricted'));
+             setError('Access Denied: This account does not have emergency access permissions. Emergency login is restricted to authorized personnel only.');
              setIsLoading(false);
              return;
           }
@@ -212,10 +212,25 @@ const Login = () => {
           else if (userRole === 'supplier') navigate('/supplier');
           else if (userRole === 'emergency') navigate('/emergency');
           else if (userRole === 'admin') navigate('/consumer');
+        } else {
+          setError('Login failed: Invalid email or password. Please check your credentials and try again.');
         }
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Operation failed. Please try again.');
+      // More specific error messages
+      if (err.response?.status === 404) {
+        setError('Account not found: No account exists with this email address. Please check the email or register a new account.');
+      } else if (err.response?.status === 401) {
+        if (activeTab === 'emergency') {
+          setError('Invalid credentials: The password you entered is incorrect. Please contact your system administrator for emergency access.');
+        } else {
+          setError('Invalid credentials: The password you entered is incorrect. Please try again or use "Forgot Password".');
+        }
+      } else if (err.response?.data?.detail) {
+        setError(`Error: ${err.response.data.detail}`);
+      } else {
+        setError('Connection failed: Unable to connect to server. Please check your internet connection and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -449,7 +464,7 @@ const Login = () => {
                 />
               </div>
 
-              {/* Forgot Password Link (Hidden during registration) */}
+              {/* Forgot Password Link (Hidden during registration and for emergency) */}
               {!isRegistering && activeTab !== 'emergency' && (
                   <div className="flex justify-end">
                     <button 

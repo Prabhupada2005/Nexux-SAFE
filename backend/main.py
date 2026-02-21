@@ -121,7 +121,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all for development
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -149,9 +149,15 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/login")
 def login(creds: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == creds.email, User.password == creds.password).first()
+    # First check if user exists
+    user = db.query(User).filter(User.email == creds.email).first()
     if not user:
-        return {"success": False, "message": "Invalid credentials"}
+        raise HTTPException(status_code=404, detail="No account found with this email address")
+    
+    # Then check password
+    if user.password != creds.password:
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    
     return {"success": True, "user": {"email": user.email, "name": user.full_name, "role": user.role}}
 
 @app.put("/reset-password")

@@ -14,7 +14,8 @@ def seed_users():
         {"email": "admin@foodtech.com", "password": "demo123", "role": "admin", "name": "Admin User", "phone": "0000000000"},
         {"email": "consumer@test.com", "password": "demo123", "role": "consumer", "name": "Test Consumer", "phone": "9876543210"},
         {"email": "supplier@test.com", "password": "demo123", "role": "supplier", "name": "Moirang Food Center", "phone": "9876543211"},
-        {"email": "emergency@test.com", "password": "demo123", "role": "emergency", "name": "Emergency Coordinator", "phone": "112"}
+        {"email": "emergency@manipur.gov.in", "password": "demo123", "role": "emergency", "name": "Emergency Command Center", "phone": "112"},
+        {"email": "emergency@test.com", "password": "demo123", "role": "emergency", "name": "Emergency Coordinator", "phone": "1800-XXX-XXXX"}
     ]
 
     print("Seeding Users...")
