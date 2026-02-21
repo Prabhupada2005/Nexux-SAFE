@@ -137,7 +137,9 @@ const Login = () => {
     email: '',
     password: '',
     fullName: '',
-    phone: ''
+    phone: '',
+    age: '',
+    familyMembers: ''
   });
 
   // Forgot Password Data
@@ -178,6 +180,8 @@ const Login = () => {
           password: formData.password,
           full_name: formData.fullName,
           phone: formData.phone,
+          age: parseInt(formData.age) || 0,
+          family_members: parseInt(formData.familyMembers) || 1,
           role: activeTab 
         });
         
@@ -387,6 +391,34 @@ const Login = () => {
                                 required={isRegistering}
                             />
                         </div>
+                        {activeTab === 'consumer' && (
+                            <>
+                                <div className="relative group">
+                                    <input 
+                                        name="age"
+                                        type="number" 
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-opacity-50 transition-all text-sm font-medium focus:bg-white"
+                                        placeholder="Age"
+                                        value={formData.age}
+                                        onChange={handleChange}
+                                        required={isRegistering}
+                                        min="1"
+                                    />
+                                </div>
+                                <div className="relative group">
+                                    <input 
+                                        name="familyMembers"
+                                        type="number" 
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-opacity-50 transition-all text-sm font-medium focus:bg-white"
+                                        placeholder="Number of Family Members"
+                                        value={formData.familyMembers}
+                                        onChange={handleChange}
+                                        required={isRegistering}
+                                        min="1"
+                                    />
+                                </div>
+                            </>
+                        )}
                     </motion.div>
                 )}
               </AnimatePresence>

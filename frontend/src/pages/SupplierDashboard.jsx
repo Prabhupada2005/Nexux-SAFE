@@ -19,6 +19,16 @@ import {
   Bot,
   Send,
   X,
+  BarChart3,
+  Settings,
+  Bell,
+  Users,
+  Moon,
+  Sun,
+  Download,
+  Radio,
+  FileText,
+  Printer,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -70,8 +80,8 @@ function ToastStack({ toasts, remove }) {
             t.type === "success"
               ? "border-emerald-200"
               : t.type === "error"
-              ? "border-rose-200"
-              : "border-slate-200",
+                ? "border-rose-200"
+                : "border-slate-200",
           ].join(" ")}
         >
           <div className="mt-0.5">
@@ -203,7 +213,161 @@ export default function SupplierDashboard() {
   const [aiMessages, setAiMessages] = useState([
     { sender: "AI", content: "Hi Supplier 👋 Ask me about low stock, orders, or spoilage risk.", type: "received" },
   ]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [showBroadcast, setShowBroadcast] = useState(false);
+  const [showSOSModal, setShowSOSModal] = useState(false);
+  const [sosReason, setSOSReason] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'warning', title: 'Low Stock Alert', message: 'Tomatoes below 30 units', time: '2 min ago', read: false },
+    { id: 2, type: 'success', title: 'Order Fulfilled', message: 'Order #123 delivered successfully', time: '5 min ago', read: false },
+    { id: 3, type: 'error', title: 'Spoilage Risk', message: 'Milk temperature rising', time: '10 min ago', read: true },
+  ]);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
   const chatEndRef = useRef(null);
+
+  // Crisis Alerts State - Show only recent/active alerts
+  const [crisisAlerts] = useState([
+    { id: 1, source: 'News API', location: 'Ukhrul', type: 'Communal Crisis', severity: 'critical', time: '18 min ago', affected: 3200 },
+  ]);
+
+  // Toggle dark mode
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    localStorage.setItem('darkMode', JSON.stringify(newMode));
+    toast('success', newMode ? 'Dark Mode Enabled' : 'Light Mode Enabled', '🌙 Theme updated');
+  };
+
+  const markAsRead = (id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    toast('success', 'Notifications Cleared', 'All notifications removed');
+  };
+
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
+
+  // Spoilage rows (with localized digits) - MOVED UP
+  const spoilageRows = useMemo(() => {
+    const base =
+      iotData?.length > 0
+        ? iotData
+        : [
+          { id: 1, location: "Tomatoes", temp: 22, humidity: 78, status: "warning", food_quality: "Risk" },
+          { id: 2, location: "Milk", temp: 6, humidity: 70, status: "ok", food_quality: "Good" },
+          { id: 3, location: "Spinach", temp: 10, humidity: 66, status: "ok", food_quality: "Good" },
+          { id: 4, location: "Water", temp: 18, humidity: 55, status: "ok", food_quality: "Good" },
+        ];
+
+    return base.map((s, idx) => {
+      const risk = s.status === "warning" || s.food_quality !== "Good";
+      const hours = risk ? 8 + (idx % 4) * 2 : 48;
+      const percent = risk ? 68 : 66;
+      return { ...s, risk, hours, percent };
+    });
+  }, [iotData]);
+
+  // Analytics data
+  const analyticsData = useMemo(() => {
+    const last7Days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const orderTrend = [12, 19, 15, 25, 22, 30, 28];
+    const inventoryTrend = [145, 142, 138, 135, 148, 150, inventory.length || 145];
+    const spoilageRate = [5, 3, 4, 2, 3, 1, spoilageRows.filter(s => s.risk).length];
+
+    return { last7Days, orderTrend, inventoryTrend, spoilageRate };
+  }, [inventory.length, spoilageRows]);
+
+  // Export functions
+  const exportToCSV = (type) => {
+    let csvContent = '';
+    let filename = '';
+
+    if (type === 'inventory') {
+      csvContent = 'Item,Quantity,Unit,Category\n';
+      inventory.forEach(item => {
+        csvContent += `${item.name},${item.quantity},${item.unit},${item.category}\n`;
+      });
+      filename = 'inventory_report.csv';
+    } else if (type === 'orders') {
+      csvContent = 'Order ID,Consumer,Item,Quantity,Status\n';
+      orders.forEach(order => {
+        csvContent += `${order.id},${order.consumer_name},${order.item_name},${order.quantity},${order.status}\n`;
+      });
+      filename = 'orders_report.csv';
+    } else if (type === 'spoilage') {
+      csvContent = 'Location,Temperature,Humidity,Status,Risk Level\n';
+      spoilageRows.forEach(item => {
+        csvContent += `${item.location},${item.temp}°C,${item.humidity}%,${item.status},${item.risk ? 'High' : 'Low'}\n`;
+      });
+      filename = 'spoilage_report.csv';
+    }
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    toast('success', 'Report Exported', `${filename} downloaded successfully`);
+  };
+
+  const sendBroadcast = () => {
+    if (!broadcastMessage.trim()) {
+      toast('error', 'Empty Message', 'Please enter a broadcast message');
+      return;
+    }
+
+    // Simulate broadcast
+    toast('success', 'Broadcast Sent', `Message sent to all ${formatNumber(1247, lang)} consumers`);
+    setBroadcastMessage('');
+    setShowBroadcast(false);
+
+    // Add to notifications
+    const newNotif = {
+      id: Date.now(),
+      type: 'success',
+      title: 'Broadcast Sent',
+      message: broadcastMessage.substring(0, 50) + '...',
+      time: 'Just now',
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const sendSOSAlert = async () => {
+    if (!sosReason.trim()) {
+      toast('error', 'Empty Message', 'Please describe the emergency');
+      return;
+    }
+
+    try {
+      // Get supplier location (you can use a fixed location or get from user)
+      const supplierLocation = { lat: 24.8170, lng: 93.9368 }; // Default to Imphal
+      
+      await axios.post('http://localhost:8000/sos-alert', {
+        lat: supplierLocation.lat,
+        lng: supplierLocation.lng,
+        reason: sosReason,
+        sender_name: 'Supplier',
+        sender_type: 'supplier'
+      });
+      
+      setShowSOSModal(false);
+      setSOSReason('');
+      toast('success', 'SOS Alert Sent', 'Emergency Command Center notified. Danger zone created on map.');
+    } catch (err) {
+      toast('error', 'SOS Failed', 'Could not send alert. Check backend connection.');
+    }
+  };
 
   // Toasts
   const [toasts, setToasts] = useState([]);
@@ -241,8 +405,12 @@ export default function SupplierDashboard() {
       setLoading(false);
     } catch (err) {
       console.error("Sync Error:", err);
+      // Set loading to false even on error so page shows
       setLoading(false);
-      toast("error", "Sync failed", "Check backend server is running.");
+      // Don't show error toast on first load
+      if (inventory.length > 0 || requests.length > 0) {
+        toast("error", "Sync failed", "Check backend server is running.");
+      }
     }
   };
 
@@ -328,6 +496,7 @@ export default function SupplierDashboard() {
       { name: t("item.dal", { defaultValue: "Dal" }), quantity: 30, unit: "kg", category: "Grains" },
       { name: t("item.rice_meals", { defaultValue: "Rice Meals" }), quantity: 100, unit: "packets", category: "Cooked Food" },
       { name: t("item.dal_chawal", { defaultValue: "Dal Chawal" }), quantity: 80, unit: "packets", category: "Cooked Food" },
+      { name: t("item.water", { defaultValue: "Water" }), quantity: 200, unit: "bottles", category: "Beverages" },
     ];
     try {
       for (const it of defaults) await axios.post(`${API}/inventory`, it);
@@ -373,34 +542,17 @@ export default function SupplierDashboard() {
     }
   };
 
-  // Spoilage rows (with localized digits)
-  const spoilageRows = useMemo(() => {
-    const base =
-      iotData?.length > 0
-        ? iotData
-        : [
-            { id: 1, location: "Tomatoes", temp: 22, humidity: 78, status: "warning", food_quality: "Risk" },
-            { id: 2, location: "Milk", temp: 6, humidity: 70, status: "ok", food_quality: "Good" },
-            { id: 3, location: "Spinach", temp: 10, humidity: 66, status: "ok", food_quality: "Good" },
-          ];
 
-    return base.map((s, idx) => {
-      const risk = s.status === "warning" || s.food_quality !== "Good";
-      const hours = risk ? 8 + (idx % 4) * 2 : 48;
-      const percent = risk ? 68 : 66;
-      return { ...s, risk, hours, percent };
-    });
-  }, [iotData]);
 
   // Stock rows (localized)
   const stockRows = useMemo(() => {
     const base = inventory.length
       ? inventory.slice(0, 3).map((x) => ({ id: x.id, name: x.name }))
       : [
-          { id: 1, name: "Tomatoes" },
-          { id: 2, name: "Milk" },
-          { id: 3, name: "Spinach" },
-        ];
+        { id: 1, name: "Tomatoes" },
+        { id: 2, name: "Milk" },
+        { id: 3, name: "Spinach" },
+      ];
     return base.map((r, idx) => {
       const temp = idx === 0 ? "22°C" : idx === 1 ? "8°C" : "6°C";
       const risk = idx === 0;
@@ -449,35 +601,146 @@ export default function SupplierDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100">
+    <div className={`min-h-screen flex ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'}`}>
       <ToastStack toasts={toasts} remove={removeToast} />
 
-      <main className="max-w-6xl mx-auto p-6">
-        <div className="bg-white/70 backdrop-blur rounded-[28px] border border-slate-200 shadow-[0_18px_60px_rgba(15,23,42,0.12)] overflow-hidden">
-          {/* Header */}
-          <header className="px-7 py-5 bg-gradient-to-r from-[#1F4E8C] to-[#234F86] text-white">
+      {/* Modern Gradient Sidebar - 5% */}
+      <aside className={`w-[5%] ${darkMode ? 'bg-slate-900/95 backdrop-blur-xl' : 'bg-white/95 backdrop-blur-xl'} border-r ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex flex-col items-center py-6 gap-1 shadow-2xl`}>
+        <a
+          href="#inventory"
+          title="Inventory"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-emerald-400' : 'text-slate-700 hover:text-emerald-600'} hover:bg-emerald-500/10 hover:shadow-lg hover:shadow-emerald-500/20`}
+        >
+          <Package size={22} className="group-hover:scale-110 transition-transform" />
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </a>
+        <a
+          href="#orders"
+          title="Orders"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-700 hover:text-blue-600'} hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20`}
+        >
+          <Truck size={22} className="group-hover:scale-110 transition-transform" />
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-blue-400 to-blue-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </a>
+        <a
+          href="#alerts"
+          title="Alerts"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-amber-400' : 'text-slate-700 hover:text-amber-600'} hover:bg-amber-500/10 hover:shadow-lg hover:shadow-amber-500/20`}
+        >
+          <AlertTriangle size={22} className="group-hover:scale-110 transition-transform" />
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-amber-400 to-amber-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </a>
+        <a
+          href="#spoilage"
+          title="Spoilage Monitor"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-rose-400' : 'text-slate-700 hover:text-rose-600'} hover:bg-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20`}
+        >
+          <Thermometer size={22} className="group-hover:scale-110 transition-transform" />
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-rose-400 to-rose-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </a>
+        <button
+          onClick={() => setShowRiskMap(true)}
+          title="Risk Zones"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-red-400' : 'text-slate-700 hover:text-red-600'} hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/20`}
+        >
+          <MapIcon size={22} className="group-hover:scale-110 transition-transform" />
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-red-400 to-red-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </button>
+        <a
+          href="#summary"
+          onClick={(e) => { e.preventDefault(); setShowAnalytics(true); }}
+          title="Analytics"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-purple-400' : 'text-slate-700 hover:text-purple-600'} hover:bg-purple-500/10 hover:shadow-lg hover:shadow-purple-500/20`}
+        >
+          <BarChart3 size={22} className="group-hover:scale-110 transition-transform" />
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-purple-400 to-purple-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </a>
+        <button
+          onClick={() => setNotificationsOpen(!notificationsOpen)}
+          title="Notifications"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-cyan-400' : 'text-slate-700 hover:text-cyan-600'} hover:bg-cyan-500/10 hover:shadow-lg hover:shadow-cyan-500/20`}
+        >
+          <Bell size={22} className="group-hover:scale-110 transition-transform" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+              {unreadCount}
+            </span>
+          )}
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </button>
+        <button
+          onClick={() => toast('info', 'Team', 'Team management coming soon')}
+          title="Team"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-700 hover:text-indigo-600'} hover:bg-indigo-500/10 hover:shadow-lg hover:shadow-indigo-500/20`}
+        >
+          <Users size={22} className="group-hover:scale-110 transition-transform" />
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-indigo-400 to-indigo-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={toggleDarkMode}
+          title={darkMode ? "Light Mode" : "Dark Mode"}
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-yellow-400' : 'text-slate-700 hover:text-yellow-600'} hover:bg-yellow-500/10 hover:shadow-lg hover:shadow-yellow-500/20`}
+        >
+          {darkMode ? <Sun size={22} className="group-hover:rotate-180 transition-transform duration-500" /> : <Moon size={22} className="group-hover:rotate-12 transition-transform" />}
+          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        </button>
+        <button
+          onClick={() => toast('info', 'Settings', 'Settings panel coming soon')}
+          title="Settings"
+          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-slate-300' : 'text-slate-700 hover:text-slate-800'} ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-100'} hover:shadow-lg`}
+        >
+          <Settings size={22} className="group-hover:rotate-90 transition-transform duration-300" />
+        </button>
+        <button
+          onClick={() => setShowAddModal(true)}
+          title="Add Item"
+          className="w-12 h-12 flex items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 transition-all text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105"
+        >
+          <Plus size={24} className="font-bold" />
+        </button>
+      </aside>
+
+      {/* Main Content - 65-95% */}
+      <main className={`transition-all duration-300 ${chatOpen ? 'w-[65%]' : 'w-[95%]'} overflow-y-auto`}>
+        <div className={`${darkMode ? 'bg-slate-900' : 'bg-white/70 backdrop-blur'} border-r ${darkMode ? 'border-slate-800' : 'border-slate-200'} min-h-screen`}>
+          {/* Premium Header */}
+          <header className="px-6 py-5 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white shadow-xl">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
-                  <Package />
+                <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-lg">
+                  <Package size={24} />
                 </div>
                 <div>
-                  <div className="text-[22px] font-extrabold">{t("supplier_dashboard", { defaultValue: "Supplier Dashboard" })}</div>
-                  <div className="text-xs text-white/70">
+                  <div className="text-[24px] font-black drop-shadow-md">{t("supplier_dashboard", { defaultValue: "Supplier Dashboard" })}</div>
+                  <div className="bg-blue-500/20 border border-blue-400/30 px-3 py-1 rounded-full text-xs text-blue-100 font-semibold flex items-center gap-2 shadow-sm">
+                    <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></span>
                     {t("live_sync", { defaultValue: "Live Sync" })}: {localizeDigits(lastSync.toLocaleTimeString(), lang)}
                   </div>
                 </div>
               </div>
 
               <div className="hidden md:flex items-center gap-3">
-                <SmallStat label={t("orders_completed", { defaultValue: "ORDERS COMPLETED" })} value={ordersCompleted} />
-                <SmallStat label={t("items", { defaultValue: "ITEMS" })} value={totalItems} />
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/20">
+                  <PackageCheck className="text-emerald-100" size={18} />
+                  <div>
+                    <div className="text-[10px] text-emerald-100 font-semibold uppercase tracking-wide">{t("orders_completed", { defaultValue: "Orders" })}</div>
+                    <div className="text-lg font-black leading-none">{ordersCompleted}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/20">
+                  <Package className="text-emerald-100" size={18} />
+                  <div>
+                    <div className="text-[10px] text-emerald-100 font-semibold uppercase tracking-wide">{t("items", { defaultValue: "Items" })}</div>
+                    <div className="text-lg font-black leading-none">{totalItems}</div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={toggleLanguage}
-                  className="bg-white/10 hover:bg-white/15 border border-white/10 px-3 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2"
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm"
                   type="button"
                 >
                   <Globe size={16} />
@@ -485,8 +748,35 @@ export default function SupplierDashboard() {
                 </button>
 
                 <button
+                  onClick={() => setShowSOSModal(true)}
+                  className="bg-red-600 hover:bg-red-700 backdrop-blur-sm border border-red-500 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm animate-pulse"
+                  type="button"
+                  title="Emergency SOS"
+                >
+                  <ShieldAlert size={16} /> SOS
+                </button>
+
+                <button
+                  onClick={() => setShowExport(true)}
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm"
+                  type="button"
+                  title="Export Reports"
+                >
+                  <Download size={16} />
+                </button>
+
+                <button
+                  onClick={() => setShowBroadcast(true)}
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm"
+                  type="button"
+                  title="Emergency Broadcast"
+                >
+                  <Radio size={16} />
+                </button>
+
+                <button
                   onClick={() => navigate("/login")}
-                  className="bg-white/10 hover:bg-white/15 border border-white/10 px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl text-sm font-bold inline-flex items-center gap-2 transition-all shadow-sm"
                   type="button"
                 >
                   <LogOut size={16} />
@@ -496,17 +786,96 @@ export default function SupplierDashboard() {
             </div>
           </header>
 
+
+
           {/* Content */}
-          <div className="p-7 space-y-6">
+          <div className={`p-6 md:p-8 space-y-8 ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-b from-blue-50/50 to-indigo-50/50'}`}>
+
+            {/* CRISIS ALERTS SECTION - TOP PRIORITY */}
+            <div className="bg-gradient-to-br from-red-50 via-orange-50 to-amber-50 rounded-3xl p-6 border-2 border-red-200 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg animate-pulse">
+                    <ShieldAlert className="text-white" size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                      🚨 Crisis Detection System
+                    </h2>
+                    <p className="text-xs text-slate-600 font-semibold">Multi-source real-time monitoring • NDMA • News • SOS • Police</p>
+                  </div>
+                </div>
+                <div className="bg-red-600 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider animate-pulse">
+                  {crisisAlerts.length} Active Alerts
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {crisisAlerts.map((alert) => (
+                  <div key={alert.id} className={`bg-white rounded-2xl p-4 border-2 ${alert.severity === 'critical' ? 'border-red-500 shadow-lg shadow-red-200' :
+                      alert.severity === 'high' ? 'border-orange-400 shadow-lg shadow-orange-200' :
+                        'border-amber-300 shadow-md'
+                    } hover:scale-105 transition-transform`}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full animate-pulse ${alert.severity === 'critical' ? 'bg-red-600' :
+                            alert.severity === 'high' ? 'bg-orange-500' : 'bg-amber-500'
+                          }`}></div>
+                        <span className={`text-xs font-black uppercase px-2 py-1 rounded-full ${alert.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                            alert.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                              'bg-amber-100 text-amber-700'
+                          }`}>
+                          {alert.severity}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-semibold">{alert.time}</span>
+                    </div>
+
+                    <h3 className="font-bold text-slate-900 mb-1 text-sm">{alert.type}</h3>
+                    <div className="flex items-center gap-2 text-xs text-slate-600 mb-2">
+                      <MapIcon size={12} className="text-red-600" />
+                      <span className="font-semibold">{alert.location}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-[10px] font-bold">
+                          📡 {alert.source}
+                        </div>
+                        <div className="bg-purple-100 text-purple-700 px-2 py-1 rounded-lg text-[10px] font-bold">
+                          👥 {formatNumber(alert.affected, lang)} affected
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-slate-200">
+                <div className="flex items-start gap-2 text-xs text-slate-700">
+                  <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p>
+                    <span className="font-bold">How we detect crises:</span> We use a multi-channel approach combining Government APIs (NDMA), real-time news monitoring, crowdsourced SOS reports from consumers, police emergency reports, and manual verification by authorities.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div>
-              <div className="text-sm font-semibold text-slate-900">{t("quick_actions", { defaultValue: "Quick Actions" })}</div>
-              <div className="mt-1 text-xs text-slate-500">{t("quick_desc", { defaultValue: "Monitor inventory, orders, spoilage and chat in real time." })}</div>
+              <div className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <span className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></span>
+                {t("quick_actions", { defaultValue: "Quick Actions" })}
+              </div>
+              <div className="mt-1 text-sm text-slate-500">{t("quick_desc", { defaultValue: "Monitor inventory, orders, spoilage and chat in real time." })}</div>
             </div>
 
             {/* Section 1: Inventory & Orders */}
             <div id="inventory" className="space-y-6 scroll-mt-24">
-              <div className="text-sm font-semibold text-slate-900">{t("inventory_orders", { defaultValue: "📦 Inventory & Orders" })}</div>
-              
+              <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                <span className="text-2xl">📦</span>
+                {t("inventory_orders", { defaultValue: "Inventory & Orders" })}
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Inventory */}
                 <SoftCard
@@ -531,58 +900,58 @@ export default function SupplierDashboard() {
                       </button>
                     </div>
                   }
-              >
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
-                      <tr className="text-slate-500">
-                        <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
-                        <th className="text-left px-4 py-3 font-semibold">{t("col_qty", { defaultValue: "Quantity" })}</th>
-                        <th className="text-left px-4 py-3 font-semibold">{t("col_action", { defaultValue: "Action" })}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        <tr>
-                          <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
-                            Loading…
-                          </td>
+                >
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr className="text-slate-500">
+                          <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
+                          <th className="text-left px-4 py-3 font-semibold">{t("col_qty", { defaultValue: "Quantity" })}</th>
+                          <th className="text-left px-4 py-3 font-semibold">{t("col_action", { defaultValue: "Action" })}</th>
                         </tr>
-                      ) : inventory.length ? (
-                        inventory.map((it) => (
-                          <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50/70 transition">
-                            <td className="px-4 py-3 font-semibold text-slate-900">{it.name}</td>
-                            <td className="px-4 py-3 text-slate-700">
-                              {formatNumber(it.quantity, lang)} {it.unit}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <IconBtn title="Edit" onClick={() => handleUpdate(it)} variant="blue">
-                                  <Pencil size={16} />
-                                </IconBtn>
-
-                                <button
-                                  onClick={() => setDeleteId(it.id)}
-                                  className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
-                                  type="button"
-                                >
-                                  <Trash size={14} />
-                                  {t("delete", { defaultValue: "Delete" })}
-                                </button>
-                              </div>
+                      </thead>
+                      <tbody>
+                        {loading ? (
+                          <tr>
+                            <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
+                              Loading…
                             </td>
                           </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
-                            {t("inventory_empty", { defaultValue: "Inventory Empty" })}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        ) : inventory.length ? (
+                          inventory.map((it) => (
+                            <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50/70 transition">
+                              <td className="px-4 py-3 font-semibold text-slate-900">{it.name}</td>
+                              <td className="px-4 py-3 text-slate-700">
+                                {formatNumber(it.quantity, lang)} {it.unit}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <IconBtn title="Edit" onClick={() => handleUpdate(it)} variant="blue">
+                                    <Pencil size={16} />
+                                  </IconBtn>
+
+                                  <button
+                                    onClick={() => setDeleteId(it.id)}
+                                    className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
+                                    type="button"
+                                  >
+                                    <Trash size={14} />
+                                    {t("delete", { defaultValue: "Delete" })}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
+                              {t("inventory_empty", { defaultValue: "Inventory Empty" })}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </SoftCard>
 
                 {/* Supplier Orders */}
@@ -590,290 +959,207 @@ export default function SupplierDashboard() {
                   id="orders"
                   title={t("supplier_orders", { defaultValue: "Food Requests" })}
                   right={<div className="text-[11px] font-semibold text-slate-400 uppercase">{t("pending_requests", { defaultValue: "PENDING REQUESTS" })}</div>}
-              >
-                <div className="space-y-4">
-                  {(orders.length ? orders : [{ id: 1, consumer_name: "FreshBite Cafe", item_name: "Tomatoes", quantity: 15, status: "Status" }])
-                    .slice(0, 3)
-                    .map((o) => {
-                      const variant = o.status === "Status" ? "red" : o.status === "Accepted" ? "green" : "blue";
+                >
+                  <div className="space-y-4">
+                    {(orders.length ? orders : [{ id: 1, consumer_name: "FreshBite Cafe", item_name: "Tomatoes", quantity: 15, status: "Status" }])
+                      .slice(0, 3)
+                      .map((o) => {
+                        const variant = o.status === "Status" ? "red" : o.status === "Accepted" ? "green" : "blue";
 
-                      return (
-                        <div key={o.id} className="rounded-2xl border border-slate-200/70 bg-white shadow-sm p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="font-semibold text-slate-900">{o.consumer_name || "Client"}</div>
-                              <div className="text-xs text-slate-500 mt-1">
-                                {(o.status === "Delivered"
-                                  ? t("delivered_order", { defaultValue: "Delivered order" })
-                                  : o.status === "Accepted"
-                                  ? t("accepted_order", { defaultValue: "Accepted order" })
-                                  : t("discovered_order", { defaultValue: "Discovered order" }))}{" "}
-                                : <span className="font-semibold">{formatNumber(o.quantity, lang)}</span>{" "}
-                                {t("units", { defaultValue: "units" })} • <span className="text-slate-700">{o.item_name}</span>
+                        return (
+                          <div key={o.id} className="rounded-2xl border border-slate-200/70 bg-white shadow-sm p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="font-semibold text-slate-900">{o.consumer_name || "Client"}</div>
+                                <div className="text-xs text-slate-500 mt-1">
+                                  {(o.status === "Delivered"
+                                    ? t("delivered_order", { defaultValue: "Delivered order" })
+                                    : o.status === "Accepted"
+                                      ? t("accepted_order", { defaultValue: "Accepted order" })
+                                      : t("discovered_order", { defaultValue: "Discovered order" }))}{" "}
+                                  : <span className="font-semibold">{formatNumber(o.quantity, lang)}</span>{" "}
+                                  {t("units", { defaultValue: "units" })} • <span className="text-slate-700">{o.item_name}</span>
+                                </div>
+
+                                <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
+                                  <span className="inline-flex items-center gap-1">
+                                    <CheckCircle2 size={14} className="text-emerald-600" />
+                                    {formatNumber(Math.max(10, Number(o.quantity) || 15), lang)} {t("lbs", { defaultValue: "lbs" })}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <Timer size={14} className="text-amber-600" />
+                                    {localizeDigits(t("time_ago", { defaultValue: "1 min • 30 ago" }), lang)}
+                                  </span>
+                                </div>
                               </div>
 
-                              <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
-                                <span className="inline-flex items-center gap-1">
-                                  <CheckCircle2 size={14} className="text-emerald-600" />
-                                  {formatNumber(Math.max(10, Number(o.quantity) || 15), lang)} {t("lbs", { defaultValue: "lbs" })}
-                                </span>
-                                <span className="inline-flex items-center gap-1">
-                                  <Timer size={14} className="text-amber-600" />
-                                  {localizeDigits(t("time_ago", { defaultValue: "1 min • 30 ago" }), lang)}
-                                </span>
-                              </div>
+                              <Pill variant={variant}>
+                                {o.status === "Delivered" ? <PackageCheck size={14} /> : o.status === "Accepted" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                                {o.status === "Status" ? t("status", { defaultValue: "Status" }) : o.status}
+                              </Pill>
                             </div>
 
-                            <Pill variant={variant}>
-                              {o.status === "Delivered" ? <PackageCheck size={14} /> : o.status === "Accepted" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                              {o.status === "Status" ? t("status", { defaultValue: "Status" }) : o.status}
-                            </Pill>
-                          </div>
+                            <div className="mt-3 flex items-center justify-between">
+                              <div className="text-xs text-slate-400">{localizeDigits(t("order_id", { defaultValue: "21 Ago" }), lang)}</div>
 
-                          <div className="mt-3 flex items-center justify-between">
-                            <div className="text-xs text-slate-400">{localizeDigits(t("order_id", { defaultValue: "21 Ago" }), lang)}</div>
-
-                            {o.status !== "Delivered" ? (
-                              <button
-                                onClick={() => handleFulfill(o.id)}
-                                className="text-xs font-semibold px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 inline-flex items-center gap-2"
-                                type="button"
-                              >
-                                <Truck size={14} />
-                                {t("fulfill", { defaultValue: "Fulfill" })}
-                              </button>
-                            ) : (
-                              <div className="text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2">
-                                {localizeDigits(t("eta", { defaultValue: "ETA 10 Mins" }), lang)}
-                              </div>
-                            )}
+                              {o.status !== "Delivered" ? (
+                                <button
+                                  onClick={() => handleFulfill(o.id)}
+                                  className="text-xs font-semibold px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 inline-flex items-center gap-2"
+                                  type="button"
+                                >
+                                  <Truck size={14} />
+                                  {t("fulfill", { defaultValue: "Fulfill" })}
+                                </button>
+                              ) : (
+                                <div className="text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2">
+                                  {localizeDigits(t("eta", { defaultValue: "ETA 10 Mins" }), lang)}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                </div>
+                        );
+                      })}
+                  </div>
                 </SoftCard>
               </div>
             </div>
 
             {/* Section 2: Monitoring & Alerts */}
             <div id="alerts" className="space-y-6 scroll-mt-24">
-              <div className="text-sm font-semibold text-slate-900">{t("monitoring_alerts", { defaultValue: "⚠️ Monitoring & Alerts" })}</div>
-              
+              <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                <span className="text-2xl">⚠️</span>
+                {t("monitoring_alerts", { defaultValue: "Monitoring & Alerts" })}
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Stock Alerts */}
                 <SoftCard title={t("stock_alerts", { defaultValue: "Stock Alerts" })}>
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
-                      <tr className="text-slate-500">
-                        <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
-                        <th className="text-left px-4 py-3 font-semibold">{t("col_temp", { defaultValue: "Temperature" })}</th>
-                        <th className="text-left px-4 py-3 font-semibold">{t("col_spoil", { defaultValue: "Spoilage" })}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stockRows.map((row) => (
-                        <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50/70 transition">
-                          <td className="px-4 py-3 font-semibold text-slate-900">{row.name}</td>
-                          <td className="px-4 py-3 text-slate-700">{localizeDigits(row.temp, lang)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <Pill variant={row.risk ? "red" : "green"}>
-                                {row.risk ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
-                                {row.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}
-                              </Pill>
-                              <span className="text-xs text-slate-500">
-                                {row.risk
-                                  ? localizeDigits(t("spoil_in", { defaultValue: "Spoil in 8 hrs" }), lang)
-                                  : localizeDigits(t("safe_for", { defaultValue: "Safe for 2 days" }), lang)}
-                              </span>
-                            </div>
-                          </td>
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr className="text-slate-500">
+                          <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
+                          <th className="text-left px-4 py-3 font-semibold">{t("col_temp", { defaultValue: "Temperature" })}</th>
+                          <th className="text-left px-4 py-3 font-semibold">{t("col_spoil", { defaultValue: "Spoilage" })}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {lowStockItems.length === 0 && (
-                  <div className="mt-4 text-xs text-slate-500 inline-flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-emerald-600" />
-                    {t("stock_healthy", { defaultValue: "Stock levels healthy." })}
+                      </thead>
+                      <tbody>
+                        {stockRows.map((row) => (
+                          <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50/70 transition">
+                            <td className="px-4 py-3 font-semibold text-slate-900">{row.name}</td>
+                            <td className="px-4 py-3 text-slate-700">{localizeDigits(row.temp, lang)}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <Pill variant={row.risk ? "red" : "green"}>
+                                  {row.risk ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                                  {row.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}
+                                </Pill>
+                                <span className="text-xs text-slate-500">
+                                  {row.risk
+                                    ? localizeDigits(t("spoil_in", { defaultValue: "Spoil in 8 hrs" }), lang)
+                                    : localizeDigits(t("safe_for", { defaultValue: "Safe for 2 days" }), lang)}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+
+                  {lowStockItems.length === 0 && (
+                    <div className="mt-4 text-xs text-slate-500 inline-flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-emerald-600" />
+                      {t("stock_healthy", { defaultValue: "Stock levels healthy." })}
+                    </div>
+                  )}
                 </SoftCard>
 
                 {/* Live Spoilage Monitor */}
                 <SoftCard id="spoilage" title={t("live_spoilage", { defaultValue: "Live Spoilage Monitor" })} right={<Thermometer className="text-indigo-500" />}>
-                <div className="space-y-4">
-                  {spoilageRows.slice(0, 3).map((s, idx) => (
-                    <div key={s.id ?? idx} className="rounded-2xl border border-slate-200/70 bg-white p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-slate-900">{s.location || "Warehouse"}</div>
-                          <div className="text-xs text-slate-500 mt-1">
-                            {s.risk
-                              ? localizeDigits(`Spoil in ${s.hours} hours`, lang)
-                              : localizeDigits("Safe for 2 days", lang)}
+                  <div className="space-y-4">
+                    {spoilageRows.slice(0, 3).map((s, idx) => (
+                      <div key={s.id ?? idx} className="rounded-2xl border border-slate-200/70 bg-white p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-slate-900">{s.location || "Warehouse"}</div>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {s.risk
+                                ? localizeDigits(`Spoil in ${s.hours} hours`, lang)
+                                : localizeDigits("Safe for 2 days", lang)}
+                            </div>
+
+                            <div className="mt-2 text-xs text-slate-600">
+                              <span className="inline-flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${s.risk ? "bg-rose-500" : "bg-emerald-500"}`} />
+                                Temp: <span className="font-semibold">{localizeDigits(`${s.temp}°C`, lang)}</span> • Hum:{" "}
+                                <span className="font-semibold">{localizeDigits(`${s.humidity}%`, lang)}</span>
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="mt-2 text-xs text-slate-600">
-                            <span className="inline-flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full ${s.risk ? "bg-rose-500" : "bg-emerald-500"}`} />
-                              Temp: <span className="font-semibold">{localizeDigits(`${s.temp}°C`, lang)}</span> • Hum:{" "}
-                              <span className="font-semibold">{localizeDigits(`${s.humidity}%`, lang)}</span>
-                            </span>
+                          <div className="text-right">
+                            <div className="text-xs text-slate-500">{localizeDigits(`${s.percent}%`, lang)}</div>
+                            <Pill variant={s.risk ? "red" : "green"}>{s.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}</Pill>
                           </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-xs text-slate-500">{localizeDigits(`${s.percent}%`, lang)}</div>
-                          <Pill variant={s.risk ? "red" : "green"}>{s.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}</Pill>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
 
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={() => setShowRiskMap(true)}
-                    className="bg-[#E14B4B] hover:bg-[#d24242] text-white px-5 py-3 rounded-2xl font-semibold shadow-sm inline-flex items-center gap-2"
-                    type="button"
-                  >
-                    <ShieldAlert size={18} />
-                    {t("manage_risk", { defaultValue: "Manage Risk Zones" })}
-                  </button>
-                </div>
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      onClick={() => setShowRiskMap(true)}
+                      className="bg-[#E14B4B] hover:bg-[#d24242] text-white px-5 py-3 rounded-2xl font-semibold shadow-sm inline-flex items-center gap-2"
+                      type="button"
+                    >
+                      <ShieldAlert size={18} />
+                      {t("manage_risk", { defaultValue: "Manage Risk Zones" })}
+                    </button>
+                  </div>
                 </SoftCard>
               </div>
             </div>
 
-            {/* Section 3: Communication & Summary */}
-            <div id="chat" className="space-y-6 scroll-mt-24">
-              <div className="text-sm font-semibold text-slate-900">{t("communication_summary", { defaultValue: "💬 Communication & Summary" })}</div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Chat - Left Side */}
-                <SoftCard
-                  title={t("supplier_chat", { defaultValue: "Chat" })}
-                  right={
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setChatMode("consumer")}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-full inline-flex items-center gap-1 border ${
-                          chatMode === "consumer"
-                            ? "bg-sky-50 text-sky-700 border-sky-200"
-                            : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                        }`}
-                        type="button"
-                      >
-                        <MessageSquare size={12} /> Consumer
-                      </button>
-                      <button
-                        onClick={() => setChatMode("ai")}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-full inline-flex items-center gap-1 border ${
-                          chatMode === "ai"
-                            ? "bg-purple-50 text-purple-700 border-purple-200"
-                            : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                        }`}
-                        type="button"
-                      >
-                        <Bot size={12} /> AI Help
-                      </button>
+            {/* Section 3: Quick Stats Summary */}
+            <div id="summary" className="space-y-6 scroll-mt-24">
+              <div className="text-base font-black text-slate-900 flex items-center gap-2">
+                <span className="text-2xl">📊</span>
+                {t("quick_summary", { defaultValue: "Quick Summary" })}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-emerald-700 font-semibold uppercase">{t("total_inventory", { defaultValue: "Total Inventory" })}</div>
+                      <div className="text-2xl font-extrabold text-emerald-900 mt-1">{formatNumber(inventory.length, lang)}</div>
+                      <div className="text-xs text-emerald-600 mt-1">{t("items_in_stock", { defaultValue: "items in stock" })}</div>
                     </div>
-                  }
-                >
-                <div className="h-48 overflow-y-auto space-y-3 pr-2">
-                  {chatMode === "consumer" ? (
-                    <>
-                      {messages.length === 0 && <div className="text-sm text-slate-400 italic">{t("no_messages", { defaultValue: "No messages yet." })}</div>}
-                      {messages.map((m, idx) => (
-                        <div
-                          key={idx}
-                          className={`p-3 rounded-xl border ${
-                            m.sender === "Supplier"
-                              ? "bg-sky-50 border-sky-200 ml-20 text-right"
-                              : "bg-slate-50 border-slate-200 mr-20"
-                          }`}
-                        >
-                          <div className={`text-[10px] font-semibold mb-1 ${m.sender === "Supplier" ? "text-sky-700" : "text-slate-500"}`}>{m.sender}</div>
-                          <div className="text-xs text-slate-800">{m.content}</div>
-                        </div>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      {aiMessages.map((m, idx) => (
-                        <div
-                          key={idx}
-                          className={`p-3 rounded-xl border ${
-                            m.type === "sent"
-                              ? "bg-purple-50 border-purple-200 ml-20 text-right"
-                              : "bg-slate-50 border-slate-200 mr-20"
-                          }`}
-                        >
-                          <div className={`text-[10px] font-semibold mb-1 ${m.type === "sent" ? "text-purple-700" : "text-slate-500"}`}>{m.sender}</div>
-                          <div className="text-xs text-slate-800">{m.content}</div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                  <div ref={chatEndRef} />
+                    <Package className="text-emerald-600" size={32} />
+                  </div>
                 </div>
 
-                <form onSubmit={handleSendChat} className="flex gap-2 mt-4 border-t border-slate-200 pt-4">
-                  <input
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder={t("type_reply", { defaultValue: "Type message..." })}
-                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  />
-                  <button
-                    type="submit"
-                    className={`px-4 rounded-xl font-semibold text-white inline-flex items-center gap-2 ${
-                      chatMode === "consumer" ? "bg-sky-600 hover:bg-sky-700" : "bg-purple-600 hover:bg-purple-700"
-                    }`}
-                  >
-                    <Send size={16} /> {t("send", { defaultValue: "Send" })}
-                  </button>
-                </form>
-                </SoftCard>
-
-                {/* Quick Stats Summary - Right Side */}
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xs text-emerald-700 font-semibold uppercase">{t("total_inventory", { defaultValue: "Total Inventory" })}</div>
-                        <div className="text-2xl font-extrabold text-emerald-900 mt-1">{formatNumber(inventory.length, lang)}</div>
-                        <div className="text-xs text-emerald-600 mt-1">{t("items_in_stock", { defaultValue: "items in stock" })}</div>
-                      </div>
-                      <Package className="text-emerald-600" size={32} />
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-amber-700 font-semibold uppercase">{t("low_stock_items", { defaultValue: "Low Stock Items" })}</div>
+                      <div className="text-2xl font-extrabold text-amber-900 mt-1">{formatNumber(lowStockItems.length, lang)}</div>
+                      <div className="text-xs text-amber-600 mt-1">{t("need_attention", { defaultValue: "need attention" })}</div>
                     </div>
+                    <AlertTriangle className="text-amber-600" size={32} />
                   </div>
+                </div>
 
-                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xs text-amber-700 font-semibold uppercase">{t("low_stock_items", { defaultValue: "Low Stock Items" })}</div>
-                        <div className="text-2xl font-extrabold text-amber-900 mt-1">{formatNumber(lowStockItems.length, lang)}</div>
-                        <div className="text-xs text-amber-600 mt-1">{t("need_attention", { defaultValue: "need attention" })}</div>
-                      </div>
-                      <AlertTriangle className="text-amber-600" size={32} />
+                <div className="bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-2xl p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-rose-700 font-semibold uppercase">{t("spoilage_risk", { defaultValue: "Spoilage Risk" })}</div>
+                      <div className="text-2xl font-extrabold text-rose-900 mt-1">{formatNumber(spoilageRows.filter(s => s.risk).length, lang)}</div>
+                      <div className="text-xs text-rose-600 mt-1">{t("items_at_risk", { defaultValue: "items at risk" })}</div>
                     </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-2xl p-5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xs text-rose-700 font-semibold uppercase">{t("spoilage_risk", { defaultValue: "Spoilage Risk" })}</div>
-                        <div className="text-2xl font-extrabold text-rose-900 mt-1">{formatNumber(spoilageRows.filter(s => s.risk).length, lang)}</div>
-                        <div className="text-xs text-rose-600 mt-1">{t("items_at_risk", { defaultValue: "items at risk" })}</div>
-                      </div>
-                      <Thermometer className="text-rose-600" size={32} />
-                    </div>
+                    <Thermometer className="text-rose-600" size={32} />
                   </div>
                 </div>
               </div>
@@ -881,6 +1167,552 @@ export default function SupplierDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Export Reports Modal */}
+      {showExport && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Download size={28} />
+                <div>
+                  <h2 className="text-2xl font-black">Export Reports</h2>
+                  <p className="text-sm text-indigo-100 mt-1">Download data in CSV format</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExport(false)}
+                className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition"
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-4">
+              <button
+                onClick={() => exportToCSV('inventory')}
+                className="w-full p-6 rounded-2xl border-2 border-emerald-200 hover:border-emerald-400 bg-emerald-50 hover:bg-emerald-100 transition-all group"
+                type="button"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-emerald-500 flex items-center justify-center">
+                      <Package size={28} className="text-white" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-lg font-bold text-slate-900">Inventory Report</div>
+                      <div className="text-sm text-slate-600 mt-1">{formatNumber(inventory.length || 145, lang)} items • Full stock details</div>
+                    </div>
+                  </div>
+                  <FileText size={24} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                </div>
+              </button>
+
+              <button
+                onClick={() => exportToCSV('orders')}
+                className="w-full p-6 rounded-2xl border-2 border-blue-200 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 transition-all group"
+                type="button"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-blue-500 flex items-center justify-center">
+                      <Truck size={28} className="text-white" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-lg font-bold text-slate-900">Orders Report</div>
+                      <div className="text-sm text-slate-600 mt-1">{formatNumber(orders.length || 28, lang)} orders • Fulfillment status</div>
+                    </div>
+                  </div>
+                  <FileText size={24} className="text-blue-600 group-hover:scale-110 transition-transform" />
+                </div>
+              </button>
+
+              <button
+                onClick={() => exportToCSV('spoilage')}
+                className="w-full p-6 rounded-2xl border-2 border-rose-200 hover:border-rose-400 bg-rose-50 hover:bg-rose-100 transition-all group"
+                type="button"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-rose-500 flex items-center justify-center">
+                      <Thermometer size={28} className="text-white" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-lg font-bold text-slate-900">Spoilage Report</div>
+                      <div className="text-sm text-slate-600 mt-1">IoT monitoring • Temperature & humidity data</div>
+                    </div>
+                  </div>
+                  <FileText size={24} className="text-rose-600 group-hover:scale-110 transition-transform" />
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Broadcast Modal */}
+      {showBroadcast && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Radio size={28} className="animate-pulse" />
+                <div>
+                  <h2 className="text-2xl font-black">Emergency Broadcast</h2>
+                  <p className="text-sm text-red-100 mt-1">Send urgent message to all consumers</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBroadcast(false)}
+                className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition"
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-8">
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-amber-600 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <div className="font-bold mb-1">Crisis Alert System</div>
+                    This will send an immediate notification to <span className="font-bold">{formatNumber(1247, lang)} active consumers</span> in Manipur region.
+                  </div>
+                </div>
+              </div>
+
+              <textarea
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                placeholder="Enter emergency message (e.g., New food center opened at Imphal East, Road blockage at NH-2, Weather alert)..."
+                className="w-full h-32 border-2 border-slate-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 resize-none"
+              />
+
+              <div className="flex items-center justify-between mt-6">
+                <div className="text-xs text-slate-500">
+                  {broadcastMessage.length}/500 characters
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowBroadcast(false)}
+                    className="px-6 py-3 rounded-xl border-2 border-slate-200 hover:bg-slate-50 font-semibold transition"
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={sendBroadcast}
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                    type="button"
+                  >
+                    <Radio size={18} />
+                    Send Broadcast
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SOS Alert Modal */}
+      {showSOSModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-red-500">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <ShieldAlert size={28} className="animate-pulse" />
+                <div>
+                  <h2 className="text-2xl font-black">Emergency SOS</h2>
+                  <p className="text-sm text-red-100 mt-1">Report danger zone</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowSOSModal(false); setSOSReason(''); }}
+                className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition"
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-8">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-red-600 mt-0.5" />
+                  <div className="text-sm text-red-800">
+                    <div className="font-bold mb-1">Official Alert</div>
+                    As a supplier, your alert will be <span className="font-bold">immediately verified</span> and added as a danger zone on the map.
+                  </div>
+                </div>
+              </div>
+
+              <textarea
+                value={sosReason}
+                onChange={(e) => setSOSReason(e.target.value)}
+                placeholder="Describe the danger (violence, flood, road blockage, fire, etc.)..."
+                className="w-full h-32 border-2 border-red-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 resize-none"
+              />
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => { setShowSOSModal(false); setSOSReason(''); }}
+                  className="px-6 py-3 rounded-xl border-2 border-slate-200 hover:bg-slate-50 font-semibold transition"
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={sendSOSAlert}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  type="button"
+                >
+                  <ShieldAlert size={18} />
+                  Send SOS Alert
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Analytics Modal */}
+      {showAnalytics && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-6">
+          <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <BarChart3 size={28} />
+                <div>
+                  <h2 className="text-2xl font-black">Analytics Dashboard</h2>
+                  <p className="text-sm text-purple-100 mt-1">Last 7 days performance metrics</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAnalytics(false)}
+                className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition"
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-8 overflow-y-auto max-h-[calc(90vh-100px)] space-y-6">
+              {/* Key Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-5">
+                  <div className="text-xs text-emerald-700 font-semibold uppercase mb-2">Total Orders</div>
+                  <div className="text-3xl font-black text-emerald-900">{formatNumber(orders.length || 28, lang)}</div>
+                  <div className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
+                    <span className="text-emerald-500">↗</span> +12% from last week
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-5">
+                  <div className="text-xs text-blue-700 font-semibold uppercase mb-2">Inventory Items</div>
+                  <div className="text-3xl font-black text-blue-900">{formatNumber(inventory.length || 145, lang)}</div>
+                  <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+                    <span className="text-blue-500">↗</span> +5 items added
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-5">
+                  <div className="text-xs text-amber-700 font-semibold uppercase mb-2">Spoilage Rate</div>
+                  <div className="text-3xl font-black text-amber-900">2.3%</div>
+                  <div className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                    <span className="text-emerald-500">↘</span> -1.2% improvement
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-5">
+                  <div className="text-xs text-purple-700 font-semibold uppercase mb-2">Efficiency</div>
+                  <div className="text-3xl font-black text-purple-900">94%</div>
+                  <div className="text-xs text-purple-600 mt-2 flex items-center gap-1">
+                    <span className="text-emerald-500">↗</span> +3% this week
+                  </div>
+                </div>
+              </div>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Order Trend Chart */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <Truck size={20} className="text-blue-600" />
+                    Order Fulfillment Trend
+                  </h3>
+                  <div className="h-48 flex items-end justify-between gap-2">
+                    {analyticsData.orderTrend.map((val, idx) => (
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                        <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg hover:from-blue-600 hover:to-blue-500 transition-all cursor-pointer relative group" style={{ height: `${(val / 30) * 100}%` }}>
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                            {formatNumber(val, lang)} orders
+                          </div>
+                        </div>
+                        <div className="text-xs text-slate-500 font-semibold">{analyticsData.last7Days[idx]}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Inventory Trend Chart */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <Package size={20} className="text-emerald-600" />
+                    Inventory Level Trend
+                  </h3>
+                  <div className="h-48 flex items-end justify-between gap-2">
+                    {analyticsData.inventoryTrend.map((val, idx) => (
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                        <div className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-lg hover:from-emerald-600 hover:to-emerald-500 transition-all cursor-pointer relative group" style={{ height: `${(val / 150) * 100}%` }}>
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                            {formatNumber(val, lang)} items
+                          </div>
+                        </div>
+                        <div className="text-xs text-slate-500 font-semibold">{analyticsData.last7Days[idx]}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Spoilage Rate Chart */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <Thermometer size={20} className="text-rose-600" />
+                    Spoilage Risk Trend
+                  </h3>
+                  <div className="h-48 flex items-end justify-between gap-2">
+                    {analyticsData.spoilageRate.map((val, idx) => (
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                        <div className="w-full bg-gradient-to-t from-rose-500 to-rose-400 rounded-t-lg hover:from-rose-600 hover:to-rose-500 transition-all cursor-pointer relative group" style={{ height: `${(val / 5) * 100}%` }}>
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                            {formatNumber(val, lang)} at risk
+                          </div>
+                        </div>
+                        <div className="text-xs text-slate-500 font-semibold">{analyticsData.last7Days[idx]}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category Distribution */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <PackageCheck size={20} className="text-purple-600" />
+                    Category Distribution
+                  </h3>
+                  <div className="space-y-3">
+                    {['Cooked Food', 'Vegetables', 'Grains', 'Beverages', 'Oil'].map((cat, idx) => {
+                      const percent = [30, 25, 20, 15, 10][idx];
+                      const colors = ['bg-purple-500', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500', 'bg-slate-500'][idx];
+                      return (
+                        <div key={cat}>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="font-semibold text-slate-700">{cat}</span>
+                            <span className="text-slate-500">{percent}%</span>
+                          </div>
+                          <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full ${colors} rounded-full transition-all duration-500`} style={{ width: `${percent}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Panel */}
+      <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-50 flex flex-col ${notificationsOpen ? 'w-[350px]' : 'w-0'}`}>
+        {notificationsOpen && (
+          <>
+            <div className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Bell size={20} />
+                <h3 className="font-bold text-lg">Notifications</h3>
+                {unreadCount > 0 && (
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">{unreadCount}</span>
+                )}
+              </div>
+              <button
+                onClick={() => setNotificationsOpen(false)}
+                className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition"
+                type="button"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+              {notifications.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <Bell size={48} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No notifications</p>
+                </div>
+              ) : (
+                notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    onClick={() => markAsRead(notif.id)}
+                    className={`p-4 rounded-xl border cursor-pointer transition-all ${notif.read
+                        ? 'bg-white border-slate-200 opacity-60'
+                        : 'bg-white border-slate-300 shadow-md hover:shadow-lg'
+                      }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${notif.type === 'warning' ? 'bg-amber-500' :
+                          notif.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                        } ${!notif.read && 'animate-pulse'}`} />
+                      <div className="flex-1">
+                        <div className="font-semibold text-sm text-slate-900">{notif.title}</div>
+                        <div className="text-xs text-slate-600 mt-1">{notif.message}</div>
+                        <div className="text-[10px] text-slate-400 mt-2">{notif.time}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {notifications.length > 0 && (
+              <div className="p-4 bg-white border-t border-slate-200">
+                <button
+                  onClick={clearAllNotifications}
+                  className="w-full py-2 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition"
+                  type="button"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </aside>
+
+      {/* Chat Sidebar - 30% */}
+      <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-40 flex flex-col ${chatOpen ? 'w-[30%]' : 'w-0'}`}>
+        {chatOpen && (
+          <>
+            {/* Chat Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <MessageSquare size={20} />
+                <h3 className="font-bold text-lg">{t("chat", { defaultValue: "Chat" })}</h3>
+              </div>
+              <button
+                onClick={() => setChatOpen(false)}
+                className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition"
+                type="button"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Chat Mode Toggle */}
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex gap-2">
+              <button
+                onClick={() => setChatMode("consumer")}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition inline-flex items-center justify-center gap-2 ${chatMode === "consumer"
+                    ? "bg-sky-600 text-white shadow-md"
+                    : "bg-white text-slate-600 hover:bg-slate-100"
+                  }`}
+                type="button"
+              >
+                <MessageSquare size={14} /> Consumer
+              </button>
+              <button
+                onClick={() => setChatMode("ai")}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition inline-flex items-center justify-center gap-2 ${chatMode === "ai"
+                    ? "bg-purple-600 text-white shadow-md"
+                    : "bg-white text-slate-600 hover:bg-slate-100"
+                  }`}
+                type="button"
+              >
+                <Bot size={14} /> AI Help
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+              {chatMode === "consumer" ? (
+                <>
+                  {messages.length === 0 && (
+                    <div className="text-center text-sm text-slate-400 italic py-8">
+                      {t("no_messages", { defaultValue: "No messages yet." })}
+                    </div>
+                  )}
+                  {messages.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-xl shadow-sm ${m.sender === "Supplier"
+                          ? "bg-sky-600 text-white ml-12"
+                          : "bg-white text-slate-800 mr-12"
+                        }`}
+                    >
+                      <div className={`text-[10px] font-bold mb-1 ${m.sender === "Supplier" ? "text-sky-100" : "text-slate-500"
+                        }`}>
+                        {m.sender}
+                      </div>
+                      <div className="text-sm">{m.content}</div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {aiMessages.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-xl shadow-sm ${m.type === "sent"
+                          ? "bg-purple-600 text-white ml-12"
+                          : "bg-white text-slate-800 mr-12"
+                        }`}
+                    >
+                      <div className={`text-[10px] font-bold mb-1 ${m.type === "sent" ? "text-purple-100" : "text-slate-500"
+                        }`}>
+                        {m.sender}
+                      </div>
+                      <div className="text-sm">{m.content}</div>
+                    </div>
+                  ))}
+                </>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendChat} className="p-4 bg-white border-t border-slate-200">
+              <div className="flex gap-2">
+                <input
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder={t("type_reply", { defaultValue: "Type message..." })}
+                  className="flex-1 border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                <button
+                  type="submit"
+                  className={`px-4 py-3 rounded-xl font-semibold text-white inline-flex items-center gap-2 shadow-md hover:shadow-lg transition ${chatMode === "consumer" ? "bg-sky-600 hover:bg-sky-700" : "bg-purple-600 hover:bg-purple-700"
+                    }`}
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </aside>
+
+      {/* Chat Toggle Button */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed right-6 bottom-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all z-50 flex items-center gap-2"
+          type="button"
+        >
+          <MessageSquare size={24} />
+        </button>
+      )}
 
       {/* DELETE MODAL */}
       {deleteId && (
@@ -931,6 +1763,7 @@ export default function SupplierDashboard() {
                 <option>Grains</option>
                 <option>Oil</option>
                 <option>Cooked Food</option>
+                <option>Beverages</option>
                 <option>Medicine</option>
               </select>
 

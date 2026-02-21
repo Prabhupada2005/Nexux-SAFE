@@ -42,7 +42,9 @@ class FoodRequest(Base):
 class Message(Base):
     __tablename__ = "messages"
     id = Column(Integer, primary_key=True, index=True)
+    center_id = Column(Integer, default=1)
     sender = Column(String)
+    sender_type = Column(String, default="consumer")
     content = Column(String)
 
 class RiskZone(Base):
@@ -52,6 +54,19 @@ class RiskZone(Base):
     lng = Column(Float)
     radius = Column(Float)
     reason = Column(String)
+    verified = Column(Boolean, default=True)  # True if added by emergency/supplier
+
+class SOSAlert(Base):
+    __tablename__ = "sos_alerts"
+    id = Column(Integer, primary_key=True, index=True)
+    lat = Column(Float)
+    lng = Column(Float)
+    reason = Column(String)
+    sender_name = Column(String)
+    sender_type = Column(String)  # consumer, supplier, emergency
+    status = Column(String, default="pending")  # pending, verified, rejected
+    timestamp = Column(String)
+    is_official = Column(Boolean, default=False)  # True if from supplier/emergency
 
 # Create Tables
 Base.metadata.create_all(bind=engine)
@@ -82,12 +97,20 @@ class RequestItem(BaseModel):
 class MessageCreate(BaseModel):
     sender: str
     content: str
+    sender_type: str = "consumer"
 
 class RiskZoneCreate(BaseModel):
     lat: float
     lng: float
     radius: float
     reason: str
+
+class SOSAlertCreate(BaseModel):
+    lat: float
+    lng: float
+    reason: str
+    sender_name: str
+    sender_type: str
 
 class PasswordReset(BaseModel):
     email: str
@@ -213,20 +236,37 @@ def fulfill_request(request_id: int, db: Session = Depends(get_db)):
 def get_messages(db: Session = Depends(get_db)):
     return db.query(Message).all()
 
+@app.get("/centers")
+def get_centers(db: Session = Depends(get_db)):
+    # Return empty list for now - centers are hardcoded in frontend
+    return []
+
+@app.get("/messages/{center_id}")
+def get_center_messages(center_id: int, db: Session = Depends(get_db)):
+    return db.query(Message).filter(Message.center_id == center_id).all()
+
 @app.post("/messages")
 def send_message(msg: MessageCreate, db: Session = Depends(get_db)):
-    new_msg = Message(sender=msg.sender, content=msg.content)
+    new_msg = Message(sender=msg.sender, content=msg.content, sender_type=msg.sender_type)
+    db.add(new_msg)
+    db.commit()
+    return new_msg
+
+@app.post("/messages/{center_id}")
+def send_center_message(center_id: int, msg: MessageCreate, db: Session = Depends(get_db)):
+    new_msg = Message(center_id=center_id, sender=msg.sender, content=msg.content, sender_type=msg.sender_type)
     db.add(new_msg)
     db.commit()
     return new_msg
 
 @app.get("/risk-zones")
 def get_risk_zones(db: Session = Depends(get_db)):
-    return db.query(RiskZone).all()
+    # Only return verified risk zones
+    return db.query(RiskZone).filter(RiskZone.verified == True).all()
 
 @app.post("/risk-zones")
 def add_risk_zone(zone: RiskZoneCreate, db: Session = Depends(get_db)):
-    new_zone = RiskZone(lat=zone.lat, lng=zone.lng, radius=zone.radius, reason=zone.reason)
+    new_zone = RiskZone(lat=zone.lat, lng=zone.lng, radius=zone.radius, reason=zone.reason, verified=True)
     db.add(new_zone)
     db.commit()
     return new_zone
@@ -239,6 +279,131 @@ def delete_risk_zone(zone_id: int, db: Session = Depends(get_db)):
         db.commit()
     return {"message": "Zone removed"}
 
+# SOS Alert Endpoints
+@app.post("/sos-alert")
+def send_sos_alert(alert: SOSAlertCreate, db: Session = Depends(get_db)):
+    from datetime import datetime
+    
+    # Check if sender is official (supplier/emergency)
+    is_official = alert.sender_type in ['supplier', 'emergency']
+    
+    new_alert = SOSAlert(
+        lat=alert.lat,
+        lng=alert.lng,
+        reason=alert.reason,
+        sender_name=alert.sender_name,
+        sender_type=alert.sender_type,
+        status="verified" if is_official else "pending",
+        is_official=is_official,
+        timestamp=datetime.now().isoformat()
+    )
+    db.add(new_alert)
+    db.commit()
+    db.refresh(new_alert)
+    
+    # If official source, auto-create risk zone
+    if is_official:
+        risk_zone = RiskZone(
+            lat=alert.lat,
+            lng=alert.lng,
+            radius=500,
+            reason=alert.reason,
+            verified=True
+        )
+        db.add(risk_zone)
+        db.commit()
+    
+    return new_alert
+
+@app.get("/sos-alerts")
+def get_sos_alerts(db: Session = Depends(get_db)):
+    return db.query(SOSAlert).all()
+
+@app.get("/sos-alerts/pending")
+def get_pending_alerts(db: Session = Depends(get_db)):
+    return db.query(SOSAlert).filter(SOSAlert.status == "pending").all()
+
+@app.post("/sos-alerts/{alert_id}/verify")
+def verify_alert(alert_id: int, db: Session = Depends(get_db)):
+    alert = db.query(SOSAlert).filter(SOSAlert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    alert.status = "verified"
+    
+    # Create risk zone on map
+    risk_zone = RiskZone(
+        lat=alert.lat,
+        lng=alert.lng,
+        radius=500,
+        reason=alert.reason,
+        verified=True
+    )
+    db.add(risk_zone)
+    db.commit()
+    
+    return {"message": "Alert verified and added to map"}
+
+@app.post("/sos-alerts/{alert_id}/reject")
+def reject_alert(alert_id: int, db: Session = Depends(get_db)):
+    alert = db.query(SOSAlert).filter(SOSAlert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    alert.status = "rejected"
+    db.commit()
+    
+    return {"message": "Alert rejected"}
+
+@app.get("/sos-alerts/clusters")
+def get_alert_clusters(db: Session = Depends(get_db)):
+    """Group nearby pending alerts to detect patterns"""
+    from math import radians, cos, sin, asin, sqrt
+    
+    def haversine(lon1, lat1, lon2, lat2):
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        km = 6371 * c
+        return km
+    
+    pending_alerts = db.query(SOSAlert).filter(SOSAlert.status == "pending").all()
+    
+    clusters = []
+    processed = set()
+    
+    for alert in pending_alerts:
+        if alert.id in processed:
+            continue
+        
+        cluster = [alert]
+        processed.add(alert.id)
+        
+        for other in pending_alerts:
+            if other.id in processed:
+                continue
+            
+            distance = haversine(alert.lng, alert.lat, other.lng, other.lat)
+            if distance < 1:  # Within 1km
+                cluster.append(other)
+                processed.add(other.id)
+        
+        if len(cluster) >= 2:  # At least 2 reports from same area
+            clusters.append({
+                "location": {"lat": alert.lat, "lng": alert.lng},
+                "count": len(cluster),
+                "reason": alert.reason,
+                "alerts": [{
+                    "id": a.id,
+                    "sender": a.sender_name,
+                    "timestamp": a.timestamp
+                } for a in cluster]
+            })
+    
+    return clusters
+
 # IoT Simulation
 @app.get("/iot/spoilage")
 def get_iot_data():
@@ -246,6 +411,24 @@ def get_iot_data():
         {"id": 1, "location": "Warehouse A", "temp": random.randint(20, 35), "humidity": random.randint(40, 80), "status": "normal", "food_quality": "Good"},
         {"id": 2, "location": "Transit Truck 4", "temp": random.randint(30, 45), "humidity": random.randint(60, 90), "status": "warning", "food_quality": "Risk"}
     ]
+
+# Safe Route Calculation (avoiding danger zones)
+@app.get("/safe-route")
+def get_safe_route(start_lat: float, start_lng: float, end_lat: float, end_lng: float, db: Session = Depends(get_db)):
+    """Calculate route avoiding verified risk zones"""
+    risk_zones = db.query(RiskZone).filter(RiskZone.verified == True).all()
+    
+    return {
+        "start": {"lat": start_lat, "lng": start_lng},
+        "end": {"lat": end_lat, "lng": end_lng},
+        "danger_zones": [{
+            "lat": zone.lat,
+            "lng": zone.lng,
+            "radius": zone.radius,
+            "reason": zone.reason
+        } for zone in risk_zones],
+        "message": "Use OSRM with waypoints to avoid danger zones"
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

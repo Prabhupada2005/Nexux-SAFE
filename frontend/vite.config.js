@@ -7,40 +7,56 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.ico', 'icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'FoodTech Emergency Platform',
-        short_name: 'FoodTech',
-        description: 'Emergency Food Supply Chain Management System',
-        theme_color: '#10b981', // Emerald-500
+        name: 'SAFE - Smart Aid for Food Emergency',
+        short_name: 'SAFE',
+        description: 'Smart Aid for Food Emergency - Emergency Food Supply Platform',
+        theme_color: '#10b981',
         background_color: '#ffffff',
         display: 'standalone',
+        start_url: '/',
+        scope: '/',
         icons: [
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/3522/3522533.png', // Using a placeholder online icon
+            src: '/icon-192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/3522/3522533.png',
+            src: '/icon-512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       },
       workbox: {
-        // Caches Google Maps tiles and API responses so they work offline-ish
-        runtimeCaching: [{
-          urlPattern: ({ url }) => url.origin === 'https://tile.openstreetmap.org',
-          handler: 'CacheFirst',
-          options: {
-            cacheName: 'map-tiles',
-            expiration: {
-              maxEntries: 500,
-              maxAgeSeconds: 60 * 60 * 24 * 365 // 1 Year
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.origin === 'https://tile.openstreetmap.org',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'map-tiles',
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/api\./,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 5
+              }
             }
           }
-        }]
+        ]
       }
     })
   ],
