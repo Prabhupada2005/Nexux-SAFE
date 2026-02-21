@@ -218,6 +218,8 @@ export default function SupplierDashboard() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showBroadcast, setShowBroadcast] = useState(false);
+  const [showSOSModal, setShowSOSModal] = useState(false);
+  const [sosReason, setSOSReason] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [notifications, setNotifications] = useState([
     { id: 1, type: 'warning', title: 'Low Stock Alert', message: 'Tomatoes below 30 units', time: '2 min ago', read: false },
@@ -339,6 +341,32 @@ export default function SupplierDashboard() {
       read: false
     };
     setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const sendSOSAlert = async () => {
+    if (!sosReason.trim()) {
+      toast('error', 'Empty Message', 'Please describe the emergency');
+      return;
+    }
+
+    try {
+      // Get supplier location (you can use a fixed location or get from user)
+      const supplierLocation = { lat: 24.8170, lng: 93.9368 }; // Default to Imphal
+      
+      await axios.post('http://localhost:8000/sos-alert', {
+        lat: supplierLocation.lat,
+        lng: supplierLocation.lng,
+        reason: sosReason,
+        sender_name: 'Supplier',
+        sender_type: 'supplier'
+      });
+      
+      setShowSOSModal(false);
+      setSOSReason('');
+      toast('success', 'SOS Alert Sent', 'Emergency Command Center notified. Danger zone created on map.');
+    } catch (err) {
+      toast('error', 'SOS Failed', 'Could not send alert. Check backend connection.');
+    }
   };
 
   // Toasts
@@ -717,6 +745,15 @@ export default function SupplierDashboard() {
                 >
                   <Globe size={16} />
                   {lang === "en" ? "EN" : lang === "hi" ? "HI" : lang === "mni" ? "MNI" : "OR"}
+                </button>
+
+                <button
+                  onClick={() => setShowSOSModal(true)}
+                  className="bg-red-600 hover:bg-red-700 backdrop-blur-sm border border-red-500 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm animate-pulse"
+                  type="button"
+                  title="Emergency SOS"
+                >
+                  <ShieldAlert size={16} /> SOS
                 </button>
 
                 <button
@@ -1274,6 +1311,67 @@ export default function SupplierDashboard() {
                     Send Broadcast
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SOS Alert Modal */}
+      {showSOSModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-red-500">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <ShieldAlert size={28} className="animate-pulse" />
+                <div>
+                  <h2 className="text-2xl font-black">Emergency SOS</h2>
+                  <p className="text-sm text-red-100 mt-1">Report danger zone</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowSOSModal(false); setSOSReason(''); }}
+                className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition"
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-8">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-red-600 mt-0.5" />
+                  <div className="text-sm text-red-800">
+                    <div className="font-bold mb-1">Official Alert</div>
+                    As a supplier, your alert will be <span className="font-bold">immediately verified</span> and added as a danger zone on the map.
+                  </div>
+                </div>
+              </div>
+
+              <textarea
+                value={sosReason}
+                onChange={(e) => setSOSReason(e.target.value)}
+                placeholder="Describe the danger (violence, flood, road blockage, fire, etc.)..."
+                className="w-full h-32 border-2 border-red-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 resize-none"
+              />
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => { setShowSOSModal(false); setSOSReason(''); }}
+                  className="px-6 py-3 rounded-xl border-2 border-slate-200 hover:bg-slate-50 font-semibold transition"
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={sendSOSAlert}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  type="button"
+                >
+                  <ShieldAlert size={18} />
+                  Send SOS Alert
+                </button>
               </div>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
     MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck
@@ -36,6 +36,8 @@ const ConsumerDashboard = () => {
     // Modal & Feature States
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [showSOSModal, setShowSOSModal] = useState(false);
+    const [sosReason, setSOSReason] = useState('');
     const [selectedCenter, setSelectedCenter] = useState(null);
     const [reqItem, setReqItem] = useState({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup' });
     const [feedbackText, setFeedbackText] = useState('');
@@ -48,6 +50,7 @@ const ConsumerDashboard = () => {
     const [truckPosition, setTruckPosition] = useState(null); // Live truck location
     const [truckProgress, setTruckProgress] = useState(0); // 0-100% progress
     const [activePickupCenter, setActivePickupCenter] = useState(null); // Track which center has active pickup
+    const [riskZones, setRiskZones] = useState([]); // Danger zones
 
     // Calculate nearest low-crowded center
     const nearestCenter = useMemo(() => {
@@ -113,6 +116,9 @@ const ConsumerDashboard = () => {
             }
         }).catch(err => console.log('No registered centers yet'));
         
+        // Fetch risk zones
+        axios.get('http://localhost:8000/risk-zones').then(res => setRiskZones(res.data)).catch(err => console.log('No risk zones'));
+        
         // Poll messages for all centers
         const interval = setInterval(() => {
             centers.forEach(center => {
@@ -153,7 +159,39 @@ const ConsumerDashboard = () => {
         recognition.onend = () => setIsListening(false);
     };
 
-    const handleSOS = async () => { if (confirm("Send SOS?")) alert(t('sos_sent')); };
+    const handleSOS = async () => {
+        setShowSOSModal(true);
+    };
+
+    const sendSOSAlert = async () => {
+        if (!sosReason.trim()) {
+            alert('Please describe the emergency');
+            return;
+        }
+
+        if (!userLoc) {
+            alert('Location access required to send SOS');
+            return;
+        }
+
+        const user = JSON.parse(localStorage.getItem('foodtech_user'));
+        
+        try {
+            await axios.post('http://localhost:8000/sos-alert', {
+                lat: userLoc.lat,
+                lng: userLoc.lng,
+                reason: sosReason,
+                sender_name: user.name,
+                sender_type: 'consumer'
+            });
+            
+            setShowSOSModal(false);
+            setSOSReason('');
+            alert('SOS Alert sent to Emergency Command Center! Help is on the way.');
+        } catch (err) {
+            alert('Failed to send SOS. Please try again.');
+        }
+    };
 
     // --- FETCH DYNAMIC ROAD ROUTE (OSRM API) ---
     const getRoadRoute = async (start, end, showTruck = true) => {
@@ -355,6 +393,10 @@ const ConsumerDashboard = () => {
                 else if (userQuery.includes('help') || userQuery.includes('what can you') || userQuery.includes('how to')) {
                     aiResponse = "I can help you with:\n• Finding nearest food centers\n• Checking which centers are open\n• Locating centers with hot meals\n• Tracking your delivery\n• Requesting food\n• Emergency assistance\n\nJust ask me anything!";
                 }
+                // Stuck/Lost/Confused
+                else if (userQuery.includes('stuck') || userQuery.includes('lost') || userQuery.includes('confused') || userQuery.includes('don\'t know')) {
+                    aiResponse = "Don't worry! Here's how to use the app:\n\n1. Click 'Request Delivery' to order food from the nearest center\n2. Use the map to see all food centers and danger zones\n3. Click any center's 'Request Pickup' to collect food yourself\n4. Use 'Chat' to message a specific center\n5. Click the red SOS button for emergencies\n\nWhat would you like to do?";
+                }
                 // Default response
                 else {
                     aiResponse = "I can help you find food centers, check availability, track deliveries, and more. Try asking: 'Which center is nearest?' or 'Where can I get hot meals?'";
@@ -462,18 +504,6 @@ const ConsumerDashboard = () => {
                                         </div>
                                     </div>
                                 )}
-
-                                <button
-                                    onClick={() => {
-                                        if (userLoc) {
-                                            getRoadRoute(nearestCenter, userLoc);
-                                        }
-                                    }}
-                                    className="w-full bg-white hover:bg-green-50 text-green-600 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
-                                >
-                                    <Truck size={16} />
-                                    Get Directions
-                                </button>
                             </div>
                         )}
 
@@ -676,22 +706,39 @@ const ConsumerDashboard = () => {
                                     iconSize: [40, 40],
                                     iconAnchor: [20, 40]
                                 })}
+                                eventHandlers={{
+                                    popupopen: (e) => {
+                                        setTimeout(() => e.target.closePopup(), 5000);
+                                    }
+                                }}
                             >
                                 <Popup className="custom-popup">
-                                    <div style="min-width: 200px;">
-                                        <h3 style="font-weight: bold; font-size: 14px; margin-bottom: 6px; color: #059669;">{c.name}</h3>
-                                        <p style="font-size: 11px; color: #6b7280; margin-bottom: 8px;">{c.address}</p>
-                                        <div style="display: flex; gap: 8px; font-size: 10px; margin-bottom: 8px; flex-wrap: wrap;">
-                                            <span style="background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 12px; font-weight: 600;">{c.status.toUpperCase()}</span>
-                                            <span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-weight: 600;">{c.crowd} Crowd</span>
-                                            {c.cookedFood && <span style="background: #ffedd5; color: #c2410c; padding: 2px 8px; border-radius: 12px; font-weight: 600;">🍛 Hot Meals</span>}
+                                    <div className="bg-white rounded-lg p-3 min-w-[200px]">
+                                        <h3 className="font-bold text-green-600 text-sm mb-2">{c.name}</h3>
+                                        <p className="text-xs text-gray-600 mb-2 flex items-center gap-1">
+                                            <span className="text-green-500">📍</span> {c.address}
+                                        </p>
+                                        <div className="flex gap-2 flex-wrap mb-2">
+                                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">{c.status.toUpperCase()}</span>
+                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">{c.crowd} Crowd</span>
+                                            {c.cookedFood && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-semibold">🍛 Hot Meals</span>}
                                         </div>
-                                        <p style="font-size: 11px; font-weight: 600; color: #374151;">📦 {c.items} Items Available</p>
                                     </div>
                                 </Popup>
                             </Marker>
                         ))}
-                        {userLoc && <Marker position={[userLoc.lat, userLoc.lng]} icon={L.icon({ iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', iconSize: [40, 40], iconAnchor: [20, 40] })}><Popup><b style="color: #16a34a;">{t('you')}</b><br /><span style="font-size: 11px; color: #6b7280;">Your Current Location</span></Popup></Marker>}
+                        {userLoc && <Marker position={[userLoc.lat, userLoc.lng]} icon={L.icon({ iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', iconSize: [40, 40], iconAnchor: [20, 40] })} eventHandlers={{
+                            popupopen: (e) => {
+                                setTimeout(() => e.target.closePopup(), 5000);
+                            }
+                        }}>
+                            <Popup>
+                                <div className="bg-white rounded-lg p-3 text-center min-w-[150px]">
+                                    <h3 className="font-bold text-green-600 text-sm mb-1">📍 {t('you')}</h3>
+                                    <p className="text-xs text-gray-600">Your Current Location</p>
+                                </div>
+                            </Popup>
+                        </Marker>}
 
                         {/* LIVE TRUCK MARKER */}
                         {truckPosition && (
@@ -703,12 +750,20 @@ const ConsumerDashboard = () => {
                                     iconSize: [48, 48],
                                     iconAnchor: [24, 24]
                                 })}
+                                eventHandlers={{
+                                    popupopen: (e) => {
+                                        setTimeout(() => e.target.closePopup(), 5000);
+                                    }
+                                }}
                             >
                                 <Popup>
-                                    <div style="min-width: 160px; text-align: center;">
-                                        <h3 style="font-weight: bold; font-size: 13px; margin-bottom: 4px; color: #f97316;">🚚 Delivery Truck</h3>
-                                        <p style="font-size: 11px; color: #374151; font-weight: 600;">Progress: {truckProgress}%</p>
-                                        <p style="font-size: 10px; color: #6b7280; margin-top: 4px;">{truckProgress < 100 ? 'On the way to you' : 'Arrived!'}</p>
+                                    <div className="bg-white rounded-lg p-3 text-center min-w-[160px]">
+                                        <h3 className="font-bold text-orange-600 text-sm mb-2">🚚 Delivery Truck</h3>
+                                        <p className="text-xs font-semibold text-gray-700 mb-1">Progress: {truckProgress}%</p>
+                                        <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                                            <div className="bg-orange-500 h-2 rounded-full transition-all" style={{ width: `${truckProgress}%` }}></div>
+                                        </div>
+                                        <p className="text-xs text-gray-600">{truckProgress < 100 ? '🚀 On the way to you' : '✅ Arrived!'}</p>
                                     </div>
                                 </Popup>
                             </Marker>
@@ -724,6 +779,56 @@ const ConsumerDashboard = () => {
                                 dashArray="10, 5"
                             />
                         )}
+
+                        {/* DANGER ZONES */}
+                        {riskZones.map(zone => (
+                            <React.Fragment key={zone.id}>
+                                <Circle 
+                                    center={[zone.lat, zone.lng]} 
+                                    radius={zone.radius}
+                                    pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.3, weight: 2 }}
+                                    eventHandlers={{
+                                        popupopen: (e) => {
+                                            setTimeout(() => e.target.closePopup(), 5000);
+                                        }
+                                    }}
+                                >
+                                    <Popup>
+                                        <div className="bg-white rounded-lg p-3 min-w-[180px]">
+                                            <h3 className="font-bold text-red-600 text-sm mb-2">⚠️ DANGER ZONE</h3>
+                                            <p className="text-xs text-gray-700 mb-2">{zone.reason}</p>
+                                            <p className="text-xs text-gray-600 mb-2">Radius: {zone.radius}m</p>
+                                            <p className="text-xs font-bold text-red-600">⚠️ Avoid this area</p>
+                                        </div>
+                                    </Popup>
+                                </Circle>
+                                <Marker
+                                    position={[zone.lat, zone.lng]}
+                                    icon={L.divIcon({
+                                        className: 'danger-marker',
+                                        html: `<div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); width: 44px; height: 44px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(220,38,38,0.6); display: flex; align-items: center; justify-content: center;"><div style="color: white; font-size: 24px;">⚠️</div></div>`,
+                                        iconSize: [44, 44],
+                                        iconAnchor: [22, 22]
+                                    })}
+                                    eventHandlers={{
+                                        popupopen: (e) => {
+                                            setTimeout(() => e.target.closePopup(), 5000);
+                                        }
+                                    }}
+                                >
+                                    <Popup>
+                                        <div className="bg-white rounded-lg p-3 text-center min-w-[180px]">
+                                            <h3 className="font-bold text-red-600 text-sm mb-2">⚠️ DANGER ZONE</h3>
+                                            <p className="text-xs font-semibold text-gray-800 mb-2">{zone.reason}</p>
+                                            <p className="text-xs text-gray-600 mb-2">Affected Radius: {zone.radius}m</p>
+                                            <div className="bg-red-50 border border-red-200 rounded px-2 py-1">
+                                                <p className="text-xs font-bold text-red-700">🚫 DO NOT ENTER</p>
+                                            </div>
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            </React.Fragment>
+                        ))}
                     </MapContainer>
                 </div>
             </div>
@@ -910,6 +1015,33 @@ const ConsumerDashboard = () => {
                         </div>
                         <textarea className="w-full border-2 border-slate-200 p-4 rounded-xl h-32 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all resize-none" placeholder="Share your experience..." value={feedbackText} onChange={e => setFeedbackText(e.target.value)} />
                         <div className="flex justify-end gap-3 mt-6"><button onClick={() => setShowFeedbackModal(false)} className="px-6 py-3 text-slate-600 text-sm font-bold hover:bg-slate-100 rounded-xl transition-all">{t('cancel')}</button><button onClick={handleFeedback} className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all">{t('submit')}</button></div>
+                    </div>
+                </div>
+            )}
+
+            {/* SOS Alert Modal */}
+            {showSOSModal && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white p-8 rounded-3xl w-96 shadow-2xl border-2 border-red-500">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl flex items-center justify-center shadow-lg animate-pulse">
+                                <AlertTriangle size={24} className="text-white" />
+                            </div>
+                            <h3 className="font-black text-2xl bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">Emergency SOS</h3>
+                        </div>
+                        <p className="text-sm text-slate-600 mb-4">Your location will be sent to Emergency Command Center</p>
+                        <textarea 
+                            className="w-full border-2 border-red-200 p-4 rounded-xl h-32 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all resize-none" 
+                            placeholder="Describe the emergency (violence, flood, fire, medical emergency, etc.)..." 
+                            value={sosReason} 
+                            onChange={e => setSOSReason(e.target.value)} 
+                        />
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button onClick={() => { setShowSOSModal(false); setSOSReason(''); }} className="px-6 py-3 text-slate-600 text-sm font-bold hover:bg-slate-100 rounded-xl transition-all">Cancel</button>
+                            <button onClick={sendSOSAlert} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2">
+                                <AlertTriangle size={18} /> Send SOS
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
