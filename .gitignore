@@ -7,3 +7,26 @@ __pycache__/
 
 # backups
 *_backup.jsx
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Credentials and config files with sensitive data
+config.json
+secrets.json
+credentials.json
+DEMO_CREDENTIALS.txt
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

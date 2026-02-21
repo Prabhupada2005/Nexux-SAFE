@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import getpass
 
 # Database setup
 DATABASE_URL = "sqlite:///./foodtech.db"
@@ -26,11 +27,14 @@ existing = db.query(User).filter(User.email == "emergency@manipur.gov.in").first
 if existing:
     print("Emergency user already exists!")
     print(f"Email: emergency@manipur.gov.in")
-    print(f"Password: emergency123")
 else:
+    # Prompt for password securely
+    print("Creating Emergency Command Center account...")
+    password = input("Enter password for emergency account: ")
+    
     emergency_user = User(
         email="emergency@manipur.gov.in",
-        password="emergency123",
+        password=password,
         full_name="Emergency Command Center",
         role="emergency",
         phone="1800-XXX-XXXX"
@@ -39,6 +43,6 @@ else:
     db.commit()
     print("✅ Emergency user created successfully!")
     print(f"Email: emergency@manipur.gov.in")
-    print(f"Password: emergency123")
+    print(f"Password: [HIDDEN]")
 
 db.close()
