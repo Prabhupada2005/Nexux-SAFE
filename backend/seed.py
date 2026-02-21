@@ -8,22 +8,23 @@ from database import SessionLocal, User, InventoryItem, engine, Base
 db = SessionLocal()
 
 def seed_users():
-    # List of demo users from your auth.js
+    # ⚠️ DEMO CREDENTIALS - FOR DEVELOPMENT ONLY
+    # In production: Use password hashing (bcrypt) and environment variables
     users = [
-        {"email": "admin@foodtech.com", "password": "admin123", "role": "admin", "name": "Admin User", "phone": "0000000000"},
-        {"email": "consumer@test.com", "password": "consumer123", "role": "consumer", "name": "Test Consumer", "phone": "9876543210"},
-        {"email": "supplier@test.com", "password": "supplier123", "role": "supplier", "name": "Moirang Food Center", "phone": "9876543211"},
-        {"email": "emergency@test.com", "password": "emergency123", "role": "emergency", "name": "Emergency Coordinator", "phone": "112"}
+        {"email": "admin@foodtech.com", "password": "demo123", "role": "admin", "name": "Admin User", "phone": "0000000000"},
+        {"email": "consumer@test.com", "password": "demo123", "role": "consumer", "name": "Test Consumer", "phone": "9876543210"},
+        {"email": "supplier@test.com", "password": "demo123", "role": "supplier", "name": "Moirang Food Center", "phone": "9876543211"},
+        {"email": "emergency@test.com", "password": "demo123", "role": "emergency", "name": "Emergency Coordinator", "phone": "112"}
     ]
 
-    print("🌱 Seeding Users...")
+    print("Seeding Users...")
     for user_data in users:
         # Check if exists
         exists = db.query(User).filter(User.email == user_data["email"]).first()
         if not exists:
             new_user = User(
                 email=user_data["email"],
-                hashed_password=user_data["password"], # In production, hash this!
+                password=user_data["password"], # In production, hash this!
                 full_name=user_data["name"],
                 role=user_data["role"],
                 phone=user_data["phone"]
@@ -48,7 +49,7 @@ def seed_inventory():
     supplier = db.query(User).filter(User.role == "supplier").first()
     
     if supplier:
-        print("\n📦 Seeding Inventory for Supplier...")
+        print("\nSeeding Inventory for Supplier...")
         for item in items:
             exists = db.query(InventoryItem).filter(InventoryItem.name == item["name"]).first()
             if not exists:
@@ -66,5 +67,5 @@ def seed_inventory():
 if __name__ == "__main__":
     seed_users()
     seed_inventory()
-    print("\n✅ Database seeding complete!")
+    print("\nDatabase seeding complete!")
     db.close()
