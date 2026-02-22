@@ -29,7 +29,10 @@ const FOOD_CENTERS = [
 const ConsumerDashboard = () => {
     const { t, i18n } = useTranslation();
     const [userLoc, setUserLoc] = useState(null);
-    const [centers] = useState(FOOD_CENTERS);
+    const [centers, setCenters] = useState(() => {
+        const saved = localStorage.getItem('consumer_centers');
+        return saved ? JSON.parse(saved) : FOOD_CENTERS;
+    });
     const navigate = useNavigate();
     const chatEndRef = useRef(null);
 
@@ -50,7 +53,10 @@ const ConsumerDashboard = () => {
     const [truckPosition, setTruckPosition] = useState(null); // Live truck location
     const [truckProgress, setTruckProgress] = useState(0); // 0-100% progress
     const [activePickupCenter, setActivePickupCenter] = useState(null); // Track which center has active pickup
-    const [riskZones, setRiskZones] = useState([]); // Danger zones
+    const [riskZones, setRiskZones] = useState(() => {
+        const saved = localStorage.getItem('consumer_riskZones');
+        return saved ? JSON.parse(saved) : [];
+    }); // Danger zones
 
     // Calculate nearest low-crowded center
     const nearestCenter = useMemo(() => {
@@ -83,7 +89,10 @@ const ConsumerDashboard = () => {
     const [activeChat, setActiveChat] = useState(null);
     const [activeChatCenter, setActiveChatCenter] = useState(null);
     const [msgText, setMsgText] = useState("");
-    const [centerMessages, setCenterMessages] = useState({});
+    const [centerMessages, setCenterMessages] = useState(() => {
+        const saved = localStorage.getItem('consumer_messages');
+        return saved ? JSON.parse(saved) : {};
+    });
     const [aiMessages, setAiMessages] = useState([{ sender: 'AI Bot', content: 'Hello! I am your FoodTech Assistant.', self: false }]);
     // Search & Filter UI states
     const [searchTerm, setSearchTerm] = useState('');
@@ -130,22 +139,30 @@ const ConsumerDashboard = () => {
                     ...c,
                     cookedFood: c.menu?.some(item => ['Rice Meals', 'Dal Chawal', 'Khichdi'].includes(item))
                 }));
-                // Update centers state if needed
+                setCenters(newCenters);
+                localStorage.setItem('consumer_centers', JSON.stringify(newCenters));
             }
         }).catch(err => console.log('No registered centers yet'));
         
         // Fetch risk zones
-        axios.get('http://localhost:8000/risk-zones').then(res => setRiskZones(res.data)).catch(err => console.log('No risk zones'));
+        axios.get('http://localhost:8000/risk-zones').then(res => {
+            setRiskZones(res.data);
+            localStorage.setItem('consumer_riskZones', JSON.stringify(res.data));
+        }).catch(err => console.log('No risk zones'));
         
         // Poll messages for all centers
         const interval = setInterval(() => {
             centers.forEach(center => {
                 axios.get(`http://localhost:8000/messages/${center.id}`)
                     .then(res => {
-                        setCenterMessages(prev => ({
-                            ...prev,
-                            [center.id]: res.data.reverse()
-                        }));
+                        setCenterMessages(prev => {
+                            const newState = {
+                                ...prev,
+                                [center.id]: res.data.reverse()
+                            };
+                            localStorage.setItem('consumer_messages', JSON.stringify(newState));
+                            return newState;
+                        });
                     })
                     .catch(err => console.log(`No messages for center ${center.id}`));
             });
@@ -389,10 +406,14 @@ const ConsumerDashboard = () => {
                     sender_type: 'consumer'
                 });
                 const res = await axios.get(`http://localhost:8000/messages/${activeChatCenter.id}`);
-                setCenterMessages(prev => ({
-                    ...prev,
-                    [activeChatCenter.id]: res.data.reverse()
-                }));
+                setCenterMessages(prev => {
+                    const newState = {
+                        ...prev,
+                        [activeChatCenter.id]: res.data.reverse()
+                    };
+                    localStorage.setItem('consumer_messages', JSON.stringify(newState));
+                    return newState;
+                });
                 setMsgText(""); // Clear input after sending
             } catch (err) {
                 console.log('Message send failed:', err);

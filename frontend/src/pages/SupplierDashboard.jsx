@@ -118,20 +118,22 @@ function MapClickHandler({ onMapClick }) {
   return null;
 }
 
-function SoftCard({ title, right, children, className = "" }) {
+function SoftCard({ title, right, children, className = "", ...props }) {
   return (
     <section
+      {...props}
       className={[
         "bg-white rounded-2xl border border-slate-200/70",
         "shadow-[0_8px_24px_rgba(15,23,42,0.06)]",
+        "dark:bg-slate-800 dark:border-slate-600",
         className,
       ].join(" ")}
     >
-      <div className="px-6 py-4 border-b border-slate-200/60 flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>
+      <div className="px-6 py-4 border-b border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+        <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
         {right}
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-6 dark:text-slate-300">{children}</div>
     </section>
   );
 }
@@ -154,9 +156,9 @@ function Pill({ variant = "gray", children }) {
 
 function SmallStat({ label, value }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white/10 border border-white/10">
-      <div className="text-[10px] uppercase tracking-wide text-white/70">{label}</div>
-      <div className="text-[18px] font-extrabold text-white leading-none">{value}</div>
+    <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white border border-slate-200 dark:bg-slate-800 dark:border-slate-700 shadow-sm">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="text-[18px] font-extrabold text-slate-900 dark:text-white leading-none">{value}</div>
     </div>
   );
 }
@@ -186,18 +188,29 @@ export default function SupplierDashboard() {
   const lang = (i18n.language || "en").split("-")[0];
 
   // Data
-  const [inventory, setInventory] = useState([]);
-  const [requests, setRequests] = useState([]);
+  const [inventory, setInventory] = useState(() => {
+    const saved = localStorage.getItem('supplier_inventory');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [requests, setRequests] = useState(() => {
+    const saved = localStorage.getItem('supplier_requests');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [iotData, setIotData] = useState([]);
   const [riskZones, setRiskZones] = useState([]);
   const [messages, setMessages] = useState([]);
   const [lastSync, setLastSync] = useState(new Date());
+  const [timeAgo, setTimeAgo] = useState("just now");
   const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(true);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRiskMap, setShowRiskMap] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   // Add item form
   const [newItem, setNewItem] = useState({
@@ -227,8 +240,12 @@ export default function SupplierDashboard() {
     { id: 3, type: 'error', title: 'Spoilage Risk', message: 'Milk temperature rising', time: '10 min ago', read: true },
   ]);
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
-    return saved ? JSON.parse(saved) : false;
+    try {
+      const saved = localStorage.getItem('darkMode');
+      return saved ? JSON.parse(saved) : false;
+    } catch (e) {
+      return false;
+    }
   });
   const chatEndRef = useRef(null);
 
@@ -396,8 +413,16 @@ export default function SupplierDashboard() {
         axios.get(`${API}/messages`),
       ]);
 
-      setInventory(invRes.data || []);
-      setRequests(reqRes.data || []);
+      if (invRes.data) {
+        setInventory(invRes.data);
+        localStorage.setItem('supplier_inventory', JSON.stringify(invRes.data));
+      }
+      
+      if (reqRes.data) {
+        setRequests(reqRes.data);
+        localStorage.setItem('supplier_requests', JSON.stringify(reqRes.data));
+      }
+
       setIotData(iotRes.data || []);
       setRiskZones(riskRes.data || []);
       setMessages(Array.isArray(msgRes.data) ? msgRes.data.slice().reverse() : []);
@@ -416,10 +441,57 @@ export default function SupplierDashboard() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- TIME TICKER (Always runs) ---
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const diff = Math.floor((new Date() - lastSync) / 1000);
+      setTimeAgo(diff < 5 ? "just now" : `${diff}s ago`);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastSync]);
+
+  // --- DEMO SIMULATION EFFECT (Only when Demo Mode is ON) ---
+  useEffect(() => {
+    if (!demoMode) return;
+
+    const dataSim = setInterval(() => {
+      setLastSync(new Date());
+      setIotData(prev => {
+        const data = prev.length ? prev : [
+          { id: 1, location: "Tomatoes", temp: 22, humidity: 78, status: "warning", food_quality: "Risk" },
+          { id: 2, location: "Milk", temp: 6, humidity: 70, status: "ok", food_quality: "Good" },
+          { id: 3, location: "Spinach", temp: 10, humidity: 66, status: "ok", food_quality: "Good" },
+          { id: 4, location: "Water", temp: 18, humidity: 55, status: "ok", food_quality: "Good" },
+        ];
+        const idx = Math.floor(Math.random() * data.length);
+        const newData = [...data];
+        const change = Math.random() > 0.5 ? 1 : -1;
+        newData[idx] = { ...newData[idx], temp: newData[idx].temp + change };
+        return newData;
+      });
+    }, 15000);
+
+    // New Request Simulation (every 30s)
+    const reqSim = setInterval(() => {
+      const id = Date.now();
+      const adjustedId = id - (id % 3); // Force "Status" (Pending) based on orders logic
+      const newReq = {
+        id: adjustedId,
+        consumer_name: "Relief Camp #" + Math.floor(Math.random() * 100),
+        item_name: ["Rice", "Dal", "Oil", "Milk"][Math.floor(Math.random() * 4)],
+        quantity: Math.floor(Math.random() * 50) + 10,
+        status: "Status"
+      };
+      setRequests(prev => [newReq, ...prev]);
+      toast("info", "New Request", `Order from ${newReq.consumer_name}`);
+    }, 30000);
+
+    return () => { clearInterval(dataSim); clearInterval(reqSim); };
+  }, [demoMode]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -449,6 +521,12 @@ export default function SupplierDashboard() {
 
     try {
       await axios.post(`${API}/inventory`, { ...newItem, quantity: parseFloat(newItem.quantity) });
+      
+      // Optimistic update for offline feel
+      const updated = [...inventory, { ...newItem, id: Date.now(), quantity: parseFloat(newItem.quantity) }];
+      setInventory(updated);
+      localStorage.setItem('supplier_inventory', JSON.stringify(updated));
+
       setShowAddModal(false);
       setNewItem({ name: "", quantity: "", unit: "kg", category: "Vegetables" });
       toast("success", "Item added");
@@ -515,6 +593,11 @@ export default function SupplierDashboard() {
     } catch (err) {
       toast("error", "Fulfill failed", err?.response?.data?.detail || "Check backend.");
     }
+  };
+
+  const handleReject = (id) => {
+    setRequests(prev => prev.filter(r => r.id !== id));
+    toast("info", "Request Rejected", "Order has been removed.");
   };
 
   // Risk zones
@@ -600,44 +683,51 @@ export default function SupplierDashboard() {
     }, 600);
   };
 
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   return (
-    <div className={`min-h-screen flex ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'}`}>
+    <div className={`min-h-screen flex ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'}`}>
       <ToastStack toasts={toasts} remove={removeToast} />
 
       {/* Modern Gradient Sidebar - 5% */}
       <aside className={`w-[5%] ${darkMode ? 'bg-slate-900/95 backdrop-blur-xl' : 'bg-white/95 backdrop-blur-xl'} border-r ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex flex-col items-center py-6 gap-1 shadow-2xl`}>
-        <a
-          href="#inventory"
+        <button
+          onClick={() => scrollToSection("inventory")}
           title="Inventory"
           className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-emerald-400' : 'text-slate-700 hover:text-emerald-600'} hover:bg-emerald-500/10 hover:shadow-lg hover:shadow-emerald-500/20`}
         >
           <Package size={22} className="group-hover:scale-110 transition-transform" />
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </a>
-        <a
-          href="#orders"
+        </button>
+        <button
+          onClick={() => scrollToSection("orders")}
           title="Orders"
           className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-700 hover:text-blue-600'} hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20`}
         >
           <Truck size={22} className="group-hover:scale-110 transition-transform" />
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-blue-400 to-blue-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </a>
-        <a
-          href="#alerts"
+        </button>
+        <button
+          onClick={() => scrollToSection("alerts")}
           title="Alerts"
           className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-amber-400' : 'text-slate-700 hover:text-amber-600'} hover:bg-amber-500/10 hover:shadow-lg hover:shadow-amber-500/20`}
         >
           <AlertTriangle size={22} className="group-hover:scale-110 transition-transform" />
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-amber-400 to-amber-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </a>
-        <a
-          href="#spoilage"
+        </button>
+        <button
+          onClick={() => scrollToSection("spoilage")}
           title="Spoilage Monitor"
           className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-rose-400' : 'text-slate-700 hover:text-rose-600'} hover:bg-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20`}
         >
           <Thermometer size={22} className="group-hover:scale-110 transition-transform" />
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-rose-400 to-rose-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </a>
+        </button>
         <button
           onClick={() => setShowRiskMap(true)}
           title="Risk Zones"
@@ -646,15 +736,14 @@ export default function SupplierDashboard() {
           <MapIcon size={22} className="group-hover:scale-110 transition-transform" />
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-red-400 to-red-600 rounded-r-full group-hover:h-8 transition-all"></div>
         </button>
-        <a
-          href="#summary"
+        <button
           onClick={(e) => { e.preventDefault(); setShowAnalytics(true); }}
           title="Analytics"
           className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-purple-400' : 'text-slate-700 hover:text-purple-600'} hover:bg-purple-500/10 hover:shadow-lg hover:shadow-purple-500/20`}
         >
           <BarChart3 size={22} className="group-hover:scale-110 transition-transform" />
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-purple-400 to-purple-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </a>
+        </button>
         <button
           onClick={() => setNotificationsOpen(!notificationsOpen)}
           title="Notifications"
@@ -669,7 +758,7 @@ export default function SupplierDashboard() {
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-r-full group-hover:h-8 transition-all"></div>
         </button>
         <button
-          onClick={() => toast('info', 'Team', 'Team management coming soon')}
+          onClick={() => setShowTeamModal(true)}
           title="Team"
           className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-700 hover:text-indigo-600'} hover:bg-indigo-500/10 hover:shadow-lg hover:shadow-indigo-500/20`}
         >
@@ -686,79 +775,134 @@ export default function SupplierDashboard() {
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded-r-full group-hover:h-8 transition-all"></div>
         </button>
         <button
-          onClick={() => toast('info', 'Settings', 'Settings panel coming soon')}
+          onClick={() => setShowSettingsModal(true)}
           title="Settings"
           className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-slate-300' : 'text-slate-700 hover:text-slate-800'} ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-100'} hover:shadow-lg`}
         >
           <Settings size={22} className="group-hover:rotate-90 transition-transform duration-300" />
         </button>
-        <button
-          onClick={() => setShowAddModal(true)}
-          title="Add Item"
-          className="w-12 h-12 flex items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 transition-all text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105"
-        >
-          <Plus size={24} className="font-bold" />
-        </button>
       </aside>
 
       {/* Main Content - 65-95% */}
       <main className={`transition-all duration-300 ${chatOpen ? 'w-[65%]' : 'w-[95%]'} overflow-y-auto`}>
-        <div className={`${darkMode ? 'bg-slate-900' : 'bg-white/70 backdrop-blur'} border-r ${darkMode ? 'border-slate-800' : 'border-slate-200'} min-h-screen`}>
-          {/* Premium Header */}
-          <header className="px-6 py-5 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white shadow-xl">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-lg">
-                  <Package size={24} />
+        <div className={`${darkMode ? 'bg-slate-900' : 'bg-white/70 backdrop-blur'} border-r ${darkMode ? 'border-slate-800' : 'border-slate-200'} h-auto min-h-[160px]`}>
+          
+          {/* FIXED ALERT BAR */}
+          {crisisAlerts.length > 0 && (
+            <div className="bg-red-600 text-white px-6 py-3 flex items-center justify-between shadow-md sticky top-0 z-30">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-white/20 rounded-full animate-pulse">
+                  <ShieldAlert size={20} className="text-white" />
                 </div>
                 <div>
-                  <div className="text-[24px] font-black drop-shadow-md">{t("supplier_dashboard", { defaultValue: "Supplier Dashboard" })}</div>
-                  <div className="bg-blue-500/20 border border-blue-400/30 px-3 py-1 rounded-full text-xs text-blue-100 font-semibold flex items-center gap-2 shadow-sm">
-                    <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></span>
-                    {t("live_sync", { defaultValue: "Live Sync" })}: {localizeDigits(lastSync.toLocaleTimeString(), lang)}
+                  <div className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
+                    CRISIS ALERT: {crisisAlerts[0].type}
+                    <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">{crisisAlerts[0].severity}</span>
+                  </div>
+                  <div className="text-xs text-red-100 flex items-center gap-3">
+                    <span className="flex items-center gap-1"><MapIcon size={10} /> {crisisAlerts[0].location}</span>
+                    <span>•</span>
+                    <span>{crisisAlerts[0].time}</span>
+                    <span>•</span>
+                    <span>{formatNumber(crisisAlerts[0].affected, lang)} affected</span>
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setShowRiskMap(true)} className="bg-white text-red-600 px-4 py-1.5 rounded-full text-xs font-bold hover:bg-red-50 transition-colors shadow-sm">
+                View on Map
+              </button>
+            </div>
+          )}
+
+          {/* Premium Header */}
+          <header className="px-4 py-3 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white shadow-md">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-sm">
+                  <Package size={18} />
+                </div>
+                <div>
+                  <div className="text-lg font-black drop-shadow-sm leading-tight">{t("supplier_dashboard", { defaultValue: "Supplier Dashboard" })}</div>
+                  <div className="flex items-center gap-2 text-[10px] font-semibold text-emerald-50 opacity-90">
+                    <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-pulse"></span>
+                        {t("live_sync", { defaultValue: "Live" })}: {localizeDigits(timeAgo, lang)}
+                    </span>
+                    {demoMode && (
+                        <>
+                            <span>•</span>
+                            <span className="text-amber-200">Demo Data</span>
+                        </>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="hidden md:flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/20">
-                  <PackageCheck className="text-emerald-100" size={18} />
-                  <div>
-                    <div className="text-[10px] text-emerald-100 font-semibold uppercase tracking-wide">{t("orders_completed", { defaultValue: "Orders" })}</div>
-                    <div className="text-lg font-black leading-none">{ordersCompleted}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/20">
-                  <Package className="text-emerald-100" size={18} />
-                  <div>
-                    <div className="text-[10px] text-emerald-100 font-semibold uppercase tracking-wide">{t("items", { defaultValue: "Items" })}</div>
-                    <div className="text-lg font-black leading-none">{totalItems}</div>
-                  </div>
-                </div>
+              {/* Compact Stats */}
+              <div className="hidden md:flex items-center gap-4 text-xs font-bold bg-black/10 rounded-lg px-3 py-1.5 border border-white/10">
+                 <div className="flex items-center gap-1.5">
+                    <PackageCheck size={14} className="text-emerald-200" />
+                    <span>{ordersCompleted} Orders</span>
+                 </div>
+                 <div className="w-px h-3 bg-white/20"></div>
+                 <div className="flex items-center gap-1.5">
+                    <Package size={14} className="text-blue-200" />
+                    <span>{totalItems} Items</span>
+                 </div>
+                 <div className="w-px h-3 bg-white/20"></div>
+                 <div className="flex items-center gap-1.5">
+                    <AlertTriangle size={14} className="text-amber-200" />
+                    <span>{formatNumber(spoilageRows.filter(s => s.risk).length, lang)} Alerts</span>
+                 </div>
               </div>
 
               <div className="flex items-center gap-2">
+                {/* LIVE STATUS INDICATOR */}
+                <div className="hidden lg:block text-right mr-3">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                    </span>
+                    <span className="text-xs font-bold text-white drop-shadow-sm">System Active</span>
+                  </div>
+                  <div className="text-[10px] text-emerald-100 font-medium opacity-90">
+                    Last sync: {localizeDigits(timeAgo, lang)}
+                  </div>
+                </div>
+
+                {/* Demo Mode Toggle */}
+                <div className="hidden md:flex items-center gap-2 mr-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Demo</span>
+                  <button 
+                    onClick={() => setDemoMode(!demoMode)}
+                    className={`w-7 h-4 rounded-full relative transition-colors duration-300 ${demoMode ? 'bg-emerald-300' : 'bg-slate-600/50'}`}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${demoMode ? 'left-3.5' : 'left-0.5'}`}></div>
+                  </button>
+                </div>
+
                 <button
                   onClick={toggleLanguage}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm"
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-2 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-all"
                   type="button"
                 >
-                  <Globe size={16} />
+                  <Globe size={14} />
                   {lang === "en" ? "EN" : lang === "hi" ? "HI" : lang === "mni" ? "MNI" : "OR"}
                 </button>
 
                 <button
                   onClick={() => setShowSOSModal(true)}
-                  className="bg-red-600 hover:bg-red-700 backdrop-blur-sm border border-red-500 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm animate-pulse"
+                  className="bg-red-600 hover:bg-red-700 backdrop-blur-sm border border-red-500 px-2 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-all animate-pulse"
                   type="button"
                   title="Emergency SOS"
                 >
-                  <ShieldAlert size={16} /> SOS
+                  <ShieldAlert size={14} /> SOS
                 </button>
 
                 <button
                   onClick={() => setShowExport(true)}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm"
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-lg transition-all"
                   type="button"
                   title="Export Reports"
                 >
@@ -767,7 +911,7 @@ export default function SupplierDashboard() {
 
                 <button
                   onClick={() => setShowBroadcast(true)}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all shadow-sm"
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-lg transition-all"
                   type="button"
                   title="Emergency Broadcast"
                 >
@@ -776,11 +920,11 @@ export default function SupplierDashboard() {
 
                 <button
                   onClick={() => navigate("/login")}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl text-sm font-bold inline-flex items-center gap-2 transition-all shadow-sm"
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-lg transition-all"
                   type="button"
+                  title={t("logout", { defaultValue: "Logout" })}
                 >
                   <LogOut size={16} />
-                  {t("logout", { defaultValue: "Logout" })}
                 </button>
               </div>
             </div>
@@ -790,307 +934,121 @@ export default function SupplierDashboard() {
 
           {/* Content */}
           <div className={`p-6 md:p-8 space-y-8 ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-b from-blue-50/50 to-indigo-50/50'}`}>
-
-            {/* CRISIS ALERTS SECTION - TOP PRIORITY */}
-            <div className="bg-gradient-to-br from-red-50 via-orange-50 to-amber-50 rounded-3xl p-6 border-2 border-red-200 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg animate-pulse">
-                    <ShieldAlert className="text-white" size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                      🚨 Crisis Detection System
-                    </h2>
-                    <p className="text-xs text-slate-600 font-semibold">Multi-source real-time monitoring • NDMA • News • SOS • Police</p>
-                  </div>
-                </div>
-                <div className="bg-red-600 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider animate-pulse">
-                  {crisisAlerts.length} Active Alerts
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {crisisAlerts.map((alert) => (
-                  <div key={alert.id} className={`bg-white rounded-2xl p-4 border-2 ${alert.severity === 'critical' ? 'border-red-500 shadow-lg shadow-red-200' :
-                      alert.severity === 'high' ? 'border-orange-400 shadow-lg shadow-orange-200' :
-                        'border-amber-300 shadow-md'
-                    } hover:scale-105 transition-transform`}>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full animate-pulse ${alert.severity === 'critical' ? 'bg-red-600' :
-                            alert.severity === 'high' ? 'bg-orange-500' : 'bg-amber-500'
-                          }`}></div>
-                        <span className={`text-xs font-black uppercase px-2 py-1 rounded-full ${alert.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                            alert.severity === 'high' ? 'bg-orange-100 text-orange-700' :
-                              'bg-amber-100 text-amber-700'
-                          }`}>
-                          {alert.severity}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-semibold">{alert.time}</span>
-                    </div>
-
-                    <h3 className="font-bold text-slate-900 mb-1 text-sm">{alert.type}</h3>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 mb-2">
-                      <MapIcon size={12} className="text-red-600" />
-                      <span className="font-semibold">{alert.location}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-                      <div className="flex items-center gap-2">
-                        <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-[10px] font-bold">
-                          📡 {alert.source}
-                        </div>
-                        <div className="bg-purple-100 text-purple-700 px-2 py-1 rounded-lg text-[10px] font-bold">
-                          👥 {formatNumber(alert.affected, lang)} affected
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-slate-200">
-                <div className="flex items-start gap-2 text-xs text-slate-700">
-                  <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                  <p>
-                    <span className="font-bold">How we detect crises:</span> We use a multi-channel approach combining Government APIs (NDMA), real-time news monitoring, crowdsourced SOS reports from consumers, police emergency reports, and manual verification by authorities.
-                  </p>
-                </div>
-              </div>
+          
+            {/* Quick KPIs */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <SmallStat label="Total Items" value={totalItems} />
+              <SmallStat label="Pending Requests" value={formatNumber(requests.length, lang)} />
+              <SmallStat label="Risk Alerts" value={formatNumber(spoilageRows.filter(s => s.risk).length, lang)} />
             </div>
 
             <div>
-              <div className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <div className="text-lg font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></span>
                 {t("quick_actions", { defaultValue: "Quick Actions" })}
               </div>
-              <div className="mt-1 text-sm text-slate-500">{t("quick_desc", { defaultValue: "Monitor inventory, orders, spoilage and chat in real time." })}</div>
+              <div className="mt-1 text-sm text-slate-500 dark:text-slate-300">{t("quick_desc", { defaultValue: "Monitor inventory, orders, spoilage and chat in real time." })}</div>
             </div>
 
-            {/* Section 1: Inventory & Orders */}
-            <div id="inventory" className="space-y-6 scroll-mt-24">
-              <div className="text-base font-black text-slate-900 flex items-center gap-2">
-                <span className="text-2xl">📦</span>
-                {t("inventory_orders", { defaultValue: "Inventory & Orders" })}
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* MAIN DASHBOARD GRID */}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-6 items-start">
+              
+              {/* LEFT COLUMN: Inventory + Monitoring */}
+              <div className="space-y-6">
                 {/* Inventory */}
-                <SoftCard
-                  title={t("inventory_mgmt", { defaultValue: "Inventory Management" })}
-                  right={
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={addDefaults}
-                        className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
-                        type="button"
-                      >
-                        + {t("add_defaults", { defaultValue: "Add Defaults" })}
-                      </button>
+                <div id="inventory" className="scroll-mt-24">
+                  <SoftCard
+                    title={t("inventory_mgmt", { defaultValue: "Inventory Management" })}
+                    right={
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={addDefaults}
+                          className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
+                          type="button"
+                        >
+                          + {t("add_defaults", { defaultValue: "Add Defaults" })}
+                        </button>
 
-                      <button
-                        onClick={() => setShowAddModal(true)}
-                        className="text-sm font-semibold px-4 py-2 rounded-xl bg-[#2F6FED] hover:bg-[#295fcb] text-white inline-flex items-center gap-2"
-                        type="button"
-                      >
-                        <Plus size={16} />
-                        {t("add_item", { defaultValue: "Add Item" })}
-                      </button>
-                    </div>
-                  }
-                >
-                  <div className="overflow-hidden rounded-xl border border-slate-200">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50">
-                        <tr className="text-slate-500">
-                          <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
-                          <th className="text-left px-4 py-3 font-semibold">{t("col_qty", { defaultValue: "Quantity" })}</th>
-                          <th className="text-left px-4 py-3 font-semibold">{t("col_action", { defaultValue: "Action" })}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {loading ? (
-                          <tr>
-                            <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
-                              Loading…
-                            </td>
+                        <button
+                          onClick={() => setShowAddModal(true)}
+                          className="text-sm font-semibold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"
+                          type="button"
+                        >
+                          <Plus size={16} />
+                          {t("add_item", { defaultValue: "Add Item" })}
+                        </button>
+                      </div>
+                    }
+                  >
+                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-700/50">
+                          <tr className="text-slate-500 dark:text-slate-400">
+                            <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
+                            <th className="text-left px-4 py-3 font-semibold">{t("col_qty", { defaultValue: "Quantity" })}</th>
+                            <th className="text-left px-4 py-3 font-semibold">{t("col_action", { defaultValue: "Action" })}</th>
                           </tr>
-                        ) : inventory.length ? (
-                          inventory.map((it) => (
-                            <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50/70 transition">
-                              <td className="px-4 py-3 font-semibold text-slate-900">{it.name}</td>
-                              <td className="px-4 py-3 text-slate-700">
-                                {formatNumber(it.quantity, lang)} {it.unit}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  <IconBtn title="Edit" onClick={() => handleUpdate(it)} variant="blue">
-                                    <Pencil size={16} />
-                                  </IconBtn>
-
-                                  <button
-                                    onClick={() => setDeleteId(it.id)}
-                                    className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
-                                    type="button"
-                                  >
-                                    <Trash size={14} />
-                                    {t("delete", { defaultValue: "Delete" })}
-                                  </button>
-                                </div>
+                        </thead>
+                        <tbody>
+                          {loading ? (
+                            <tr>
+                              <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
+                                Loading…
                               </td>
                             </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
-                              {t("inventory_empty", { defaultValue: "Inventory Empty" })}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </SoftCard>
+                          ) : inventory.length ? (
+                            inventory.map((it) => (
+                              <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50/70 dark:border-slate-700 dark:hover:bg-slate-700/50 transition">
+                                <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-200">{it.name}</td>
+                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
+                                  {formatNumber(it.quantity, lang)} {it.unit}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <IconBtn title="Edit" onClick={() => handleUpdate(it)} variant="slate">
+                                      <Pencil size={16} />
+                                    </IconBtn>
 
-                {/* Supplier Orders */}
-                <SoftCard
-                  id="orders"
-                  title={t("supplier_orders", { defaultValue: "Food Requests" })}
-                  right={<div className="text-[11px] font-semibold text-slate-400 uppercase">{t("pending_requests", { defaultValue: "PENDING REQUESTS" })}</div>}
-                >
-                  <div className="space-y-4">
-                    {(orders.length ? orders : [{ id: 1, consumer_name: "FreshBite Cafe", item_name: "Tomatoes", quantity: 15, status: "Status" }])
-                      .slice(0, 3)
-                      .map((o) => {
-                        const variant = o.status === "Status" ? "red" : o.status === "Accepted" ? "green" : "blue";
-
-                        return (
-                          <div key={o.id} className="rounded-2xl border border-slate-200/70 bg-white shadow-sm p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="font-semibold text-slate-900">{o.consumer_name || "Client"}</div>
-                                <div className="text-xs text-slate-500 mt-1">
-                                  {(o.status === "Delivered"
-                                    ? t("delivered_order", { defaultValue: "Delivered order" })
-                                    : o.status === "Accepted"
-                                      ? t("accepted_order", { defaultValue: "Accepted order" })
-                                      : t("discovered_order", { defaultValue: "Discovered order" }))}{" "}
-                                  : <span className="font-semibold">{formatNumber(o.quantity, lang)}</span>{" "}
-                                  {t("units", { defaultValue: "units" })} • <span className="text-slate-700">{o.item_name}</span>
-                                </div>
-
-                                <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
-                                  <span className="inline-flex items-center gap-1">
-                                    <CheckCircle2 size={14} className="text-emerald-600" />
-                                    {formatNumber(Math.max(10, Number(o.quantity) || 15), lang)} {t("lbs", { defaultValue: "lbs" })}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1">
-                                    <Timer size={14} className="text-amber-600" />
-                                    {localizeDigits(t("time_ago", { defaultValue: "1 min • 30 ago" }), lang)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <Pill variant={variant}>
-                                {o.status === "Delivered" ? <PackageCheck size={14} /> : o.status === "Accepted" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                                {o.status === "Status" ? t("status", { defaultValue: "Status" }) : o.status}
-                              </Pill>
-                            </div>
-
-                            <div className="mt-3 flex items-center justify-between">
-                              <div className="text-xs text-slate-400">{localizeDigits(t("order_id", { defaultValue: "21 Ago" }), lang)}</div>
-
-                              {o.status !== "Delivered" ? (
-                                <button
-                                  onClick={() => handleFulfill(o.id)}
-                                  className="text-xs font-semibold px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 inline-flex items-center gap-2"
-                                  type="button"
-                                >
-                                  <Truck size={14} />
-                                  {t("fulfill", { defaultValue: "Fulfill" })}
-                                </button>
-                              ) : (
-                                <div className="text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2">
-                                  {localizeDigits(t("eta", { defaultValue: "ETA 10 Mins" }), lang)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </SoftCard>
-              </div>
-            </div>
-
-            {/* Section 2: Monitoring & Alerts */}
-            <div id="alerts" className="space-y-6 scroll-mt-24">
-              <div className="text-base font-black text-slate-900 flex items-center gap-2">
-                <span className="text-2xl">⚠️</span>
-                {t("monitoring_alerts", { defaultValue: "Monitoring & Alerts" })}
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Stock Alerts */}
-                <SoftCard title={t("stock_alerts", { defaultValue: "Stock Alerts" })}>
-                  <div className="overflow-hidden rounded-xl border border-slate-200">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50">
-                        <tr className="text-slate-500">
-                          <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
-                          <th className="text-left px-4 py-3 font-semibold">{t("col_temp", { defaultValue: "Temperature" })}</th>
-                          <th className="text-left px-4 py-3 font-semibold">{t("col_spoil", { defaultValue: "Spoilage" })}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {stockRows.map((row) => (
-                          <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50/70 transition">
-                            <td className="px-4 py-3 font-semibold text-slate-900">{row.name}</td>
-                            <td className="px-4 py-3 text-slate-700">{localizeDigits(row.temp, lang)}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <Pill variant={row.risk ? "red" : "green"}>
-                                  {row.risk ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
-                                  {row.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}
-                                </Pill>
-                                <span className="text-xs text-slate-500">
-                                  {row.risk
-                                    ? localizeDigits(t("spoil_in", { defaultValue: "Spoil in 8 hrs" }), lang)
-                                    : localizeDigits(t("safe_for", { defaultValue: "Safe for 2 days" }), lang)}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {lowStockItems.length === 0 && (
-                    <div className="mt-4 text-xs text-slate-500 inline-flex items-center gap-2">
-                      <CheckCircle2 size={16} className="text-emerald-600" />
-                      {t("stock_healthy", { defaultValue: "Stock levels healthy." })}
+                                    <button
+                                      onClick={() => setDeleteId(it.id)}
+                                      className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
+                                      type="button"
+                                    >
+                                      <Trash size={14} />
+                                      {t("delete", { defaultValue: "Delete" })}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
+                                {t("inventory_empty", { defaultValue: "Inventory Empty" })}
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-                </SoftCard>
+                  </SoftCard>
+                </div>
 
                 {/* Live Spoilage Monitor */}
                 <SoftCard id="spoilage" title={t("live_spoilage", { defaultValue: "Live Spoilage Monitor" })} right={<Thermometer className="text-indigo-500" />}>
                   <div className="space-y-4">
                     {spoilageRows.slice(0, 3).map((s, idx) => (
-                      <div key={s.id ?? idx} className="rounded-2xl border border-slate-200/70 bg-white p-4">
+                      <div key={s.id ?? idx} className="rounded-2xl border border-slate-200/70 bg-white dark:bg-slate-700/50 dark:border-slate-600 p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="font-semibold text-slate-900">{s.location || "Warehouse"}</div>
-                            <div className="text-xs text-slate-500 mt-1">
+                            <div className="font-semibold text-slate-900 dark:text-slate-200">{s.location || "Warehouse"}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                               {s.risk
                                 ? localizeDigits(`Spoil in ${s.hours} hours`, lang)
                                 : localizeDigits("Safe for 2 days", lang)}
                             </div>
 
-                            <div className="mt-2 text-xs text-slate-600">
+                            <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
                               <span className="inline-flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${s.risk ? "bg-rose-500" : "bg-emerald-500"}`} />
                                 Temp: <span className="font-semibold">{localizeDigits(`${s.temp}°C`, lang)}</span> • Hum:{" "}
@@ -1100,7 +1058,7 @@ export default function SupplierDashboard() {
                           </div>
 
                           <div className="text-right">
-                            <div className="text-xs text-slate-500">{localizeDigits(`${s.percent}%`, lang)}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">{localizeDigits(`${s.percent}%`, lang)}</div>
                             <Pill variant={s.risk ? "red" : "green"}>{s.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}</Pill>
                           </div>
                         </div>
@@ -1120,46 +1078,194 @@ export default function SupplierDashboard() {
                   </div>
                 </SoftCard>
               </div>
+
+              {/* RIGHT COLUMN: Requests + Alerts */}
+              <div className="space-y-6">
+                
+                {/* Supplier Orders */}
+                <SoftCard
+                  id="orders"
+                  title={t("supplier_orders", { defaultValue: "Food Requests" })}
+                  right={<div className="text-[11px] font-semibold text-slate-400 uppercase">{t("pending_requests", { defaultValue: "PENDING REQUESTS" })}</div>}
+                >
+                  <div className="space-y-4">
+                    {(orders.length ? orders : [{ id: 1, consumer_name: "FreshBite Cafe", item_name: "Tomatoes", quantity: 15, status: "Status" }])
+                      .slice(0, 3)
+                      .map((o) => {
+                        const variant = o.status === "Status" ? "red" : o.status === "Accepted" ? "green" : "blue";
+
+                        return (
+                          <div key={o.id} className="rounded-2xl border border-slate-200/70 bg-white dark:bg-slate-700/50 dark:border-slate-600 shadow-sm p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                {o.id % 2 !== 0 && (
+                                  <div className="mb-1">
+                                    <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200 animate-pulse">
+                                      🔴 HIGH PRIORITY
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="font-semibold text-slate-900 dark:text-slate-200">{o.consumer_name || "Client"}</div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                  {(o.status === "Delivered"
+                                    ? t("delivered_order", { defaultValue: "Delivered order" })
+                                    : o.status === "Accepted"
+                                      ? t("accepted_order", { defaultValue: "Accepted order" })
+                                      : t("discovered_order", { defaultValue: "Discovered order" }))}{" "}
+                                  : <span className="font-semibold">{formatNumber(o.quantity, lang)}</span>{" "}
+                                  {t("units", { defaultValue: "units" })} • <span className="text-slate-700 dark:text-slate-300">{o.item_name}</span>
+                                </div>
+
+                                <div className="mt-2 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                                  <span className="inline-flex items-center gap-1">
+                                    <CheckCircle2 size={14} className="text-emerald-600" />
+                                    {formatNumber(Math.max(10, Number(o.quantity) || 15), lang)} {t("lbs", { defaultValue: "lbs" })}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <Timer size={14} className="text-amber-600" />
+                                    {localizeDigits(t("time_ago", { defaultValue: "1 min • 30 ago" }), lang)}
+                                  </span>
+                                </div>
+
+                                {/* INTELLIGENT MATCHING SCORE */}
+                                <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 dark:bg-indigo-900/30 dark:border-indigo-800">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Match Score</span>
+                                    <span className="text-xs font-black text-indigo-600 dark:text-indigo-200">82%</span>
+                                  </div>
+                                  <div className="w-full bg-indigo-200 dark:bg-indigo-800 h-1.5 rounded-full overflow-hidden mb-2">
+                                    <div className="bg-indigo-500 h-full rounded-full" style={{ width: '82%' }}></div>
+                                  </div>
+                                  <div className="flex items-center gap-3 text-[10px] text-indigo-800 dark:text-indigo-300 font-medium">
+                                    <span className="flex items-center gap-1"><MapIcon size={10} /> 2.1 km</span>
+                                    <span className="flex items-center gap-1"><Timer size={10} /> ETA 18 min</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <Pill variant={variant}>
+                                {o.status === "Delivered" ? <PackageCheck size={14} /> : o.status === "Accepted" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                                {o.status === "Status" ? t("status", { defaultValue: "Status" }) : o.status}
+                              </Pill>
+                            </div>
+
+                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-600">
+                              {o.status !== "Delivered" ? (
+                                <div className="flex gap-3">
+                                  <button
+                                    onClick={() => handleReject(o.id)}
+                                    className="flex-1 py-3 rounded-xl border-2 border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:border-rose-200 transition-all uppercase tracking-wider"
+                                    type="button"
+                                  >
+                                    Reject
+                                  </button>
+                                  <button
+                                    onClick={() => handleFulfill(o.id)}
+                                    className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
+                                    type="button"
+                                  >
+                                    <CheckCircle2 size={16} />
+                                    Approve
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="w-full py-3 text-center text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
+                                  {localizeDigits(t("eta", { defaultValue: "ETA 10 Mins" }), lang)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </SoftCard>
+
+                {/* Stock Alerts */}
+                <div id="alerts" className="scroll-mt-24">
+                  <SoftCard title={t("stock_alerts", { defaultValue: "Stock Alerts" })}>
+                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-700/50">
+                          <tr className="text-slate-500 dark:text-slate-400">
+                            <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
+                            <th className="text-left px-4 py-3 font-semibold">{t("col_temp", { defaultValue: "Temperature" })}</th>
+                            <th className="text-left px-4 py-3 font-semibold">{t("col_spoil", { defaultValue: "Spoilage" })}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stockRows.map((row) => (
+                            <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50/70 dark:border-slate-700 dark:hover:bg-slate-700/50 transition">
+                              <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-200">{row.name}</td>
+                              <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{localizeDigits(row.temp, lang)}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <Pill variant={row.risk ? "red" : "green"}>
+                                    {row.risk ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                                    {row.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}
+                                  </Pill>
+                                  <span className="text-xs text-slate-500">
+                                    {row.risk
+                                      ? localizeDigits(t("spoil_in", { defaultValue: "Spoil in 8 hrs" }), lang)
+                                      : localizeDigits(t("safe_for", { defaultValue: "Safe for 2 days" }), lang)}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {lowStockItems.length === 0 && (
+                      <div className="mt-4 text-xs text-slate-500 inline-flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                        {t("stock_healthy", { defaultValue: "Stock levels healthy." })}
+                      </div>
+                    )}
+                  </SoftCard>
+                </div>
+
+              </div>
             </div>
 
             {/* Section 3: Quick Stats Summary */}
             <div id="summary" className="space-y-6 scroll-mt-24">
-              <div className="text-base font-black text-slate-900 flex items-center gap-2">
+              <div className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span className="text-2xl">📊</span>
                 {t("quick_summary", { defaultValue: "Quick Summary" })}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-5">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-5 dark:from-slate-800 dark:to-slate-800 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs text-emerald-700 font-semibold uppercase">{t("total_inventory", { defaultValue: "Total Inventory" })}</div>
-                      <div className="text-2xl font-extrabold text-emerald-900 mt-1">{formatNumber(inventory.length, lang)}</div>
-                      <div className="text-xs text-emerald-600 mt-1">{t("items_in_stock", { defaultValue: "items in stock" })}</div>
+                      <div className="text-xs text-emerald-700 font-semibold uppercase dark:text-emerald-200">{t("total_inventory", { defaultValue: "Total Inventory" })}</div>
+                      <div className="text-2xl font-extrabold text-emerald-900 mt-1 dark:text-white">{formatNumber(inventory.length, lang)}</div>
+                      <div className="text-xs text-emerald-600 mt-1 dark:text-emerald-300">{t("items_in_stock", { defaultValue: "items in stock" })}</div>
                     </div>
-                    <Package className="text-emerald-600" size={32} />
+                    <Package className="text-emerald-600 dark:text-emerald-400" size={32} />
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-5">
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-5 dark:from-slate-800 dark:to-slate-800 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs text-amber-700 font-semibold uppercase">{t("low_stock_items", { defaultValue: "Low Stock Items" })}</div>
-                      <div className="text-2xl font-extrabold text-amber-900 mt-1">{formatNumber(lowStockItems.length, lang)}</div>
-                      <div className="text-xs text-amber-600 mt-1">{t("need_attention", { defaultValue: "need attention" })}</div>
+                      <div className="text-xs text-amber-700 font-semibold uppercase dark:text-amber-200">{t("low_stock_items", { defaultValue: "Low Stock Items" })}</div>
+                      <div className="text-2xl font-extrabold text-amber-900 mt-1 dark:text-white">{formatNumber(lowStockItems.length, lang)}</div>
+                      <div className="text-xs text-amber-600 mt-1 dark:text-amber-300">{t("need_attention", { defaultValue: "need attention" })}</div>
                     </div>
-                    <AlertTriangle className="text-amber-600" size={32} />
+                    <AlertTriangle className="text-amber-600 dark:text-amber-400" size={32} />
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-2xl p-5">
+                <div className="bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-2xl p-5 dark:from-slate-800 dark:to-slate-800 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs text-rose-700 font-semibold uppercase">{t("spoilage_risk", { defaultValue: "Spoilage Risk" })}</div>
-                      <div className="text-2xl font-extrabold text-rose-900 mt-1">{formatNumber(spoilageRows.filter(s => s.risk).length, lang)}</div>
-                      <div className="text-xs text-rose-600 mt-1">{t("items_at_risk", { defaultValue: "items at risk" })}</div>
+                      <div className="text-xs text-rose-700 font-semibold uppercase dark:text-rose-200">{t("spoilage_risk", { defaultValue: "Spoilage Risk" })}</div>
+                      <div className="text-2xl font-extrabold text-rose-900 mt-1 dark:text-white">{formatNumber(spoilageRows.filter(s => s.risk).length, lang)}</div>
+                      <div className="text-xs text-rose-600 mt-1 dark:text-rose-300">{t("items_at_risk", { defaultValue: "items at risk" })}</div>
                     </div>
-                    <Thermometer className="text-rose-600" size={32} />
+                    <Thermometer className="text-rose-600 dark:text-rose-400" size={32} />
                   </div>
                 </div>
               </div>
@@ -1168,11 +1274,20 @@ export default function SupplierDashboard() {
         </div>
       </main>
 
+      {/* Floating Add Item Button (Primary Action) */}
+      <button
+        onClick={() => setShowAddModal(true)}
+        className="fixed bottom-24 right-6 z-40 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-full shadow-2xl hover:shadow-emerald-500/40 transition-all transform hover:scale-105 flex items-center gap-3 font-bold text-lg"
+      >
+        <Plus size={24} strokeWidth={3} />
+        {t("add_item", { defaultValue: "Add Item" })}
+      </button>
+
       {/* Export Reports Modal */}
       {showExport && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-6 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-6 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Download size={28} />
                 <div>
@@ -1382,7 +1497,7 @@ export default function SupplierDashboard() {
       {showAnalytics && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-6">
           <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-6 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-6 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <BarChart3 size={28} />
                 <div>
@@ -1596,7 +1711,7 @@ export default function SupplierDashboard() {
         {chatOpen && (
           <>
             {/* Chat Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <MessageSquare size={20} />
                 <h3 className="font-bold text-lg">{t("chat", { defaultValue: "Chat" })}</h3>
@@ -1615,7 +1730,7 @@ export default function SupplierDashboard() {
               <button
                 onClick={() => setChatMode("consumer")}
                 className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition inline-flex items-center justify-center gap-2 ${chatMode === "consumer"
-                    ? "bg-sky-600 text-white shadow-md"
+                    ? "bg-emerald-600 text-white shadow-md"
                     : "bg-white text-slate-600 hover:bg-slate-100"
                   }`}
                 type="button"
@@ -1625,7 +1740,7 @@ export default function SupplierDashboard() {
               <button
                 onClick={() => setChatMode("ai")}
                 className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition inline-flex items-center justify-center gap-2 ${chatMode === "ai"
-                    ? "bg-purple-600 text-white shadow-md"
+                    ? "bg-emerald-600 text-white shadow-md"
                     : "bg-white text-slate-600 hover:bg-slate-100"
                   }`}
                 type="button"
@@ -1647,11 +1762,11 @@ export default function SupplierDashboard() {
                     <div
                       key={idx}
                       className={`p-3 rounded-xl shadow-sm ${m.sender === "Supplier"
-                          ? "bg-sky-600 text-white ml-12"
+                          ? "bg-emerald-600 text-white ml-12"
                           : "bg-white text-slate-800 mr-12"
                         }`}
                     >
-                      <div className={`text-[10px] font-bold mb-1 ${m.sender === "Supplier" ? "text-sky-100" : "text-slate-500"
+                      <div className={`text-[10px] font-bold mb-1 ${m.sender === "Supplier" ? "text-emerald-100" : "text-slate-500"
                         }`}>
                         {m.sender}
                       </div>
@@ -1665,11 +1780,11 @@ export default function SupplierDashboard() {
                     <div
                       key={idx}
                       className={`p-3 rounded-xl shadow-sm ${m.type === "sent"
-                          ? "bg-purple-600 text-white ml-12"
+                          ? "bg-emerald-600 text-white ml-12"
                           : "bg-white text-slate-800 mr-12"
                         }`}
                     >
-                      <div className={`text-[10px] font-bold mb-1 ${m.type === "sent" ? "text-purple-100" : "text-slate-500"
+                      <div className={`text-[10px] font-bold mb-1 ${m.type === "sent" ? "text-emerald-100" : "text-slate-500"
                         }`}>
                         {m.sender}
                       </div>
@@ -1688,12 +1803,11 @@ export default function SupplierDashboard() {
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder={t("type_reply", { defaultValue: "Type message..." })}
-                  className="flex-1 border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  className="flex-1 border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
                 <button
                   type="submit"
-                  className={`px-4 py-3 rounded-xl font-semibold text-white inline-flex items-center gap-2 shadow-md hover:shadow-lg transition ${chatMode === "consumer" ? "bg-sky-600 hover:bg-sky-700" : "bg-purple-600 hover:bg-purple-700"
-                    }`}
+                  className="px-4 py-3 rounded-xl font-semibold text-white inline-flex items-center gap-2 shadow-md hover:shadow-lg transition bg-emerald-600 hover:bg-emerald-700"
                 >
                   <Send size={16} />
                 </button>
@@ -1707,7 +1821,7 @@ export default function SupplierDashboard() {
       {!chatOpen && (
         <button
           onClick={() => setChatOpen(true)}
-          className="fixed right-6 bottom-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all z-50 flex items-center gap-2"
+          className="fixed right-6 bottom-6 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all z-50 flex items-center gap-2"
           type="button"
         >
           <MessageSquare size={24} />
@@ -1740,14 +1854,14 @@ export default function SupplierDashboard() {
 
             <form onSubmit={handleAddItem} className="space-y-3">
               <input
-                className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-200"
                 placeholder={t("item_name", { defaultValue: "Item name" })}
                 value={newItem.name}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
               />
 
               <input
-                className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-200"
                 type="number"
                 placeholder={t("quantity", { defaultValue: "Quantity" })}
                 value={newItem.quantity}
@@ -1755,7 +1869,7 @@ export default function SupplierDashboard() {
               />
 
               <select
-                className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-200"
                 value={newItem.category}
                 onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
               >
@@ -1771,7 +1885,7 @@ export default function SupplierDashboard() {
                 <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-50 rounded-xl">
                   {t("cancel", { defaultValue: "Cancel" })}
                 </button>
-                <button type="submit" className="px-5 py-2 bg-[#2F6FED] text-white rounded-xl font-semibold hover:bg-[#295fcb]">
+                <button type="submit" className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700">
                   {t("submit", { defaultValue: "Submit" })}
                 </button>
               </div>
@@ -1829,6 +1943,90 @@ export default function SupplierDashboard() {
                   <MapIcon size={16} /> {t("map_help", { defaultValue: "Click map to add zone" })}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TEAM MODAL */}
+      {showTeamModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Team Management</h3>
+              <button onClick={() => setShowTeamModal(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">B</div>
+                  <div>
+                    <div className="font-bold text-sm">Breny</div>
+                    <div className="text-xs text-slate-500">Logistics Manager</div>
+                  </div>
+               </div>
+               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">S</div>
+                  <div>
+                    <div className="font-bold text-sm">Sinthoiba</div>
+                    <div className="text-xs text-slate-500">Inventory Specialist</div>
+                  </div>
+               </div>
+               <button className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-semibold hover:bg-slate-50 hover:border-slate-400 transition">
+                  + Add Team Member
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SETTINGS MODAL */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-white p-6 rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Settings</h3>
+              <button onClick={() => setShowSettingsModal(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><Moon size={18} /></div>
+                    <span className="font-medium text-slate-700">Dark Mode</span>
+                  </div>
+                  <button onClick={toggleDarkMode} className={`w-12 h-6 rounded-full transition-colors relative ${darkMode ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${darkMode ? 'left-7' : 'left-1'}`}></div>
+                  </button>
+               </div>
+               
+               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-cyan-100 text-cyan-600 rounded-lg"><Bell size={18} /></div>
+                    <span className="font-medium text-slate-700">Notifications</span>
+                  </div>
+                  <button onClick={() => setNotificationsEnabled(!notificationsEnabled)} className={`w-12 h-6 rounded-full transition-colors relative ${notificationsEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${notificationsEnabled ? 'left-7' : 'left-1'}`}></div>
+                  </button>
+               </div>
+
+               <div className="p-3 bg-slate-50 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Globe size={18} /></div>
+                    <span className="font-medium text-slate-700">Language</span>
+                  </div>
+                  <select 
+                    value={lang} 
+                    onChange={(e) => {
+                       i18n.changeLanguage(e.target.value);
+                       toast("info", "Language changed", `Now using: ${e.target.value.toUpperCase()}`);
+                    }}
+                    className="w-full p-2 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="en">English</option>
+                    <option value="hi">Hindi</option>
+                    <option value="mni">Manipuri</option>
+                    <option value="or">Odia</option>
+                  </select>
+               </div>
             </div>
           </div>
         </div>

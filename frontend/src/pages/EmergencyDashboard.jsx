@@ -11,9 +11,18 @@ import L from 'leaflet';
 
 const EmergencyDashboard = () => {
     const { t, i18n } = useTranslation();
-    const [riskZones, setRiskZones] = useState([]);
-    const [pendingAlerts, setPendingAlerts] = useState([]);
-    const [allAlerts, setAllAlerts] = useState([]);
+    const [riskZones, setRiskZones] = useState(() => {
+        const saved = localStorage.getItem('emergency_riskZones');
+        return saved ? JSON.parse(saved) : [];
+    });
+    const [pendingAlerts, setPendingAlerts] = useState(() => {
+        const saved = localStorage.getItem('emergency_pendingAlerts');
+        return saved ? JSON.parse(saved) : [];
+    });
+    const [allAlerts, setAllAlerts] = useState(() => {
+        const saved = localStorage.getItem('emergency_allAlerts');
+        return saved ? JSON.parse(saved) : [];
+    });
     const [addresses, setAddresses] = useState({});
     const navigate = useNavigate();
 
@@ -28,12 +37,19 @@ const EmergencyDashboard = () => {
     };
 
     const fetchData = () => {
-        axios.get('http://localhost:8000/risk-zones').then(res => setRiskZones(res.data));
+        axios.get('http://localhost:8000/risk-zones').then(res => {
+            setRiskZones(res.data);
+            localStorage.setItem('emergency_riskZones', JSON.stringify(res.data));
+        });
         axios.get('http://localhost:8000/sos-alerts/pending').then(res => {
             setPendingAlerts(res.data);
+            localStorage.setItem('emergency_pendingAlerts', JSON.stringify(res.data));
             res.data.forEach(alert => getAddress(alert.lat, alert.lng, alert.id));
         });
-        axios.get('http://localhost:8000/sos-alerts').then(res => setAllAlerts(res.data));
+        axios.get('http://localhost:8000/sos-alerts').then(res => {
+            setAllAlerts(res.data);
+            localStorage.setItem('emergency_allAlerts', JSON.stringify(res.data));
+        });
     };
 
     useEffect(() => {
