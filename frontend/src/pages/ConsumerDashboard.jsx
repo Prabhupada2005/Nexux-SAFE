@@ -285,7 +285,7 @@ const ConsumerDashboard = () => {
         }
 
         const user = JSON.parse(localStorage.getItem('foodtech_user'));
-        
+
         try {
             await axios.post('http://localhost:8000/sos-alert', {
                 lat: userLoc.lat,
@@ -294,7 +294,7 @@ const ConsumerDashboard = () => {
                 sender_name: user.name,
                 sender_type: 'consumer'
             });
-            
+
             setShowSOSModal(false);
             setSOSReason('');
             alert('SOS Alert sent to Emergency Command Center! Help is on the way.');
@@ -362,15 +362,15 @@ const ConsumerDashboard = () => {
 
         try {
             await axios.post('http://localhost:8000/request-food', {
-                consumer_name: user.name, 
-                item_name: reqItem.name, 
+                consumer_name: user.name,
+                item_name: reqItem.name,
                 quantity: parseFloat(reqItem.quantity),
                 center_id: selectedCenter?.id,
                 center_name: selectedCenter?.name,
                 delivery_type: reqItem.deliveryType
             });
             setShowRequestModal(false);
-            
+
             // Show route for both pickup and delivery
             if (userLoc && selectedCenter) {
                 if (reqItem.deliveryType === 'delivery') {
@@ -386,7 +386,7 @@ const ConsumerDashboard = () => {
             } else {
                 alert(reqItem.deliveryType === 'delivery' ? "Delivery Request Sent!" : "Pickup Request Confirmed!");
             }
-            
+
             setReqItem({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup', unit: 'kg' });
             setSelectedCenter(null);
 
@@ -412,7 +412,7 @@ const ConsumerDashboard = () => {
     // Helper: determine if selected food is a cooked/plate item
     const isCookedFood = (name) => {
         if (!name) return false;
-        const cookedList = ['rice meals','dal chawal','khichdi','vegetable curry','chapati pack','hot soup'];
+        const cookedList = ['rice meals', 'dal chawal', 'khichdi', 'vegetable curry', 'chapati pack', 'hot soup'];
         return cookedList.some(k => name.toLowerCase().includes(k));
     };
 
@@ -432,8 +432,8 @@ const ConsumerDashboard = () => {
         const user = JSON.parse(localStorage.getItem('foodtech_user'));
         if (activeChat === 'supplier' && activeChatCenter) {
             try {
-                await axios.post(`http://localhost:8000/messages/${activeChatCenter.id}`, { 
-                    sender: user.name, 
+                await axios.post(`http://localhost:8000/messages/${activeChatCenter.id}`, {
+                    sender: user.name,
                     content: msgText,
                     sender_type: 'consumer'
                 });
@@ -457,7 +457,7 @@ const ConsumerDashboard = () => {
             const userQuery = msgText;
             setMsgText("");
             setIsTyping(true);
-            
+
             // AI Response Logic
             try {
                 // Attempt to call backend AI service
@@ -471,86 +471,131 @@ const ConsumerDashboard = () => {
                 setAiMessages(prev => [...prev, { sender: 'AI Bot', content: response.data.response, self: false }]);
                 setIsTyping(false);
             } catch (error) {
-                console.warn("AI Backend unreachable, using local fallback logic.");
-            setTimeout(() => {
-                let aiResponse = "";
-                const lowerQuery = userQuery.toLowerCase();
-                
-                // Food center queries
-                if (lowerQuery.includes('nearest') || lowerQuery.includes('closest') || lowerQuery.includes('near')) {
-                    if (nearestCenter) {
-                        aiResponse = `The nearest food center is ${nearestCenter.name}, located ${nearestCenter.distance} km away. It has ${nearestCenter.crowd} crowd and ${nearestCenter.items} items available. ${nearestCenter.cookedFood ? 'Hot meals are available!' : ''}`;
-                    } else {
-                        aiResponse = "Please enable location access to find the nearest center.";
+                // --- GEMINI API INTEGRATION (Fallback) ---
+                // TODO: Get a free API key from https://aistudio.google.com/app/apikey and paste it below
+                const GEMINI_API_KEY = "";
+
+                if (GEMINI_API_KEY) {
+                    try {
+                        // 1. Prepare Context (Centers + Distance)
+                        const contextCenters = centers.map(c => {
+                            let dist = "unknown";
+                            if (userLoc) {
+                                const R = 6371; // Earth radius km
+                                const dLat = (c.lat - userLoc.lat) * Math.PI / 180;
+                                const dLng = (c.lng - userLoc.lng) * Math.PI / 180;
+                                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(userLoc.lat * Math.PI / 180) * Math.cos(c.lat * Math.PI / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+                                dist = (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1) + " km";
+                            }
+                            return { name: c.name, status: c.status, crowd: c.crowd, menu: c.menu, distance: dist, hotMeals: c.cookedFood };
+                        });
+
+                        // 2. Call Gemini API
+                        const prompt = `You are the Nexus FoodTech AI Assistant. Help the consumer find food centers.
+Context:
+- User Location: ${userLoc ? `Lat ${userLoc.lat}, Lng ${userLoc.lng}` : 'Unknown'}
+- Centers Data: ${JSON.stringify(contextCenters)}
+
+User Query: "${userQuery}"
+
+Answer concisely, helpfully, and naturally. If asking for nearest, check the calculated distances.`;
+
+                        const res = await axios.post(
+                            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+                            { contents: [{ parts: [{ text: prompt }] }] }
+                        );
+
+                        const aiText = res.data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (aiText) {
+                            setAiMessages(prev => [...prev, { sender: 'AI Bot', content: aiText, self: false }]);
+                            setIsTyping(false);
+                            return; // Stop here, don't use local fallback
+                        }
+                    } catch (gErr) {
+                        console.warn("Gemini API failed, falling back to local logic.", gErr);
                     }
                 }
-                // Open centers
-                else if (lowerQuery.includes('open') || lowerQuery.includes('available')) {
-                    const openCenters = centers.filter(c => c.status === 'open');
-                    aiResponse = `Currently ${openCenters.length} centers are open: ${openCenters.slice(0, 3).map(c => c.name).join(', ')}${openCenters.length > 3 ? ' and more.' : '.'}`;
-                }
-                // Low crowd centers
-                else if (lowerQuery.includes('crowd') || lowerQuery.includes('busy') || lowerQuery.includes('wait')) {
-                    const lowCrowd = centers.filter(c => c.crowd === 'Low' && c.status === 'open');
-                    if (lowCrowd.length > 0) {
-                        aiResponse = `Centers with low crowd: ${lowCrowd.map(c => c.name).join(', ')}. You can visit these for faster service.`;
-                    } else {
-                        aiResponse = "All centers are currently busy. Please try again later or request delivery.";
+
+                console.warn("AI Backend/Gemini unreachable, using local fallback logic.");
+                setTimeout(() => {
+                    let aiResponse = "";
+                    const lowerQuery = userQuery.toLowerCase();
+
+                    // Food center queries
+                    if (lowerQuery.includes('nearest') || lowerQuery.includes('closest') || lowerQuery.includes('near')) {
+                        if (nearestCenter) {
+                            aiResponse = `The nearest food center is ${nearestCenter.name}, located ${nearestCenter.distance} km away. It has ${nearestCenter.crowd} crowd and ${nearestCenter.items} items available. ${nearestCenter.cookedFood ? 'Hot meals are available!' : ''}`;
+                        } else {
+                            aiResponse = "Please enable location access to find the nearest center.";
+                        }
                     }
-                }
-                // Hot meals
-                else if (lowerQuery.includes('hot') || lowerQuery.includes('cooked') || lowerQuery.includes('meal')) {
-                    const hotMealCenters = centers.filter(c => c.cookedFood && c.status === 'open');
-                    aiResponse = `${hotMealCenters.length} centers serve hot meals: ${hotMealCenters.slice(0, 3).map(c => c.name).join(', ')}.`;
-                }
-                // Request food help
-                else if (lowerQuery.includes('request') || lowerQuery.includes('order') || lowerQuery.includes('need food')) {
-                    aiResponse = "To request food, click the 'Request Food' button. You can choose from cooked meals, vegetables, or grains. Use the microphone icon for voice ordering!";
-                }
-                // Location help
-                else if (lowerQuery.includes('location') || lowerQuery.includes('address')) {
-                    aiResponse = "All food centers are marked on the map. Click any marker to see the full address and details. You can also get directions by clicking 'Get Directions'.";
-                }
-                // Delivery tracking
-                else if (lowerQuery.includes('track') || lowerQuery.includes('delivery') || lowerQuery.includes('truck')) {
-                    if (routePath.length > 0) {
-                        aiResponse = `Your delivery is ${truckProgress}% complete. Estimated time: ${routeInfo?.duration}. You can track the truck on the map in real-time.`;
-                    } else {
-                        aiResponse = "No active delivery. Request food first, and you'll be able to track the delivery truck on the map.";
+                    // Open centers
+                    else if (lowerQuery.includes('open') || lowerQuery.includes('available')) {
+                        const openCenters = centers.filter(c => c.status === 'open');
+                        aiResponse = `Currently ${openCenters.length} centers are open: ${openCenters.slice(0, 3).map(c => c.name).join(', ')}${openCenters.length > 3 ? ' and more.' : '.'}`;
                     }
-                }
-                // Emergency/SOS
-                else if (lowerQuery.includes('emergency') || lowerQuery.includes('sos') || lowerQuery.includes('urgent')) {
-                    aiResponse = "For emergencies, click the red SOS button in the header. This will send an immediate alert to all nearby centers.";
-                }
-                // Language help
-                else if (lowerQuery.includes('language') || lowerQuery.includes('hindi') || lowerQuery.includes('translate')) {
-                    aiResponse = "You can change the language using the globe icon in the header. We support English, Hindi, Manipuri, and Odia.";
-                }
-                // List all centers
-                else if (lowerQuery.includes('list') || lowerQuery.includes('all centers') || lowerQuery.includes('show all')) {
-                    aiResponse = `We have ${centers.length} food centers: ${centers.map(c => c.name).join(', ')}. Check the map or scroll down to see details.`;
-                }
-                // Greetings
-                else if (lowerQuery.includes('hello') || lowerQuery.includes('hi') || lowerQuery.includes('hey')) {
-                    aiResponse = "Hello! I'm your FoodTech AI Assistant. I can help you find food centers, track deliveries, and answer questions. What do you need?";
-                }
-                // Help/What can you do
-                else if (lowerQuery.includes('help') || lowerQuery.includes('what can you') || lowerQuery.includes('how to')) {
-                    aiResponse = "I can help you with:\n• Finding nearest food centers\n• Checking which centers are open\n• Locating centers with hot meals\n• Tracking your delivery\n• Requesting food\n• Emergency assistance\n\nJust ask me anything!";
-                }
-                // Stuck/Lost/Confused
-                else if (lowerQuery.includes('stuck') || lowerQuery.includes('lost') || lowerQuery.includes('confused') || lowerQuery.includes('don\'t know')) {
-                    aiResponse = "Don't worry! Here's how to use the app:\n\n1. Click 'Request Delivery' to order food from the nearest center\n2. Use the map to see all food centers and danger zones\n3. Click any center's 'Request Pickup' to collect food yourself\n4. Use 'Chat' to message a specific center\n5. Click the red SOS button for emergencies\n\nWhat would you like to do?";
-                }
-                // Default response
-                else {
-                    aiResponse = "I can help you find food centers, check availability, track deliveries, and more. Try asking: 'Which center is nearest?' or 'Where can I get hot meals?'";
-                }
-                
-                setAiMessages(prev => [...prev, { sender: 'AI Bot', content: aiResponse, self: false }]);
-                setIsTyping(false);
-            }, 800);
+                    // Low crowd centers
+                    else if (lowerQuery.includes('crowd') || lowerQuery.includes('busy') || lowerQuery.includes('wait')) {
+                        const lowCrowd = centers.filter(c => c.crowd === 'Low' && c.status === 'open');
+                        if (lowCrowd.length > 0) {
+                            aiResponse = `Centers with low crowd: ${lowCrowd.map(c => c.name).join(', ')}. You can visit these for faster service.`;
+                        } else {
+                            aiResponse = "All centers are currently busy. Please try again later or request delivery.";
+                        }
+                    }
+                    // Hot meals
+                    else if (lowerQuery.includes('hot') || lowerQuery.includes('cooked') || lowerQuery.includes('meal')) {
+                        const hotMealCenters = centers.filter(c => c.cookedFood && c.status === 'open');
+                        aiResponse = `${hotMealCenters.length} centers serve hot meals: ${hotMealCenters.slice(0, 3).map(c => c.name).join(', ')}.`;
+                    }
+                    // Request food help
+                    else if (lowerQuery.includes('request') || lowerQuery.includes('order') || lowerQuery.includes('need food')) {
+                        aiResponse = "To request food, click the 'Request Food' button. You can choose from cooked meals, vegetables, or grains. Use the microphone icon for voice ordering!";
+                    }
+                    // Location help
+                    else if (lowerQuery.includes('location') || lowerQuery.includes('address')) {
+                        aiResponse = "All food centers are marked on the map. Click any marker to see the full address and details. You can also get directions by clicking 'Get Directions'.";
+                    }
+                    // Delivery tracking
+                    else if (lowerQuery.includes('track') || lowerQuery.includes('delivery') || lowerQuery.includes('truck')) {
+                        if (routePath.length > 0) {
+                            aiResponse = `Your delivery is ${truckProgress}% complete. Estimated time: ${routeInfo?.duration}. You can track the truck on the map in real-time.`;
+                        } else {
+                            aiResponse = "No active delivery. Request food first, and you'll be able to track the delivery truck on the map.";
+                        }
+                    }
+                    // Emergency/SOS
+                    else if (lowerQuery.includes('emergency') || lowerQuery.includes('sos') || lowerQuery.includes('urgent')) {
+                        aiResponse = "For emergencies, click the red SOS button in the header. This will send an immediate alert to all nearby centers.";
+                    }
+                    // Language help
+                    else if (lowerQuery.includes('language') || lowerQuery.includes('hindi') || lowerQuery.includes('translate')) {
+                        aiResponse = "You can change the language using the globe icon in the header. We support English, Hindi, Manipuri, and Odia.";
+                    }
+                    // List all centers
+                    else if (lowerQuery.includes('list') || lowerQuery.includes('all centers') || lowerQuery.includes('show all')) {
+                        aiResponse = `We have ${centers.length} food centers: ${centers.map(c => c.name).join(', ')}. Check the map or scroll down to see details.`;
+                    }
+                    // Greetings
+                    else if (lowerQuery.includes('hello') || lowerQuery.includes('hi') || lowerQuery.includes('hey')) {
+                        aiResponse = "Hello! I'm your FoodTech AI Assistant. I can help you find food centers, track deliveries, and answer questions. What do you need?";
+                    }
+                    // Help/What can you do
+                    else if (lowerQuery.includes('help') || lowerQuery.includes('what can you') || lowerQuery.includes('how to')) {
+                        aiResponse = "I can help you with:\n• Finding nearest food centers\n• Checking which centers are open\n• Locating centers with hot meals\n• Tracking your delivery\n• Requesting food\n• Emergency assistance\n\nJust ask me anything!";
+                    }
+                    // Stuck/Lost/Confused
+                    else if (lowerQuery.includes('stuck') || lowerQuery.includes('lost') || lowerQuery.includes('confused') || lowerQuery.includes('don\'t know')) {
+                        aiResponse = "Don't worry! Here's how to use the app:\n\n1. Click 'Request Delivery' to order food from the nearest center\n2. Use the map to see all food centers and danger zones\n3. Click any center's 'Request Pickup' to collect food yourself\n4. Use 'Chat' to message a specific center\n5. Click the red SOS button for emergencies\n\nWhat would you like to do?";
+                    }
+                    // Default response
+                    else {
+                        aiResponse = "I can help you find food centers, check availability, track deliveries, and more. Try asking: 'Which center is nearest?' or 'Where can I get hot meals?'";
+                    }
+
+                    setAiMessages(prev => [...prev, { sender: 'AI Bot', content: aiResponse, self: false }]);
+                    setIsTyping(false);
+                }, 800);
             }
         }
     };
@@ -576,7 +621,7 @@ const ConsumerDashboard = () => {
     }
 
     return (
-        <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50 relative overflow-hidden">
+        <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden">
             {/* Offline Indicator */}
             {!isOnline && (
                 <div className="absolute top-0 w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-amber-500/50">
@@ -584,93 +629,90 @@ const ConsumerDashboard = () => {
                     {t('offline_msg', "You're offline - Some features may be limited")}
                 </div>
             )}
-            {/* Animated Background Blobs */}
-            <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-emerald-400/20 to-teal-500/20 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-green-400/20 to-emerald-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
 
             {/* Premium Header */}
-            <header className="relative bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 text-white px-4 py-3 md:px-6 md:py-5 flex flex-col md:flex-row justify-between items-center shadow-2xl z-20 border-b-4 border-green-400 gap-3 md:gap-0">
+            <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md text-slate-800 px-4 h-14 flex flex-row justify-between items-center shadow-sm border-b border-slate-200">
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30 shadow-lg">
-                        <MapPin className="w-5 h-5 md:w-6 md:h-6 animate-pulse" />
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                        <MapPin className="w-4 h-4 md:w-5 md:h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-lg md:text-2xl font-black drop-shadow-md tracking-tight">{t('consumer_app', 'Consumer Portal')}</h1>
-                        <p className="text-xs text-green-100 font-semibold">Smart Aid for Food Emergencies</p>
+                        <h1 className="text-base md:text-xl font-black tracking-tight text-slate-900">{t('consumer_app', 'Consumer Portal')}</h1>
                     </div>
                 </div>
-                <div className="flex gap-2 md:gap-3 items-center w-full md:w-auto justify-between md:justify-end">
-                    <button onClick={toggleLanguage} className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2.5 rounded-xl flex items-center gap-2 text-xs font-bold hover:bg-white/20 transition-all shadow-md">
-                        <Globe size={16} /> {i18n.language === 'en' ? 'EN' : i18n.language === 'hi' ? 'HI' : i18n.language === 'mni' ? 'MNI' : 'OR'}
+                <div className="flex gap-2 items-center">
+                    <button onClick={toggleLanguage} className="bg-slate-100 border border-slate-200 px-3 py-2 rounded-lg flex items-center gap-2 text-xs font-bold hover:bg-slate-200 transition-all text-slate-700">
+                        <Globe size={14} /> {i18n.language === 'en' ? 'EN' : i18n.language === 'hi' ? 'HI' : i18n.language === 'mni' ? 'MNI' : 'OR'}
                     </button>
-                    <button onClick={handleSOS} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all border border-red-500">
-                        <AlertTriangle size={18} className="animate-pulse" /> {t('sos_btn')}
-                    </button>
-                    <button onClick={() => { localStorage.removeItem('foodtech_user'); navigate('/login'); }} className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-white/20 transition-all">{t('logout')}</button>
+                    <button onClick={() => { localStorage.removeItem('foodtech_user'); navigate('/login'); }} className="bg-slate-100 border border-slate-200 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all text-slate-700">{t('logout')}</button>
                 </div>
             </header>
 
-            <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+            <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden h-full">
+
                 {/* Premium Sidebar */}
-                <div className="w-full md:w-[420px] h-[40%] md:h-full bg-white/80 backdrop-blur-xl shadow-2xl z-10 flex flex-col border-r border-slate-200/50 relative overflow-hidden order-2 md:order-1">
-                    <div className="p-4 md:p-6 space-y-4 md:space-y-5 overflow-y-auto h-full">
+                <div className="w-full flex-1 md:flex-none md:w-[400px] md:h-full z-20 bg-white md:bg-white/90 md:backdrop-blur-xl border-t md:border-t-0 md:border-r border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] md:shadow-none order-2 md:order-1 flex flex-col overflow-hidden">
+                    <div className="w-full h-full overflow-y-auto p-4 md:p-6 space-y-4">
+
                         {/* NEAREST CENTER RECOMMENDATION */}
                         {nearestCenter && (
-                            <div className="bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-2xl p-5 shadow-xl border border-green-400 animate-in fade-in slide-in-from-top duration-500">
+                            <div className="bg-white rounded-[20px] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-100 animate-in fade-in slide-in-from-bottom duration-500">
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                                            <Navigation size={20} className="text-white" />
+                                        <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
+                                            <Navigation size={20} className="text-emerald-600" />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-green-100 font-bold uppercase tracking-wider">{t('nearest_center', 'Nearest Center')}</p>
-                                            <p className="text-xl md:text-2xl font-black text-white">{nearestCenter.distance} {t('km', 'km')}</p>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t('nearest_center', 'Nearest Center')}</p>
+                                            <p className="text-lg font-black text-slate-900">
+                                                Nearest Food: <span className="text-emerald-600">{nearestCenter.distance} {t('km', 'km')}</span>
+                                            </p>
                                         </div>
                                     </div>
-                                    <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                                        <span className="text-xs font-black text-white flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                                    <div className="bg-slate-100 px-3 py-1.5 rounded-full">
+                                        <span className={`text-xs font-black ${nearestCenter.crowd === 'High' ? 'text-red-600' : nearestCenter.crowd === 'Medium' ? 'text-orange-600' : 'text-emerald-600'} flex items-center gap-1`}>
+                                            <span className={`w-2 h-2 rounded-full ${nearestCenter.crowd === 'High' ? 'bg-red-500' : nearestCenter.crowd === 'Medium' ? 'bg-orange-500' : 'bg-emerald-500'} animate-pulse`}></span>
                                             {nearestCenter.crowd} {t('crowd', 'Crowd')}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 mb-3">
-                                    <h4 className="font-bold text-white text-sm mb-1">{t(`center_names.${nearestCenter.id}`, nearestCenter.name)}</h4>
-                                    <p className="text-xs text-green-100 flex items-center gap-1">
-                                        <MapPin size={11} />
+                                <div className="bg-slate-50 rounded-xl p-3 mb-3 border border-slate-100">
+                                    <h4 className="font-bold text-slate-800 text-sm mb-1">{t(`center_names.${nearestCenter.id}`, nearestCenter.name)}</h4>
+                                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                                        <MapPin size={11} className="text-slate-400" />
                                         {nearestCenter.address}
                                     </p>
                                 </div>
 
                                 <div className="flex items-center gap-2 mb-3">
                                     {nearestCenter.cookedFood && (
-                                        <div className="bg-orange-500/30 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-orange-300/50">
-                                            <span className="text-xs font-bold text-white">🍛 {t('hot_meals', 'Hot Meals')}</span>
+                                        <div className="bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100">
+                                            <span className="text-xs font-bold text-orange-700">🍛 {t('hot_meals', 'Hot Meals')}</span>
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Menu Available */}
                                 {nearestCenter.menu && nearestCenter.menu.length > 0 && (
-                                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 mb-3">
-                                        <button 
+                                    <div className="bg-slate-50 rounded-xl p-3 mb-3 border border-slate-100">
+                                        <button
                                             onClick={() => setExpandedMenus(prev => ({ ...prev, [nearestCenter.id]: !prev[nearestCenter.id] }))}
                                             className="w-full text-left"
                                         >
-                                            <p className="text-xs text-green-100 font-bold mb-2 flex items-center justify-between">
+                                            <p className="text-xs text-slate-500 font-bold mb-2 flex items-center justify-between">
                                                 📋 {t('menu_available', 'Menu Available')} ({nearestCenter.menu.length})
                                                 <span className="text-[10px]">{expandedMenus[nearestCenter.id] ? '▼' : '▶'}</span>
                                             </p>
                                         </button>
                                         <div className="flex flex-wrap gap-1.5">
                                             {(expandedMenus[nearestCenter.id] ? nearestCenter.menu : nearestCenter.menu.slice(0, 4)).map((item, idx) => (
-                                                <span key={idx} className="text-[10px] bg-white/20 px-2 py-1 rounded-md text-white font-semibold">{item}</span>
+                                                <span key={idx} className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-md text-slate-600 font-semibold">{item}</span>
                                             ))}
                                             {!expandedMenus[nearestCenter.id] && nearestCenter.menu.length > 4 && (
-                                                <button 
+                                                <button
                                                     onClick={() => setExpandedMenus(prev => ({ ...prev, [nearestCenter.id]: true }))}
-                                                    className="text-[10px] text-green-100 underline"
+                                                    className="text-[10px] text-emerald-600 underline"
                                                 >
                                                     +{nearestCenter.menu.length - 4} more
                                                 </button>
@@ -678,25 +720,49 @@ const ConsumerDashboard = () => {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Action Buttons for Nearest Center */}
+                                <div className="flex flex-col gap-3 mt-4">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedCenter(nearestCenter);
+                                            setReqItem({ ...reqItem, deliveryType: 'delivery' });
+                                            setShowRequestModal(true);
+                                        }}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/30 transition-all w-full"
+                                    >
+                                        🚚 {t('request_delivery', 'Request Delivery')}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedCenter(nearestCenter);
+                                            setReqItem({ ...reqItem, deliveryType: 'pickup' });
+                                            setShowRequestModal(true);
+                                        }}
+                                        className="bg-white border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 py-3 rounded-xl font-bold text-sm transition-all w-full"
+                                    >
+                                        {t('request_pickup', 'Pickup')}
+                                    </button>
+                                </div>
                             </div>
                         )}
 
                         {/* ROUTE INFO CARD WITH TRUCK TRACKING */}
                         {routePath.length > 0 && routeInfo && (
-                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 shadow-xl animate-in fade-in slide-in-from-left duration-500 border border-emerald-400">
+                            <div className="bg-white rounded-[20px] p-5 shadow-xl animate-in fade-in slide-in-from-left duration-500 border border-slate-100">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
-                                        <p className="text-xs text-emerald-100 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                        <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
                                             {truckPosition ? (
                                                 <><Truck size={14} className="animate-bounce" /> {t('delivery_truck', 'Delivery Truck En Route')}</>
                                             ) : (
                                                 <><Navigation size={14} /> {t('directions', 'Directions to Center')}</>
                                             )}
                                         </p>
-                                        <h3 className="text-2xl md:text-3xl font-black text-white">{routeInfo.duration}</h3>
-                                        <p className="text-sm text-emerald-100 mt-1">{routeInfo.distance} {t('away', 'away')}</p>
+                                        <h3 className="text-2xl md:text-3xl font-black text-slate-900">{routeInfo.duration}</h3>
+                                        <p className="text-sm text-slate-500 mt-1">{routeInfo.distance} {t('away', 'away')}</p>
                                     </div>
-                                    <button onClick={openGoogleMaps} className="bg-white/20 backdrop-blur-sm text-white px-3 py-2 rounded-xl hover:bg-white/30 text-xs font-bold flex items-center gap-1.5 border border-white/30 transition-all">
+                                    <button onClick={openGoogleMaps} className="bg-blue-50 text-blue-600 px-3 py-2 rounded-xl hover:bg-blue-100 text-xs font-bold flex items-center gap-1.5 border border-blue-100 transition-all">
                                         <Navigation size={14} /> Open
                                     </button>
                                 </div>
@@ -705,20 +771,20 @@ const ConsumerDashboard = () => {
                                 {truckPosition && (
                                     <>
                                         <div className="mb-3">
-                                            <div className="flex justify-between text-xs text-white/90 mb-1">
+                                            <div className="flex justify-between text-xs text-slate-500 mb-1">
                                                 <span>{t('progress', 'Progress')}</span>
                                                 <span className="font-bold">{truckProgress}%</span>
                                             </div>
-                                            <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
+                                            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                                                 <div
-                                                    className="bg-white h-full rounded-full transition-all duration-300 ease-linear"
+                                                    className="bg-emerald-500 h-full rounded-full transition-all duration-300 ease-linear"
                                                     style={{ width: `${truckProgress}%` }}
                                                 ></div>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 text-xs text-white/90 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-lg">
-                                            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                                        <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                             {truckProgress < 100 ? t('truck_on_way', 'Truck is on the way to your location') : t('truck_arrived', 'Truck has arrived!')}
                                         </div>
                                     </>
@@ -726,40 +792,16 @@ const ConsumerDashboard = () => {
 
                                 {/* Pickup directions message */}
                                 {!truckPosition && (
-                                    <div className="flex items-center gap-2 text-xs text-white/90 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-lg">
-                                        <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                                    <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
+                                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
                                         {t('follow_route', 'Follow the blue route to reach the food center')}
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Quick Actions */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <button 
-                                onClick={() => {
-                                    if (nearestCenter) {
-                                        setSelectedCenter(nearestCenter);
-                                        setReqItem({ ...reqItem, deliveryType: 'delivery' });
-                                        setShowRequestModal(true);
-                                    } else {
-                                        alert('Please enable location to find nearest center');
-                                    }
-                                }} 
-                                className="group relative bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 hover:from-orange-600 hover:via-orange-700 hover:to-red-700 text-white py-3 md:py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden"
-                            >
-                                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <Truck size={28} className="relative z-10" />
-                            </button>
-                            <button onClick={() => setActiveChat('ai')} className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 hover:from-emerald-700 hover:via-teal-700 hover:to-teal-800 text-white py-3 md:py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden">
-                                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <Bot size={28} className="relative z-10" />
-                                <span className="text-sm relative z-10">{t('ai_help')}</span>
-                            </button>
-                        </div>
-
-                        {/* Centers List */}
-                        <div className="space-y-4">
+                        {/* Centers List - Visible on Mobile with padding */}
+                        <div className="space-y-4 pb-24 md:pb-0">
                             {/* Search + Filter */}
                             <div className="mb-3 mt-2">
                                 <div className="relative">
@@ -838,7 +880,7 @@ const ConsumerDashboard = () => {
                                     {/* Menu Available */}
                                     {center.menu && center.menu.length > 0 && (
                                         <div className="mb-4 bg-slate-50 rounded-xl p-3">
-                                            <button 
+                                            <button
                                                 onClick={() => setExpandedMenus(prev => ({ ...prev, [center.id]: !prev[center.id] }))}
                                                 className="w-full text-left"
                                             >
@@ -852,7 +894,7 @@ const ConsumerDashboard = () => {
                                                     <span key={idx} className="text-[9px] bg-white border border-slate-200 px-2 py-1 rounded-md text-slate-700 font-semibold">{item}</span>
                                                 ))}
                                                 {!expandedMenus[center.id] && center.menu.length > 5 && (
-                                                    <button 
+                                                    <button
                                                         onClick={() => setExpandedMenus(prev => ({ ...prev, [center.id]: true }))}
                                                         className="text-[9px] text-slate-500 font-semibold underline"
                                                     >
@@ -881,8 +923,8 @@ const ConsumerDashboard = () => {
                                             </button>
                                         )}
                                         <button
-                                            onClick={() => { 
-                                                setActiveChat('supplier'); 
+                                            onClick={() => {
+                                                setActiveChat('supplier');
                                                 setActiveChatCenter(center);
                                                 setMsgText(""); // Clear input when switching centers
                                             }}
@@ -898,8 +940,14 @@ const ConsumerDashboard = () => {
                 </div>
 
                 {/* Map */}
-                <div className="flex-1 relative z-0 h-[60%] md:h-full order-1 md:order-2">
-                    <MapContainer center={[24.8170, 93.9368]} zoom={10} style={{ height: "100%", width: "100%" }}>
+                <div className="h-[60vh] md:h-full md:flex-1 z-0 order-1 md:order-2 relative">
+                    <style>
+                        {`
+                            .leaflet-control-zoom { margin-top: 80px !important; }
+                            @media (min-width: 768px) { .leaflet-control-zoom { transform: scale(1.3); margin-top: 60px !important; } }
+                        `}
+                    </style>
+                    <MapContainer center={[24.8170, 93.9368]} zoom={10} style={{ height: "100%", width: "100%" }} zoomControl={true}>
                         <TileLayer
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -991,8 +1039,8 @@ const ConsumerDashboard = () => {
                         {/* DANGER ZONES */}
                         {riskZones.map(zone => (
                             <React.Fragment key={zone.id}>
-                                <Circle 
-                                    center={[zone.lat, zone.lng]} 
+                                <Circle
+                                    center={[zone.lat, zone.lng]}
                                     radius={zone.radius}
                                     pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.3, weight: 2 }}
                                     eventHandlers={{
@@ -1038,6 +1086,23 @@ const ConsumerDashboard = () => {
                             </React.Fragment>
                         ))}
                     </MapContainer>
+
+                    {/* FLOATING AI BUTTON (Above SOS) */}
+                    <button
+                        onClick={() => setActiveChat('ai')}
+                        className="absolute bottom-24 right-4 z-[400] bg-emerald-600 hover:bg-emerald-700 text-white w-12 h-12 rounded-full shadow-lg shadow-emerald-500/40 flex items-center justify-center transition-transform hover:scale-110 active:scale-95 border-2 border-white"
+                    >
+                        <Bot size={24} />
+                    </button>
+
+                    {/* FLOATING SOS BUTTON (Bottom Right) */}
+                    <button
+                        onClick={handleSOS}
+                        className="absolute bottom-6 right-4 z-[400] bg-red-600 hover:bg-red-700 text-white w-16 h-16 rounded-full shadow-[0_8px_30px_rgba(220,38,38,0.5)] flex flex-col items-center justify-center animate-pulse border-4 border-white transition-transform hover:scale-110 active:scale-95"
+                    >
+                        <AlertTriangle size={24} fill="currentColor" className="mb-0.5" />
+                        <span className="text-[10px] font-black">SOS</span>
+                    </button>
                 </div>
             </div>
 
@@ -1085,14 +1150,14 @@ const ConsumerDashboard = () => {
                         <div ref={chatEndRef} />
                     </div>
                     <form onSubmit={sendChatMessage} className="p-4 border-t-2 border-slate-100 flex gap-3 bg-white">
-                        <input 
-                            value={msgText} 
-                            onChange={e => setMsgText(e.target.value)} 
-                            className="flex-1 text-sm outline-none px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all" 
-                            placeholder={t('type_message', 'Type message...')} 
+                        <input
+                            value={msgText}
+                            onChange={e => setMsgText(e.target.value)}
+                            className="flex-1 text-sm outline-none px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all"
+                            placeholder={t('type_message', 'Type message...')}
                         />
-                        <button 
-                            type="submit" 
+                        <button
+                            type="submit"
                             className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all`}
                         >
                             <Send size={18} />
@@ -1128,8 +1193,8 @@ const ConsumerDashboard = () => {
                                         type="button"
                                         onClick={() => setReqItem({ ...reqItem, deliveryType: 'pickup' })}
                                         className={`py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all ${reqItem.deliveryType === 'pickup'
-                                                ? 'bg-green-500 text-white border-green-500'
-                                                : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
+                                            ? 'bg-green-500 text-white border-green-500'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
                                             }`}
                                     >
                                         🏪 {t('pickup_at_center', 'Pickup at Center')}
@@ -1138,8 +1203,8 @@ const ConsumerDashboard = () => {
                                         type="button"
                                         onClick={() => setReqItem({ ...reqItem, deliveryType: 'delivery' })}
                                         className={`py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all ${reqItem.deliveryType === 'delivery'
-                                                ? 'bg-orange-500 text-white border-orange-500'
-                                                : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                                            ? 'bg-orange-500 text-white border-orange-500'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
                                             }`}
                                     >
                                         🚚 {t('delivery', 'Delivery')}
@@ -1196,8 +1261,8 @@ const ConsumerDashboard = () => {
                                             type="button"
                                             onClick={() => setReqItem({ ...reqItem, plateSize: 'half' })}
                                             className={`py-2 px-4 rounded-lg border-2 font-semibold text-sm transition-all ${reqItem.plateSize === 'half'
-                                                    ? 'bg-orange-500 text-white border-orange-500'
-                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                                                ? 'bg-orange-500 text-white border-orange-500'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
                                                 }`}
                                         >
                                             🍽️ {t('half_plate', 'Half Plate')}
@@ -1206,8 +1271,8 @@ const ConsumerDashboard = () => {
                                             type="button"
                                             onClick={() => setReqItem({ ...reqItem, plateSize: 'full' })}
                                             className={`py-2 px-4 rounded-lg border-2 font-semibold text-sm transition-all ${reqItem.plateSize === 'full'
-                                                    ? 'bg-orange-500 text-white border-orange-500'
-                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                                                ? 'bg-orange-500 text-white border-orange-500'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
                                                 }`}
                                         >
                                             🍽️ {t('full_plate', 'Full Plate')}
@@ -1226,7 +1291,7 @@ const ConsumerDashboard = () => {
                                 <div className="flex gap-2">
                                     <input type="number" min={isCookedFood(reqItem.name) ? 1 : 0} className="flex-1 border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all" value={reqItem.quantity} onChange={e => setReqItem({ ...reqItem, quantity: e.target.value })} />
                                     {!isCookedFood(reqItem.name) && (
-                                        <select 
+                                        <select
                                             className="w-24 border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all bg-white"
                                             value={reqItem.unit}
                                             onChange={e => setReqItem({ ...reqItem, unit: e.target.value })}
@@ -1270,11 +1335,11 @@ const ConsumerDashboard = () => {
                             <h3 className="font-black text-2xl bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">{t('emergency_sos', 'Emergency SOS')}</h3>
                         </div>
                         <p className="text-sm text-slate-600 mb-4">{t('sos_desc', 'Your location will be sent to Emergency Command Center')}</p>
-                        <textarea 
-                            className="w-full border-2 border-red-200 p-4 rounded-xl h-32 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all resize-none" 
-                            placeholder={t('describe_emergency', 'Describe the emergency (violence, flood, fire, medical emergency, etc.)...')} 
-                            value={sosReason} 
-                            onChange={e => setSOSReason(e.target.value)} 
+                        <textarea
+                            className="w-full border-2 border-red-200 p-4 rounded-xl h-32 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all resize-none"
+                            placeholder={t('describe_emergency', 'Describe the emergency (violence, flood, fire, medical emergency, etc.)...')}
+                            value={sosReason}
+                            onChange={e => setSOSReason(e.target.value)}
                         />
                         <div className="flex justify-end gap-3 mt-6">
                             <button onClick={() => { setShowSOSModal(false); setSOSReason(''); }} className="px-6 py-3 text-slate-600 text-sm font-bold hover:bg-slate-100 rounded-xl transition-all">{t('cancel', 'Cancel')}</button>

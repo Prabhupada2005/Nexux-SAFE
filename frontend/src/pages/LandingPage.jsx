@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   MapPin, Utensils, TrendingUp, Shield, Users, Heart, 
   ArrowRight, Menu, X, Phone, Mail, MapPinned, ChevronDown,
-  Package, Zap, Globe, CheckCircle, Thermometer, Truck, Download, WifiOff, ShieldAlert
+  Package, Zap, Globe, CheckCircle, Thermometer, Truck, Download, WifiOff, ShieldAlert, Twitter, Instagram
 } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -31,155 +31,6 @@ const calculateDistance = (lat1, lng1, lat2, lng2) => {
     Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return (R * c).toFixed(1);
-};
-
-// GeolocationMap Component (kept for legacy absolute-overlay rendering)
-const GeolocationMap = () => {
-  const [userLocation, setUserLocation] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-  const [nearestCenters, setNearestCenters] = useState([]);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation({ lat: latitude, lng: longitude });
-          setPermissionDenied(false);
-
-          // Calculate distances to all centers and sort
-          const centersWithDistance = FOOD_CENTERS.map(center => ({
-            ...center,
-            distance: calculateDistance(latitude, longitude, center.lat, center.lng)
-          })).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
-
-          setNearestCenters(centersWithDistance.slice(0, 3));
-        },
-        (error) => {
-          if (error.code === error.PERMISSION_DENIED) {
-            setPermissionDenied(true);
-            setErrorMsg('Please enable location access in your browser settings');
-          } else {
-            setErrorMsg('Unable to get your location');
-          }
-          // Use a default center location if geolocation fails
-          setUserLocation({ lat: 24.8170, lng: 93.9368 });
-        }
-      );
-    }
-  }, []);
-
-  // Map coordinates to screen percentage
-  const latMin = 24.0, latMax = 25.5, lngMin = 92.8, lngMax = 94.8;
-  const mapUserPosition = (lat, lng) => {
-    const xPercent = ((lng - lngMin) / (lngMax - lngMin)) * 100;
-    const yPercent = ((latMax - lat) / (latMax - latMin)) * 100;
-    return { xPercent, yPercent };
-  };
-
-  return (
-    <>
-      {/* User Location Marker */}
-      {userLocation && (
-        <div
-          className="absolute group"
-          style={{
-            left: `${mapUserPosition(userLocation.lat, userLocation.lng).xPercent}%`,
-            top: `${mapUserPosition(userLocation.lat, userLocation.lng).yPercent}%`,
-            transform: 'translate(-50%, -50%)',
-            zIndex: 50
-          }}
-        >
-          {/* Animated pulse circles */}
-          <div className="absolute w-20 h-20 border-2 border-blue-400 rounded-full -ml-10 -mt-10 animate-pulse opacity-60"></div>
-          <div className="absolute w-12 h-12 border-2 border-blue-500 rounded-full -ml-6 -mt-6 animate-pulse opacity-40" style={{animationDelay: '0.3s'}}></div>
-          
-          {/* User location pin */}
-          <div className="w-8 h-8 bg-gradient-to-b from-blue-400 to-blue-600 rounded-full shadow-lg shadow-blue-500/60 flex items-center justify-center border-3 border-white relative z-20 transform hover:scale-125 transition-transform">
-            <div className="w-2 h-2 bg-white rounded-full"></div>
-          </div>
-
-          {/* Tooltip */}
-          <div className="absolute bottom-full mb-3 left-1/2 transform -translate-x-1/2 bg-white/95 text-slate-900 px-4 py-3 rounded-lg whitespace-nowrap text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-xl z-30 border border-blue-400/50">
-            {permissionDenied ? 'Location Access Needed' : 'Your Location'}
-            {userLocation && !permissionDenied && (
-              <div className="text-xs text-slate-500 mt-1">{userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</div>
-            )}
-            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/95"></div>
-          </div>
-        </div>
-      )}
-
-      {/* Nearest Centers Markers */}
-      {nearestCenters.map((center, i) => {
-        const pos = mapUserPosition(center.lat, center.lng);
-        return (
-          <div
-            key={center.id}
-            className="absolute group cursor-pointer"
-            style={{
-              left: `${pos.xPercent}%`,
-              top: `${pos.yPercent}%`,
-              transform: 'translate(-50%, -50%)',
-              zIndex: 40 - i
-            }}
-          >
-            {/* Animated pulse ring */}
-            <div 
-              className="absolute border-2 border-emerald-400 rounded-full"
-              style={{
-                width: '36px',
-                height: '36px',
-                left: '-18px',
-                top: '-18px',
-                animation: `pulse-expand 2.5s ease-out infinite`,
-                animationDelay: `${i * 0.3}s`
-              }}
-            ></div>
-            
-            {/* Center marker pin */}
-            <div className="w-10 h-10 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-full shadow-lg shadow-emerald-500/60 flex items-center justify-center border-3 border-white transform transition-all duration-300 group-hover:scale-125 group-hover:shadow-emerald-500/80 relative z-20 hover:from-emerald-300 hover:to-emerald-500">
-              <Utensils className="w-5 h-5 text-white" size={18} />
-            </div>
-
-            {/* Info Tooltip */}
-            <div className="absolute bottom-full mb-3 left-1/2 transform -translate-x-1/2 bg-white/95 text-slate-900 px-4 py-3 rounded-lg whitespace-nowrap text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-xl z-30 border border-emerald-500/30">
-              <div className="font-bold text-emerald-700">{center.name}</div>
-              <div className="text-xs text-slate-600 mt-1">📦 {center.items} items | 📏 {center.distance} km away</div>
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/95"></div>
-            </div>
-          </div>
-        );
-      })}
-
-      {/* All Other Centers (smaller markers) */}
-      {FOOD_CENTERS.filter(center => !nearestCenters.find(nc => nc.id === center.id)).map((center) => {
-        const pos = mapUserPosition(center.lat, center.lng);
-        return (
-          <div
-            key={center.id}
-            className="absolute group cursor-pointer"
-            style={{
-              left: `${pos.xPercent}%`,
-              top: `${pos.yPercent}%`,
-              transform: 'translate(-50%, -50%)',
-              zIndex: 30
-            }}
-          >
-            <div className="w-6 h-6 bg-emerald-500 rounded-full shadow-md shadow-emerald-400/60 flex items-center justify-center border-2 border-white transform transition-all duration-300 group-hover:scale-150 relative">
-              <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-            </div>
-
-            {/* Small tooltip */}
-            <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-emerald-900/90 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg z-30 whitespace-nowrap">
-              {center.name}
-            </div>
-          </div>
-        );
-      })}
-    </>
-  );
 };
 
 // Leaflet interactive coverage map used in Live Relief Coverage section
@@ -270,6 +121,7 @@ const LandingPage = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [scrolled, setScrolled] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -581,7 +433,7 @@ const LandingPage = () => {
       )}
 
       {/* Premium Header */}
-      <header className={`fixed w-full z-40 transition-all duration-500 ${scrolled ? 'bg-white/85 backdrop-blur-2xl border-b border-emerald-100/50 py-3 shadow-2xl shadow-slate-900/5' : 'bg-transparent py-6'}`} style={{top: deferredPrompt ? (isOnline ? '48px' : '84px') : (isOnline ? '0' : '36px')}}>
+      <header className={`fixed w-full z-40 transition-all duration-500 ${scrolled ? 'bg-white/85 backdrop-blur-2xl border-b border-emerald-100/50 py-3 shadow-2xl shadow-slate-900/5' : 'bg-transparent py-3 md:py-6'}`} style={{top: deferredPrompt ? (isOnline ? '48px' : '84px') : (isOnline ? '0' : '36px')}}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 via-teal-400 to-cyan-400 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-400/50 transform hover:scale-110 transition-all duration-300 hover:shadow-emerald-400/70 hover:-translate-y-1">
@@ -640,7 +492,7 @@ const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="pb-20 px-6 relative overflow-hidden pt-24 md:pt-32 lg:pt-48 z-10" style={{paddingTop: deferredPrompt ? (isOnline ? '180px' : '216px') : (isOnline ? '160px' : '196px')}}>
+      <section className="pb-6 md:pb-12 px-4 md:px-6 relative overflow-hidden pt-20 md:pt-24 lg:pt-32 z-10 min-h-[60vh] flex items-center" style={{paddingTop: deferredPrompt ? (isOnline ? '120px' : '156px') : (isOnline ? '100px' : '136px')}}>
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="animate-fade-in-up relative">
@@ -648,46 +500,46 @@ const LandingPage = () => {
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 {t('active_india', '🇮🇳 Active in India • Focus: Manipur Crisis')}
               </div>
-              <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-8 leading-[1.1] text-slate-900">
+              <h1 className="text-3xl md:text-7xl font-black tracking-tighter mb-4 md:mb-8 leading-[1.1] text-slate-900">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600">SAFE</span><br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-700 font-black">{t('smart_aid', 'Smart Aid for')}</span><br/>
                 <span className="bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 bg-clip-text text-transparent font-black drop-shadow-lg">{t('food_emergency', 'Food Emergency')}</span>
               </h1>
-              <p className="text-lg md:text-xl text-slate-600 mb-6 leading-relaxed max-w-lg font-medium">
-                {t('hero_desc', 'Locate nearby relief centers, track food deliveries in real time, and receive safe emergency assistance instantly.')}
+              <p className="text-sm md:text-xl text-slate-600 mb-6 leading-relaxed max-w-lg font-medium line-clamp-2 md:line-clamp-none">
+                {t('hero_desc', 'Find the nearest food center, request help, and track delivery in real time.')}
               </p>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-10 flex items-center gap-2">
+              <p className="hidden md:flex text-xs font-bold text-slate-500 uppercase tracking-widest mb-10 items-center gap-2">
                 <span className="w-6 h-0.5 bg-emerald-500 rounded-full"></span>
                 {t('hero_sub', 'Built for disaster response and humanitarian logistics across India')}
               </p>
               <div className="flex flex-wrap gap-4">
-                <button onClick={() => navigate('/register')} className="group px-8 py-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-2xl font-bold shadow-2xl shadow-emerald-400/50 hover:shadow-2xl hover:shadow-emerald-500/60 transition-all duration-300 flex items-center gap-2 hover:scale-105 transform border border-emerald-400/20">
+                <button onClick={() => navigate('/register')} className="group px-6 py-3 md:px-8 md:py-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-2xl font-bold shadow-2xl shadow-emerald-400/50 hover:shadow-2xl hover:shadow-emerald-500/60 transition-all duration-300 flex items-center gap-2 hover:scale-105 transform border border-emerald-400/20 text-sm md:text-base w-[92%] md:w-auto justify-center">
                   {t('get_started', 'Get Started Free')}
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
               
               {/* Trust Badges */}
-              <div className="mt-12 flex flex-wrap items-center gap-6">
-                <div className="flex items-center gap-2 group hover:scale-110 transition-transform duration-300">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-200 transition-colors"><CheckCircle size={16} /></div>
-                  <span className="text-sm font-bold text-slate-700">{t('iot_enabled', 'IoT Enabled')}</span>
+              <div className="mt-6 md:mt-12 grid grid-cols-3 gap-1 md:flex md:flex-wrap md:items-center md:gap-6">
+                <div className="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 group hover:scale-110 transition-transform duration-300 p-1">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-200 transition-colors"><CheckCircle size={12} className="md:w-4 md:h-4" /></div>
+                  <span className="text-[9px] md:text-sm font-bold text-slate-700 text-center leading-tight">{t('iot_enabled', 'IoT Enabled')}</span>
                 </div>
-                <div className="flex items-center gap-2 group hover:scale-110 transition-transform duration-300">
-                  <div className="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:bg-cyan-200 transition-colors"><CheckCircle size={16} /></div>
-                  <span className="text-sm font-bold text-slate-700">{t('realtime_tracking', 'Real-time Tracking')}</span>
+                <div className="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 group hover:scale-110 transition-transform duration-300 p-1">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:bg-cyan-200 transition-colors"><CheckCircle size={12} className="md:w-4 md:h-4" /></div>
+                  <span className="text-[9px] md:text-sm font-bold text-slate-700 text-center leading-tight">{t('realtime_tracking', 'Real-time Tracking')}</span>
                 </div>
-                <div className="flex items-center gap-2 group hover:scale-110 transition-transform duration-300">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-200 transition-colors"><CheckCircle size={16} /></div>
-                  <span className="text-sm font-bold text-slate-700">{t('multilang', 'Multi-language')}</span>
+                <div className="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 group hover:scale-110 transition-transform duration-300 p-1">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-200 transition-colors"><CheckCircle size={12} className="md:w-4 md:h-4" /></div>
+                  <span className="text-[9px] md:text-sm font-bold text-slate-700 text-center leading-tight">{t('multilang', 'Multi-language')}</span>
                 </div>
               </div>
             </div>
             
             <div className="relative animate-fade-in-right">
               {/* Real Dashboard Preview - Consumer + Supplier Combined */}
-              <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-black rounded-[2.5rem] p-2 shadow-2xl shadow-emerald-500/30 transform hover:scale-[1.02] transition-all duration-500 border border-emerald-400/40">
-                <div className="bg-gradient-to-b from-slate-950 to-black rounded-[2rem] overflow-hidden relative aspect-video border border-slate-700/50">
+              <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-black rounded-[2rem] md:rounded-[2.5rem] p-2 shadow-2xl shadow-emerald-500/30 transform hover:scale-[1.02] transition-all duration-500 border border-emerald-400/40 max-h-[240px] md:max-h-none overflow-hidden md:overflow-visible">
+                <div className="bg-gradient-to-b from-slate-950 to-black rounded-[1.5rem] md:rounded-[2rem] overflow-hidden relative aspect-video border border-slate-700/50">
                   {/* Window Header */}
                   <div className="h-10 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700/50 flex items-center px-4 gap-2 sticky top-0 z-10">
                     <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
@@ -810,7 +662,7 @@ const LandingPage = () => {
               </div>
               
               {/* Real Stats Floating Cards */}
-              <div className="absolute -bottom-6 -left-6 bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl shadow-emerald-200/50 border border-emerald-100 animate-float hover:shadow-2xl hover:shadow-emerald-300/60 transition-all duration-300">
+              <div className="absolute -bottom-6 -left-6 bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl shadow-emerald-200/50 border border-emerald-100 animate-float hover:shadow-2xl hover:shadow-emerald-300/60 transition-all duration-300 hidden md:block">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-400/50">
                     <MapPin className="text-white" size={28} />
@@ -822,7 +674,7 @@ const LandingPage = () => {
                 </div>
               </div>
               
-              <div className="absolute -top-6 -right-6 bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl shadow-cyan-200/50 border border-cyan-100 animate-float animation-delay-2000 hover:shadow-2xl hover:shadow-cyan-300/60 transition-all duration-300">
+              <div className="absolute -top-6 -right-6 bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl shadow-cyan-200/50 border border-cyan-100 animate-float animation-delay-2000 hover:shadow-2xl hover:shadow-cyan-300/60 transition-all duration-300 hidden md:block">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-400/50">
                     <Package className="text-white" size={28} />
@@ -865,17 +717,17 @@ const LandingPage = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 px-6 relative overflow-hidden z-10">
+      <section className="py-2 md:py-16 px-2 md:px-6 relative overflow-hidden z-10">
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-4 gap-1 md:gap-6">
             {stats.map((stat, i) => (
               <div key={i} className="text-center group cursor-pointer">
-                <div className="bg-white rounded-2xl p-8 border border-slate-100 hover:border-emerald-300 shadow-md hover:shadow-2xl hover:shadow-emerald-200/40 transition-all duration-300 transform hover:scale-110 hover:-translate-y-2">
-                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all border border-emerald-100">
-                    <stat.icon className="text-emerald-600" size={36} />
+                <div className="bg-white rounded-lg md:rounded-2xl p-1 md:p-6 border border-slate-100 hover:border-emerald-300 shadow-md hover:shadow-2xl hover:shadow-emerald-200/40 transition-all duration-300 transform hover:scale-110 hover:-translate-y-2">
+                  <div className="w-6 h-6 md:w-20 md:h-20 mx-auto mb-0.5 md:mb-4 bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-md md:rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all border border-emerald-100">
+                    <stat.icon className="text-emerald-600 w-3 h-3 md:w-9 md:h-9" />
                   </div>
-                  <h3 className="text-4xl font-black bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent mb-2">{stat.value}</h3>
-                  <p className="text-slate-600 font-bold text-sm uppercase tracking-wider">{stat.label}</p>
+                  <h3 className="text-xs md:text-4xl font-black bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent mb-0 md:mb-2 leading-tight">{stat.value}</h3>
+                  <p className="text-slate-600 font-bold text-[6px] md:text-sm uppercase tracking-wider leading-none">{stat.label}</p>
                 </div>
               </div>
             ))}
@@ -887,16 +739,16 @@ const LandingPage = () => {
       </section>
 
       {/* Geolocation Network Map Section */}
-      <section className="py-20 px-6 relative z-10">
+      <section className="py-2 md:py-16 px-4 md:px-6 relative z-10">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">{t('live_map', 'Live Relief Coverage Map')}</h2>
-            <p className="text-lg text-slate-600">{t('map_desc', 'Enable geolocation to discover relief centers closest to your location. Real-time network visualization.')}</p>
+          <div className="text-center mb-6 md:mb-8">
+            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-2 md:mb-4">{t('live_map', 'Live Relief Coverage Map')}</h2>
+            <p className="text-sm md:text-lg text-slate-600">{t('map_desc', 'Enable geolocation to discover relief centers closest to your location. Real-time network visualization.')}</p>
           </div>
           
           {/* Geolocation Network Map */}
           <div className="relative rounded-[2rem] overflow-hidden shadow-2xl shadow-emerald-200/40 border border-emerald-100 group">
-            <div className="relative w-full h-[700px] bg-slate-900 overflow-hidden">
+            <div className="relative w-full h-[260px] md:h-[360px] bg-slate-900 overflow-hidden">
               {/* Interactive Leaflet coverage map */}
               <LeafletCoverageMap />
 
@@ -914,7 +766,7 @@ const LandingPage = () => {
               </div>
 
               {/* Info Card - Bottom Left */}
-              <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-xl border border-emerald-200 p-5 rounded-2xl shadow-lg max-w-xs">
+              <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-xl border border-emerald-200 p-5 rounded-2xl shadow-lg max-w-xs hidden md:block">
                 <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                   How It Works
@@ -928,69 +780,76 @@ const LandingPage = () => {
               </div>
 
               {/* Network Legend - Bottom Right */}
-              <div className="absolute bottom-6 right-6 bg-white/95 backdrop-blur-xl border border-emerald-200 p-5 rounded-2xl shadow-lg">
-                <h4 className="text-sm font-bold text-slate-900 mb-3 uppercase tracking-widest">Legend</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-blue-500 shadow-lg shadow-blue-500/60"></div>
-                    <span className="text-xs text-slate-600 font-medium">Your Location</span>
+              <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-20">
+                <button 
+                  onClick={() => setShowLegend(!showLegend)} 
+                  className="md:hidden bg-white text-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg border border-slate-200 mb-2 ml-auto block"
+                >
+                  {showLegend ? 'Hide Legend' : 'Show Legend'}
+                </button>
+                
+                {(showLegend || window.innerWidth >= 768) && (
+                  <div className="bg-white/95 backdrop-blur-xl border border-emerald-200 p-4 md:p-5 rounded-2xl shadow-lg">
+                    <h4 className="text-sm font-bold text-slate-900 mb-3 uppercase tracking-widest hidden md:block">Legend</h4>
+                    <div className="space-y-2 md:space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-blue-500 shadow-lg shadow-blue-500/60"></div>
+                        <span className="text-xs text-slate-600 font-medium">Your Location</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/60"></div>
+                        <span className="text-xs text-slate-600 font-medium">Relief Center</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500"></div>
+                        <span className="text-xs text-slate-600 font-medium">Supply Route</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/60"></div>
-                    <span className="text-xs text-slate-600 font-medium">Relief Center</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500"></div>
-                    <span className="text-xs text-slate-600 font-medium">Supply Route</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-0.5 border-2 border-dashed border-emerald-400"></div>
-                    <span className="text-xs text-slate-600 font-medium">Coverage Zone</span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Nearest Centers Info */}
-          <div className="mt-12 grid md:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-blue-50 to-white rounded-2xl p-6 border border-blue-200 shadow-lg">
-              <div className="flex items-start justify-between mb-4">
+          <div className="mt-6 md:mt-12 grid grid-cols-3 gap-2 md:gap-6">
+            <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl md:rounded-2xl p-2 md:p-6 border border-blue-200 shadow-lg">
+              <div className="flex flex-col md:flex-row items-start justify-between mb-2 md:mb-4 gap-2 md:gap-0">
                 <div>
-                  <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">Your Location</p>
-                  <h3 className="text-lg font-black text-slate-900">Geolocation Enabled</h3>
+                  <p className="text-[8px] md:text-xs font-bold text-blue-600 uppercase tracking-widest mb-0.5 md:mb-1">Your Location</p>
+                  <h3 className="text-xs md:text-lg font-black text-slate-900 leading-tight">Geolocation Enabled</h3>
                 </div>
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <MapPin className="text-blue-600" size={24} />
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <MapPin className="text-blue-600 w-4 h-4 md:w-6 md:h-6" />
                 </div>
               </div>
-              <p className="text-sm text-slate-600">Allow location access in your browser to see relief centers closest to you</p>
+              <p className="text-[9px] md:text-sm text-slate-600 leading-tight">Allow location access in your browser to see relief centers closest to you</p>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-50 to-white rounded-2xl p-6 border border-emerald-200 shadow-lg">
-              <div className="flex items-start justify-between mb-4">
+            <div className="bg-gradient-to-br from-emerald-50 to-white rounded-xl md:rounded-2xl p-2 md:p-6 border border-emerald-200 shadow-lg">
+              <div className="flex flex-col md:flex-row items-start justify-between mb-2 md:mb-4 gap-2 md:gap-0">
                 <div>
-                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">Relief Network</p>
-                  <h3 className="text-lg font-black text-slate-900">{FOOD_CENTERS.length} Active Centers</h3>
+                  <p className="text-[8px] md:text-xs font-bold text-emerald-600 uppercase tracking-widest mb-0.5 md:mb-1">Relief Network</p>
+                  <h3 className="text-xs md:text-lg font-black text-slate-900 leading-tight">{FOOD_CENTERS.length} Active Centers</h3>
                 </div>
-                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                  <Utensils className="text-emerald-600" size={24} />
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Utensils className="text-emerald-600 w-4 h-4 md:w-6 md:h-6" />
                 </div>
               </div>
-              <p className="text-sm text-slate-600">Distributed across Manipur to ensure quick access to food aid</p>
+              <p className="text-[9px] md:text-sm text-slate-600 leading-tight">Distributed across Manipur to ensure quick access to food aid</p>
             </div>
 
-            <div className="bg-gradient-to-br from-cyan-50 to-white rounded-2xl p-6 border border-cyan-200 shadow-lg">
-              <div className="flex items-start justify-between mb-4">
+            <div className="bg-gradient-to-br from-cyan-50 to-white rounded-xl md:rounded-2xl p-2 md:p-6 border border-cyan-200 shadow-lg">
+              <div className="flex flex-col md:flex-row items-start justify-between mb-2 md:mb-4 gap-2 md:gap-0">
                 <div>
-                  <p className="text-xs font-bold text-cyan-600 uppercase tracking-widest mb-1">Supply Routes</p>
-                  <h3 className="text-lg font-black text-slate-900">Real-Time Tracking</h3>
+                  <p className="text-[8px] md:text-xs font-bold text-cyan-600 uppercase tracking-widest mb-0.5 md:mb-1">Supply Routes</p>
+                  <h3 className="text-xs md:text-lg font-black text-slate-900 leading-tight">Real-Time Tracking</h3>
                 </div>
-                <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="text-cyan-600" size={24} />
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="text-cyan-600 w-4 h-4 md:w-6 md:h-6" />
                 </div>
               </div>
-              <p className="text-sm text-slate-600">Connected network for efficient supply chain management</p>
+              <p className="text-[9px] md:text-sm text-slate-600 leading-tight">Connected network for efficient supply chain management</p>
             </div>
           </div>
         </div>
@@ -1010,142 +869,141 @@ const LandingPage = () => {
       </section>
 
       {/* Who Uses SAFE Section */}
-      <section className="py-24 px-6 relative z-10 bg-gradient-to-b from-transparent via-cyan-50/30 to-transparent">
+      <section className="py-4 md:py-16 px-2 md:px-6 relative z-10 bg-gradient-to-b from-transparent via-cyan-50/30 to-transparent mt-4 md:mt-0">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-5xl md:text-6xl font-black text-slate-900 mb-6">
+          <div className="text-center mb-6 md:mb-12">
+            <h2 className="text-3xl md:text-6xl font-black text-slate-900 mb-3 md:mb-6">
               Who Uses <span className="bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent">SAFE</span>
             </h2>
             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">
               Designed for real disaster response coordination.
             </p>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-sm md:text-xl text-slate-600 max-w-2xl mx-auto">
               A focused ecosystem connecting consumers and suppliers in emergency food relief.
             </p>
           </div>
 
           {/* User Personas Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-2 md:gap-6 mb-8 md:mb-12">
             {/* Consumers */}
-            <div className="group bg-gradient-to-br from-blue-50 via-white to-blue-50/50 rounded-3xl p-8 border border-blue-200/60 hover:border-blue-400 shadow-lg hover:shadow-2xl hover:shadow-blue-300/40 transition-all duration-300 transform hover:-translate-y-4 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-blue-300/60 shadow-md shadow-blue-200/40">
-                  <Users className="text-blue-600" size={32} />
+            <div className="group bg-gradient-to-br from-blue-50 via-white to-blue-50/50 rounded-xl md:rounded-3xl p-2 md:p-6 border border-blue-200/60 hover:border-blue-400 shadow-lg hover:shadow-2xl hover:shadow-blue-300/40 transition-all duration-300 transform hover:-translate-y-4 backdrop-blur-sm h-full">
+              <div className="flex items-center justify-between mb-2 md:mb-6">
+                <div className="w-8 h-8 md:w-16 md:h-16 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg md:rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-blue-300/60 shadow-md shadow-blue-200/40">
+                  <Users className="text-blue-600 w-4 h-4 md:w-8 md:h-8" />
                 </div>
-                <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full text-blue-600 font-bold text-sm">👤</div>
+                <div className="flex items-center justify-center w-5 h-5 md:w-8 md:h-8 bg-blue-100 rounded-full text-blue-600 font-bold text-[9px] md:text-sm">👤</div>
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-3">Consumers</h3>
-              <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+              <h3 className="text-xs md:text-2xl font-black text-slate-900 mb-1 md:mb-3">Consumers</h3>
+              <p className="text-[9px] md:text-sm text-slate-600 mb-2 md:mb-6 leading-relaxed line-clamp-3 md:line-clamp-none">
                 People in crisis areas requesting food assistance through the platform
               </p>
-              <div className="space-y-2.5">
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 font-medium">Find nearby centers</span>
+              <div className="space-y-1 md:space-y-2.5">
+                <div className="flex items-start gap-1.5 md:gap-3">
+                  <CheckCircle className="text-blue-500 mt-0.5 flex-shrink-0 w-2.5 h-2.5 md:w-4 md:h-4" />
+                  <span className="text-[9px] md:text-sm text-slate-700 font-medium">Find nearby centers</span>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 font-medium">Request & track delivery</span>
+                <div className="flex items-start gap-1.5 md:gap-3">
+                  <CheckCircle className="text-blue-500 mt-0.5 flex-shrink-0 w-2.5 h-2.5 md:w-4 md:h-4" />
+                  <span className="text-[9px] md:text-sm text-slate-700 font-medium">Request & track</span>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 font-medium">Multi-language support</span>
+                <div className="flex items-start gap-1.5 md:gap-3">
+                  <CheckCircle className="text-blue-500 mt-0.5 flex-shrink-0 w-2.5 h-2.5 md:w-4 md:h-4" />
+                  <span className="text-[9px] md:text-sm text-slate-700 font-medium">Multi-language</span>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 font-medium">Emergency SOS alerts</span>
+                <div className="flex items-start gap-1.5 md:gap-3">
+                  <CheckCircle className="text-blue-500 mt-0.5 flex-shrink-0 w-2.5 h-2.5 md:w-4 md:h-4" />
+                  <span className="text-[9px] md:text-sm text-slate-700 font-medium">Emergency SOS</span>
                 </div>
               </div>
-              <div className="mt-6 pt-6 border-t border-blue-200/50">
-                <div className="inline-flex px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold uppercase tracking-wider">Consumer Portal</div>
+              <div className="mt-2 md:mt-6 pt-2 md:pt-6 border-t border-blue-200/50">
+                <div className="inline-flex px-2 py-0.5 md:px-3 md:py-1.5 bg-blue-100 text-blue-700 rounded-full text-[8px] md:text-xs font-bold uppercase tracking-wider">Consumer Portal</div>
               </div>
             </div>
 
             {/* Suppliers */}
-            <div className="group bg-gradient-to-br from-emerald-50 via-white to-emerald-50/50 rounded-3xl p-8 border border-emerald-200/60 hover:border-emerald-400 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/40 transition-all duration-300 transform hover:-translate-y-4 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-emerald-300/60 shadow-md shadow-emerald-200/40">
-                  <Package className="text-emerald-600" size={32} />
+            <div className="group bg-gradient-to-br from-emerald-50 via-white to-emerald-50/50 rounded-xl md:rounded-3xl p-2 md:p-6 border border-emerald-200/60 hover:border-emerald-400 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/40 transition-all duration-300 transform hover:-translate-y-4 backdrop-blur-sm h-full">
+              <div className="flex items-center justify-between mb-2 md:mb-6">
+                <div className="w-8 h-8 md:w-16 md:h-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg md:rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-emerald-300/60 shadow-md shadow-emerald-200/40">
+                  <Package className="text-emerald-600 w-4 h-4 md:w-8 md:h-8" />
                 </div>
-                <div className="flex items-center justify-center w-8 h-8 bg-emerald-100 rounded-full text-emerald-600 font-bold text-sm">🏪</div>
+                <div className="flex items-center justify-center w-5 h-5 md:w-8 md:h-8 bg-emerald-100 rounded-full text-emerald-600 font-bold text-[9px] md:text-sm">🏪</div>
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-3">Suppliers</h3>
-              <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+              <h3 className="text-xs md:text-2xl font-black text-slate-900 mb-1 md:mb-3">Suppliers</h3>
+              <p className="text-[9px] md:text-sm text-slate-600 mb-2 md:mb-6 leading-relaxed line-clamp-3 md:line-clamp-none">
                 Food storage facilities and suppliers managing inventory and distribution
               </p>
-              <div className="space-y-2.5">
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 font-medium">Inventory management</span>
+              <div className="space-y-1 md:space-y-2.5">
+                <div className="flex items-start gap-1.5 md:gap-3">
+                  <CheckCircle className="text-emerald-500 mt-0.5 flex-shrink-0 w-2.5 h-2.5 md:w-4 md:h-4" />
+                  <span className="text-[9px] md:text-sm text-slate-700 font-medium">Inventory mgmt</span>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 font-medium">IoT spoilage monitoring</span>
+                <div className="flex items-start gap-1.5 md:gap-3">
+                  <CheckCircle className="text-emerald-500 mt-0.5 flex-shrink-0 w-2.5 h-2.5 md:w-4 md:h-4" />
+                  <span className="text-[9px] md:text-sm text-slate-700 font-medium">IoT monitoring</span>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 font-medium">Demand forecasting</span>
+                <div className="flex items-start gap-1.5 md:gap-3">
+                  <CheckCircle className="text-emerald-500 mt-0.5 flex-shrink-0 w-2.5 h-2.5 md:w-4 md:h-4" />
+                  <span className="text-[9px] md:text-sm text-slate-700 font-medium">Demand forecast</span>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-slate-700 font-medium">Real-time analytics</span>
+                <div className="flex items-start gap-1.5 md:gap-3">
+                  <CheckCircle className="text-emerald-500 mt-0.5 flex-shrink-0 w-2.5 h-2.5 md:w-4 md:h-4" />
+                  <span className="text-[9px] md:text-sm text-slate-700 font-medium">Real-time analytics</span>
                 </div>
               </div>
-              <div className="mt-6 pt-6 border-t border-emerald-200/50">
-                <div className="inline-flex px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-wider">Supplier Portal</div>
+              <div className="mt-2 md:mt-6 pt-2 md:pt-6 border-t border-emerald-200/50">
+                <div className="inline-flex px-2 py-0.5 md:px-3 md:py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-[8px] md:text-xs font-bold uppercase tracking-wider">Supplier Portal</div>
               </div>
             </div>
           </div>
 
           {/* Ecosystem Overview */}
-          <div className="mt-20 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-12 border border-slate-700/50 overflow-hidden relative">
+          <div className="mt-4 md:mt-8 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-3 md:p-8 border border-slate-700/50 overflow-hidden relative">
             {/* Background Elements */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl"></div>
             
             <div className="relative z-10">
-              <div className="grid md:grid-cols-4 gap-8 mb-8">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                    <Users className="text-blue-400" size={24} />
+              <div className="grid grid-cols-4 gap-2 md:gap-8 mb-8">
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-1 md:gap-4 text-center md:text-left">
+                  <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                    <Users className="text-blue-400 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <h4 className="text-white font-bold mb-1">1,200+</h4>
-                    <p className="text-sm text-slate-400">Active Citizens</p>
+                    <h4 className="text-white font-bold mb-0 md:mb-1 text-xs md:text-base">1,200+</h4>
+                    <p className="text-[8px] md:text-sm text-slate-400 leading-tight">Active Citizens</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                    <Package className="text-emerald-400" size={24} />
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-1 md:gap-4 text-center md:text-left">
+                  <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                    <Package className="text-emerald-400 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <h4 className="text-white font-bold mb-1">8</h4>
-                    <p className="text-sm text-slate-400">Operating Centers</p>
+                    <h4 className="text-white font-bold mb-0 md:mb-1 text-xs md:text-base">8</h4>
+                    <p className="text-[8px] md:text-sm text-slate-400 leading-tight">Operating Centers</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                    <Truck className="text-amber-400" size={24} />
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-1 md:gap-4 text-center md:text-left">
+                  <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                    <Truck className="text-amber-400 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <h4 className="text-white font-bold mb-1">24</h4>
-                    <p className="text-sm text-slate-400">Relief Vehicles</p>
+                    <h4 className="text-white font-bold mb-0 md:mb-1 text-xs md:text-base">24</h4>
+                    <p className="text-[8px] md:text-sm text-slate-400 leading-tight">Relief Vehicles</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                    <Shield className="text-purple-400" size={24} />
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-1 md:gap-4 text-center md:text-left">
+                  <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                    <Shield className="text-purple-400 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <h4 className="text-white font-bold mb-1">5</h4>
-                    <p className="text-sm text-slate-400">Partner Agencies</p>
+                    <h4 className="text-white font-bold mb-0 md:mb-1 text-xs md:text-base">5</h4>
+                    <p className="text-[8px] md:text-sm text-slate-400 leading-tight">Partner Agencies</p>
                   </div>
                 </div>
               </div>
-
-              <div className="border-t border-slate-700/50 pt-8">
-                <h3 className="text-2xl font-black text-white mb-4">Complete Ecosystem</h3>
-                <p className="text-slate-300 max-w-2xl">
+              <div className="border-t border-slate-700/50 pt-4 md:pt-8">
+                <h3 className="text-lg md:text-2xl font-black text-white mb-2 md:mb-4">Complete Ecosystem</h3>
+                <p className="text-xs md:text-base text-slate-300 max-w-2xl">
                   SAFE connects all stakeholders in the relief supply chain - from citizens in crisis areas to the authorities coordinating response. Every user role has specific tools designed for their needs, creating an integrated, transparent, and efficient disaster relief network.
                 </p>
               </div>
@@ -1155,70 +1013,70 @@ const LandingPage = () => {
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-24 px-6 relative z-10">
+      <section id="about" className="py-2 md:py-8 px-2 md:px-4 relative z-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-4 md:mb-8">
             <div className="inline-block mb-4">
               <span className="bg-gradient-to-r from-emerald-50 to-cyan-50 border border-emerald-300/50 text-emerald-700 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg shadow-emerald-200/30 backdrop-blur-sm">{t('about_us', 'About Us')}</span>
             </div>
-            <h2 className="text-5xl md:text-6xl font-black text-slate-900 mb-6">
+            <h2 className="text-3xl md:text-6xl font-black text-slate-900 mb-4 md:mb-6">
               About <span className="bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent">SAFE</span>
             </h2>
-            <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-sm md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
               <span className="font-bold bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent">Smart Aid for Food Emergency</span> - When delayed logistics, unsafe routes, and spoiled food supplies turn relief efforts into life-threatening risks, SAFE provides the smart solution with <span className="font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">cutting-edge Web & IoT technology</span>.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="group bg-gradient-to-br from-white to-emerald-50/30 rounded-3xl p-8 border border-emerald-100/60 hover:border-emerald-300 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/50 transition-all duration-300 transform hover:-translate-y-3 backdrop-blur-sm">
-              <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-emerald-100">
-                <Heart className="text-emerald-600" size={32} />
+          <div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-6">
+            <div className="group bg-gradient-to-br from-white to-emerald-50/30 rounded-xl md:rounded-3xl p-2 md:p-6 border border-emerald-100/60 hover:border-emerald-300 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/50 transition-all duration-300 transform hover:-translate-y-3 backdrop-blur-sm">
+              <div className="w-8 h-8 md:w-16 md:h-16 bg-emerald-50 rounded-lg md:rounded-2xl flex items-center justify-center mb-2 md:mb-6 group-hover:scale-110 transition-transform border border-emerald-100">
+                <Heart className="text-emerald-600 w-4 h-4 md:w-8 md:h-8" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-4">{t('problems_today', 'Problems Today')}</h3>
-              <p className="text-slate-600 leading-relaxed">{t('problems_desc', 'Inefficient monitoring, high food spoilage, delayed response. A significant amount of disaster relief food is lost due to poor storage and logistics.')}</p>
+              <h3 className="text-xs md:text-2xl font-black text-slate-900 mb-1 md:mb-4 leading-tight">{t('problems_today', 'Why Disaster Food Relief Often Fails')}</h3>
+              <p className="text-[9px] md:text-base text-slate-600 leading-relaxed">{t('problems_desc', 'Inefficient monitoring, high food spoilage, delayed response. A significant amount of disaster relief food is lost due to poor storage and logistics.')}</p>
             </div>
-            <div className="group bg-gradient-to-br from-white to-cyan-50/30 rounded-3xl p-8 border border-cyan-100/60 hover:border-cyan-300 shadow-lg hover:shadow-2xl hover:shadow-cyan-300/50 transition-all duration-300 transform hover:-translate-y-3 backdrop-blur-sm">
-              <div className="w-16 h-16 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-cyan-200/60 shadow-lg shadow-cyan-200/30">
-                <Shield className="text-cyan-600" size={32} />
+            <div className="group bg-gradient-to-br from-white to-cyan-50/30 rounded-xl md:rounded-3xl p-2 md:p-6 border border-cyan-100/60 hover:border-cyan-300 shadow-lg hover:shadow-2xl hover:shadow-cyan-300/50 transition-all duration-300 transform hover:-translate-y-3 backdrop-blur-sm">
+              <div className="w-8 h-8 md:w-16 md:h-16 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-lg md:rounded-2xl flex items-center justify-center mb-2 md:mb-6 group-hover:scale-110 transition-transform border border-cyan-200/60 shadow-lg shadow-cyan-200/30">
+                <Shield className="text-cyan-600 w-4 h-4 md:w-8 md:h-8" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-4">{t('safe_solution', 'SAFE Solution')}</h3>
-              <p className="text-slate-600 leading-relaxed">{t('solution_desc', 'Smart logistics with optimized routes, real-time risk detection, automated IoT food safety monitoring, and truck delivery tracking for rapid, safe, and reliable relief.')}</p>
+              <h3 className="text-xs md:text-2xl font-black text-slate-900 mb-1 md:mb-4 leading-tight">{t('safe_solution', 'How SAFE Fixes This')}</h3>
+              <p className="text-[9px] md:text-base text-slate-600 leading-relaxed">{t('solution_desc', 'Smart logistics with optimized routes, real-time risk detection, automated IoT food safety monitoring, and truck delivery tracking for rapid, safe, and reliable relief.')}</p>
             </div>
-            <div className="group bg-gradient-to-br from-white to-purple-50/30 rounded-3xl p-8 border border-purple-100/60 hover:border-purple-300 shadow-lg hover:shadow-2xl hover:shadow-purple-300/50 transition-all duration-300 transform hover:-translate-y-3 backdrop-blur-sm">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-purple-200/60 shadow-lg shadow-purple-200/30">
-                <Users className="text-purple-600" size={32} />
+            <div className="group bg-gradient-to-br from-white to-purple-50/30 rounded-xl md:rounded-3xl p-2 md:p-6 border border-purple-100/60 hover:border-purple-300 shadow-lg hover:shadow-2xl hover:shadow-purple-300/50 transition-all duration-300 transform hover:-translate-y-3 backdrop-blur-sm">
+              <div className="w-8 h-8 md:w-16 md:h-16 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg md:rounded-2xl flex items-center justify-center mb-2 md:mb-6 group-hover:scale-110 transition-transform border border-purple-200/60 shadow-lg shadow-purple-200/30">
+                <Users className="text-purple-600 w-4 h-4 md:w-8 md:h-8" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-4">{t('focus_india', 'For India, Focus: Manipur')}</h3>
-              <p className="text-slate-600 leading-relaxed">{t('focus_desc', 'Built for disaster relief across India, currently deployed in Manipur to address the ongoing communal crisis. Supporting English, Hindi, Manipuri (Meitei Mayek), and Odia.')}</p>
+              <h3 className="text-xs md:text-2xl font-black text-slate-900 mb-1 md:mb-4 leading-tight">{t('focus_india', 'For India, Focus: Manipur')}</h3>
+              <p className="text-[9px] md:text-base text-slate-600 leading-relaxed">{t('focus_desc', 'Built for disaster relief across India, currently deployed in Manipur to address the ongoing communal crisis. Supporting English, Hindi, Manipuri (Meitei Mayek), and Odia.')}</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* System Flow Section */}
-      <section className="py-16 px-6 relative z-10 bg-slate-50/50 border-y border-slate-200/60">
+      <section className="py-2 md:py-10 px-2 md:px-6 relative z-10 bg-slate-50/50 border-y border-slate-200/60">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100/50 text-blue-700 text-xs font-bold uppercase tracking-widest mb-10 border border-blue-200/50">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100/50 text-blue-700 text-xs font-bold uppercase tracking-widest mb-2 md:mb-8 border border-blue-200/50">
             <Zap size={14} className="fill-current" /> Real-Time System Flow
           </div>
           
-          <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12">
+          <div className="flex flex-row items-center justify-center gap-2 md:gap-12 overflow-x-auto md:overflow-visible py-2 md:py-4">
             {/* Citizen */}
             <div className="flex flex-col items-center gap-4 group">
-              <div className="w-20 h-20 bg-white rounded-2xl shadow-xl border border-slate-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform duration-300">
-                <Users size={32} />
+              <div className="w-14 h-14 md:w-20 md:h-20 bg-white rounded-2xl shadow-xl border border-slate-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform duration-300">
+                <Users className="w-6 h-6 md:w-8 md:h-8" />
               </div>
               <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-slate-100 text-sm font-bold text-slate-700">Citizen</div>
             </div>
 
             {/* Arrow */}
             <div className="text-slate-300">
-              <ArrowRight size={32} className="rotate-90 md:rotate-0" />
+              <ArrowRight size={24} className="md:w-8 md:h-8" />
             </div>
 
             {/* Platform */}
             <div className="flex flex-col items-center gap-4 group">
-              <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl shadow-2xl shadow-emerald-200 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300 border-4 border-white relative z-10">
-                <Shield size={40} />
+              <div className="w-14 h-14 md:w-24 md:h-22 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl shadow-2xl shadow-emerald-200 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300 border-4 border-white relative z-10">
+                <Shield className="w-6 h-6 md:w-10 md:h-10" />
                 <div className="absolute -top-3 -right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full border-2 border-white shadow-sm">AI Core</div>
               </div>
               <div className="bg-emerald-100 px-4 py-1 rounded-full shadow-sm border border-emerald-200 text-sm font-bold text-emerald-800">SAFE Platform</div>
@@ -1226,13 +1084,13 @@ const LandingPage = () => {
 
             {/* Arrow */}
             <div className="text-slate-300">
-              <ArrowRight size={32} className="rotate-90 md:rotate-0" />
+              <ArrowRight size={24} className="md:w-8 md:h-8" />
             </div>
 
             {/* Supplier */}
             <div className="flex flex-col items-center gap-4 group">
-              <div className="w-20 h-20 bg-white rounded-2xl shadow-xl border border-slate-100 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform duration-300">
-                <Truck size={32} />
+              <div className="w-14 h-14 md:w-20 md:h-20 bg-white rounded-2xl shadow-xl border border-slate-100 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform duration-300">
+                <Truck className="w-6 h-6 md:w-8 md:h-8" />
               </div>
               <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-slate-100 text-sm font-bold text-slate-700">Supplier</div>
             </div>
@@ -1241,13 +1099,13 @@ const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 px-6 relative z-10">
+      <section id="features" className="py-4 md:py-16 px-2 md:px-6 relative z-10">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">{t('features_title', 'Powerful Features')}</h2>
-            <p className="text-lg text-slate-600">{t('everything_needed', 'Everything you need for crisis food management')}</p>
+          <div className="text-center mb-4 md:mb-10">
+            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-2 md:mb-4">{t('features_title', 'Powerful Features')}</h2>
+            <p className="text-sm md:text-lg text-slate-600">{t('everything_needed', 'Everything you need for crisis food management')}</p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6">
             {features.map((feature, i) => {
               const colorClasses = {
                 emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100 hover:border-emerald-200',
@@ -1259,12 +1117,12 @@ const LandingPage = () => {
               };
               
               return (
-                <div key={i} className={`bg-gradient-to-br from-white to-opacity-30 rounded-2xl p-8 shadow-md hover:shadow-2xl transition-all border ${colorClasses[feature.color]} duration-300 group hover:-translate-y-2 cursor-pointer backdrop-blur-sm hover:scale-105`}>
-                  <div className={`w-14 h-14 ${colorClasses[feature.color].split(' ')[1]} rounded-xl flex items-center justify-center mb-4 group-hover:scale-125 transition-all duration-300 border ${colorClasses[feature.color].split(' ')[2]} shadow-lg`}>
-                    <feature.icon size={28} className={colorClasses[feature.color].split(' ')[0]} />
+                <div key={i} className={`bg-gradient-to-br from-white to-opacity-30 rounded-lg md:rounded-2xl p-1.5 md:p-6 shadow-md hover:shadow-2xl transition-all border ${colorClasses[feature.color]} duration-300 group hover:-translate-y-2 cursor-pointer backdrop-blur-sm hover:scale-105`}>
+                  <div className={`w-6 h-6 md:w-14 md:h-14 ${colorClasses[feature.color].split(' ')[1]} rounded-md md:rounded-xl flex items-center justify-center mb-1 md:mb-4 group-hover:scale-125 transition-all duration-300 border ${colorClasses[feature.color].split(' ')[2]} shadow-lg`}>
+                    <feature.icon className={`${colorClasses[feature.color].split(' ')[0]} w-3 h-3 md:w-7 md:h-7`} />
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-emerald-600 transition-colors">{feature.title}</h3>
-                  <p className="text-slate-600 leading-relaxed text-sm">{feature.desc}</p>
+                  <h3 className="text-[8px] md:text-xl font-bold text-slate-900 mb-0.5 md:mb-3 group-hover:text-emerald-600 transition-colors leading-tight">{feature.title}</h3>
+                  <p className="text-slate-600 leading-tight text-[6px] md:text-sm">{feature.desc}</p>
                 </div>
               );
             })}
@@ -1273,28 +1131,28 @@ const LandingPage = () => {
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="py-20 px-6 relative z-10">
+      <section id="how-it-works" className="py-4 md:py-16 px-2 md:px-6 relative z-10 mt-4 md:mt-0">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-6 md:mb-10">
             <div className="inline-block mb-4">
               <span className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-300/50 text-purple-700 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg shadow-purple-200/30 backdrop-blur-sm">{t('process', 'Process')}</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">{t('how_it_works_title', 'How It Works')}</h2>
-            <p className="text-lg text-slate-600">{t('get_assistance', 'Get food assistance in 4 simple steps')}</p>
+            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-2 md:mb-4">{t('how_it_works_title', 'How It Works')}</h2>
+            <p className="text-sm md:text-lg text-slate-600">{t('get_assistance', 'Get food assistance in 4 simple steps')}</p>
           </div>
 
           {/* Horizontal Layout - Premium Design */}
-          <div className="grid md:grid-cols-5 gap-4 relative">
+          <div className="grid grid-cols-5 gap-1 md:gap-4 relative">
             {/* Connecting Line */}
             <div className="absolute top-8 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-400 hidden md:block" style={{display: 'none'}}></div>
             
             {howItWorks.map((item, i) => (
               <div key={i} className="group relative">
-                <div className="bg-gradient-to-br from-white to-emerald-50/20 rounded-2xl p-6 border border-emerald-100/60 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/40 transition-all duration-300 transform hover:-translate-y-3 group-hover:border-emerald-300 backdrop-blur-sm h-full">
+                <div className="bg-gradient-to-br from-white to-emerald-50/20 rounded-lg md:rounded-2xl p-1.5 md:p-6 border border-emerald-100/60 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/40 transition-all duration-300 transform hover:-translate-y-3 group-hover:border-emerald-300 backdrop-blur-sm h-full">
                   {/* Step Circle */}
-                  <div className="flex justify-center mb-6">
+                  <div className="flex justify-center mb-1 md:mb-6">
                     <div className="relative">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-emerald-400/60 border border-emerald-400/30 group-hover:shadow-emerald-500/80 transition-all transform group-hover:scale-110">
+                      <div className="w-6 h-6 md:w-16 md:h-16 rounded-md md:rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white font-black text-[10px] md:text-xl shadow-lg shadow-emerald-400/60 border border-emerald-400/30 group-hover:shadow-emerald-500/80 transition-all transform group-hover:scale-110">
                         {item.step}
                       </div>
                       {/* Connector dot to next */}
@@ -1306,11 +1164,11 @@ const LandingPage = () => {
 
                   {/* Content */}
                   <div className="text-center">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center mx-auto mb-4">
-                      <item.icon className="text-emerald-600" size={24} />
+                    <div className="w-6 h-6 md:w-12 md:h-12 rounded-md md:rounded-xl bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center mx-auto mb-1 md:mb-4">
+                      <item.icon className="text-emerald-600 w-3 h-3 md:w-6 md:h-6" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-emerald-600 transition-colors">{item.title}</h3>
-                    <p className="text-slate-600 text-sm leading-relaxed">{item.desc}</p>
+                    <h3 className="text-[8px] md:text-lg font-bold text-slate-900 mb-0.5 md:mb-2 group-hover:text-emerald-600 transition-colors">{item.title}</h3>
+                    <p className="text-slate-600 text-[6px] md:text-sm leading-tight">{item.desc}</p>
                   </div>
                 </div>
               </div>
@@ -1320,106 +1178,154 @@ const LandingPage = () => {
       </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-20 px-6 relative z-10">
+      <section id="contact" className="py-3 md:py-10 px-2 md:px-6 relative z-8">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12">
-            <div>
-              <div className="inline-block mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 gap-2 md:gap-6">
+            <div className="col-span-2 md:col-span-1">
+              <div className="inline-block mb-3">
                 <span className="bg-gradient-to-r from-pink-50 to-orange-50 border border-pink-300/50 text-pink-700 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg shadow-pink-200/30 backdrop-blur-sm">Contact</span>
               </div>
-              <h2 className="text-4xl font-black text-slate-900 mb-6">{t('get_in_touch', 'Get In Touch')}</h2>
-              <p className="text-slate-600 mb-8 text-lg">{t('contact_sub', "Have questions? Need help? We're here 24/7 during crisis situations.")}</p>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 group cursor-pointer hover:scale-105 transition-transform duration-300">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 via-teal-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-400/60 group-hover:shadow-emerald-500/80 transition-all duration-300 border border-emerald-400/30">
-                    <Phone size={20} className="text-white" />
+              <h2 className="text-2xl md:text-4xl font-black text-slate-900 mb-4 md:mb-6">{t('get_in_touch', 'Get In Touch')}</h2>
+              <p className="text-slate-600 mb-6 md:mb-8 text-sm md:text-lg">{t('contact_sub', "Have questions? Need help? We're here 24/7 during crisis situations.")}</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col items-center text-center gap-2 group cursor-pointer hover:scale-105 transition-transform duration-300 p-2 rounded-xl border border-emerald-100 bg-emerald-50/50">
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-emerald-500 via-teal-400 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-400/60 group-hover:shadow-emerald-500/80 transition-all duration-300 border border-emerald-400/30">
+                    <Phone size={16} className="text-white" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">{t('emergency_hotline', 'Emergency Hotline')}</p>
-                    <p className="font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">+91-XXXX-XXXXXX</p>
+                    <p className="text-[9px] text-slate-500 uppercase font-bold">{t('emergency_hotline', 'Hotline')}</p>
+                    <p className="text-[10px] md:text-xs font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">+91-XXXX-XXXXXX</p>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <p className="text-sm text-amber-600 font-semibold">Emergency support available 24/7 during disaster situations</p>
-                </div>
-                <div className="flex items-center gap-4 group cursor-pointer hover:scale-105 transition-transform duration-300">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-cyan-400 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-400/60 group-hover:shadow-blue-500/80 transition-all duration-300 border border-blue-400/30">
-                    <Mail size={20} className="text-white" />
+                <div className="flex flex-col items-center text-center gap-2 group cursor-pointer hover:scale-105 transition-transform duration-300 p-2 rounded-xl border border-blue-100 bg-blue-50/50">
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-500 via-cyan-400 to-cyan-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-400/60 group-hover:shadow-blue-500/80 transition-all duration-300 border border-blue-400/30">
+                    <Mail size={16} className="text-white" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">{t('email_support', 'Email Support')}</p>
-                    <p className="font-bold text-slate-900 group-hover:text-cyan-600 transition-colors">support@foodtechnexus.org</p>
+                    <p className="text-[9px] text-slate-500 uppercase font-bold">{t('email_support', 'Email')}</p>
+                    <p className="text-[10px] md:text-xs font-bold text-slate-900 group-hover:text-cyan-600 transition-colors break-all">support@safe.org</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 group cursor-pointer hover:scale-105 transition-transform duration-300">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 via-pink-400 to-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-400/60 group-hover:shadow-purple-500/80 transition-all duration-300 border border-purple-400/30">
-                    <MapPinned size={20} className="text-white" />
+                <div className="flex flex-col items-center text-center gap-2 group cursor-pointer hover:scale-105 transition-transform duration-300 p-2 rounded-xl border border-purple-100 bg-purple-50/50">
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-500 via-pink-400 to-pink-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-400/60 group-hover:shadow-purple-500/80 transition-all duration-300 border border-purple-400/30">
+                    <MapPinned size={16} className="text-white" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">{t('headquarters', 'Headquarters')}</p>
-                    <p className="font-bold text-slate-900 group-hover:text-purple-600 transition-colors">Imphal, Manipur, India</p>
+                    <p className="text-[9px] text-slate-500 uppercase font-bold">{t('headquarters', 'HQ')}</p>
+                    <p className="text-[10px] md:text-xs font-bold text-slate-900 group-hover:text-purple-600 transition-colors">Imphal, India</p>
                   </div>
                 </div>
               </div>
+              <div className="mt-3 text-center">
+                <p className="text-[10px] md:text-xs text-amber-600 font-semibold bg-amber-50 inline-block px-3 py-1 rounded-full border border-amber-100">Emergency support available 24/7</p>
+              </div>
             </div>
-            <div className="bg-gradient-to-br from-white to-emerald-50/20 rounded-3xl p-8 border border-emerald-100/60 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/50 transition-all duration-300 backdrop-blur-sm">
-              <h3 className="text-2xl font-bold text-slate-900 mb-6">{t('send_message', 'Send a Message')}</h3>
-              <form className="space-y-4">
-                <input type="text" placeholder={t('your_name', 'Your Name')} className="w-full px-4 py-3 bg-white/70 border border-emerald-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 backdrop-blur-sm" />
-                <input type="email" placeholder={t('your_email', 'Your Email')} className="w-full px-4 py-3 bg-white/70 border border-emerald-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 backdrop-blur-sm" />
-                <textarea placeholder={t('your_message', 'Your Message')} rows="4" className="w-full px-4 py-3 bg-white/70 border border-emerald-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 resize-none backdrop-blur-sm"></textarea>
-                <button type="submit" className="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-400/60 hover:shadow-xl hover:shadow-emerald-500/80 transition-all duration-300 transform hover:scale-105 border border-emerald-400/30">
-                  {t('send_btn', 'Send Message')}
+
+            <div className="col-span-1 md:col-span-1 md:row-span-2 md:col-start-2 md:row-start-1 bg-gradient-to-br from-white to-emerald-50/20 rounded-xl md:rounded-3xl p-2 md:p-6 border border-emerald-100/60 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/50 transition-all duration-300 backdrop-blur-sm flex flex-col justify-center">
+              <h3 className="text-xs md:text-2xl font-bold text-slate-900 mb-2 md:mb-6 text-center md:text-left">{t('send_message', 'Send a Message')}</h3>
+              <form className="space-y-1.5 md:space-y-3">
+                <input type="text" placeholder={t('your_name', 'Your Name')} className="w-full px-1 py-0.5 md:px-2 md:py-1.5 bg-white/70 border border-emerald-100 rounded-lg md:rounded-xl text-[10px] md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 backdrop-blur-sm" />
+                <input type="email" placeholder={t('your_email', 'Your Email')} className="w-full px-1 py-0.5 md:px-2 md:py-1.5 bg-white/70 border border-emerald-100 rounded-lg md:rounded-xl text-[10px] md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 backdrop-blur-sm" />
+                <textarea placeholder={t('your_message', 'Message')} rows="3" className="w-full px-1 py-0.5 md:px-2 md:py-1.5 bg-white/70 border border-emerald-100 rounded-lg md:rounded-xl text-[10px] md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 resize-none backdrop-blur-sm"></textarea>
+                <button type="submit" className="w-half  px-2 py-1 md:py-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-lg md:rounded-xl font-bold shadow-lg shadow-emerald-400/60 hover:shadow-xl hover:shadow-emerald-500/80 transition-all duration-300 transform hover:scale-105 border border-emerald-400/30 text-[10px] md:text-base">
+                  {t('send_btn', 'Send')}
                 </button>
               </form>
+            </div>
+
+            <div className="col-span-1 md:col-span-1 bg-red-50 border-2 border-red-500 rounded-xl p-2 md:p-4 text-center flex flex-col justify-center">
+                <h3 className="text-red-700 font-black text-[10px] md:text-lg mb-0.5 md:mb-1">🚨 Need help?</h3>
+                <p className="text-red-600 mb-1 md:mb-2 font-medium text-[8px] md:text-xs leading-tight">Use Emergency Access to locate food.</p>
+                <button onClick={() => navigate('/login', { state: { role: 'emergency' } })} className="bg-red-600 text-white px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-500/30 w-full text-[9px] md:text-sm">
+                  GET HELP NOW
+                </button>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-300 py-12 px-6 border-t border-slate-700/50 relative z-10 backdrop-blur-xl">
+      <footer className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-300 pt-1 pb-2 md:py-12 px-4 md:px-6 border-t border-slate-700/50 relative z-10 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
+          <div className="grid md:grid-cols-4 gap-4 md:gap-8 mb-2 md:mb-8">
+            <div className="text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-1 md:mb-4">
                 <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 via-teal-400 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-400/60">
-                  <Utensils className="text-white" size={16} />
+                  <Utensils className="text-white" size={14} />
                 </div>
-                <h3 className="text-white font-bold text-lg">SAFE</h3>
+                <h3 className="text-white font-bold text-base md:text-lg">SAFE</h3>
               </div>
-              <p className="text-sm text-slate-400">{t('footer_desc', 'Web & IoT platform for disaster relief in India. Currently active in Manipur.')}</p>
+              <p className="text-xs md:text-sm text-slate-400 mb-2 md:mb-4">{t('footer_desc', 'Web & IoT platform for disaster relief in India. Currently active in Manipur.')}</p>
+              <div className="flex gap-4 justify-center md:justify-start">
+                <a href="#" className="text-slate-400 hover:text-emerald-400 transition-colors"><Twitter size={16} /></a>
+                <a href="#" className="text-slate-400 hover:text-emerald-400 transition-colors"><Instagram size={16} /></a>
+              </div>
             </div>
-            <div>
-              <h4 className="text-white font-bold mb-4">{t('platform', 'Platform')}</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#about" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('about_us', 'About Us')}</a></li>
-                <li><a href="#features" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('nav.features', 'Features')}</a></li>
-                <li><a href="#how-it-works" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('nav.how_it_works', 'How It Works')}</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-white font-bold mb-4">{t('support', 'Support')}</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#contact" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('nav.contact', 'Contact Us')}</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('faq', 'FAQ')}</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('help_center', 'Help Center')}</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-white font-bold mb-4">{t('legal', 'Legal')}</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('privacy', 'Privacy Policy')}</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('terms', 'Terms of Service')}</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('cookie', 'Cookie Policy')}</a></li>
-              </ul>
+            
+            {/* Mobile Accordion / Desktop Columns */}
+            <div className="col-span-3">
+              {/* Mobile View: Compact Grid */}
+              <div className="grid grid-cols-3 gap-1 md:hidden text-[10px]">
+                 <div className="space-y-1">
+                    <h4 className="text-white font-bold mb-0.5">{t('platform', 'Platform')}</h4>
+                    <ul className="space-y-0 leading-tight">
+                      <li><a href="#about" className="text-slate-400 hover:text-emerald-400">{t('about_us', 'About Us')}</a></li>
+                      <li><a href="#features" className="text-slate-400 hover:text-emerald-400">{t('nav.features', 'Features')}</a></li>
+                      <li><a href="#how-it-works" className="text-slate-400 hover:text-emerald-400">{t('nav.how_it_works', 'How It Works')}</a></li>
+                    </ul>
+                 </div>
+                 <div className="space-y-1">
+                    <h4 className="text-white font-bold mb-0.5">{t('support', 'Support')}</h4>
+                    <ul className="space-y-0 leading-tight">
+                      <li><a href="#contact" className="text-slate-400 hover:text-emerald-400">{t('nav.contact', 'Contact Us')}</a></li>
+                      <li><a href="#" className="text-slate-400 hover:text-emerald-400">{t('faq', 'FAQ')}</a></li>
+                      <li><a href="#" className="text-slate-400 hover:text-emerald-400">{t('help_center', 'Help Center')}</a></li>
+                    </ul>
+                 </div>
+                 <div className="space-y-1">
+                    <h4 className="text-white font-bold mb-0.5">{t('legal', 'Legal')}</h4>
+                    <ul className="space-y-0 leading-tight">
+                      <li><a href="#" className="text-slate-400 hover:text-emerald-400">{t('privacy', 'Privacy')}</a></li>
+                      <li><a href="#" className="text-slate-400 hover:text-emerald-400">{t('terms', 'Terms')}</a></li>
+                      <li><a href="#" className="text-slate-400 hover:text-emerald-400">{t('cookie', 'Cookie')}</a></li>
+                    </ul>
+                 </div>
+              </div>
+
+              {/* Desktop View: Standard Columns */}
+              <div className="hidden md:grid md:grid-cols-3 gap-8">
+                <div>
+                  <h4 className="text-white font-bold mb-4">{t('platform', 'Platform')}</h4>
+                  <ul className="space-y-2 text-sm">
+                    <li><a href="#about" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('about_us', 'About Us')}</a></li>
+                    <li><a href="#features" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('nav.features', 'Features')}</a></li>
+                    <li><a href="#how-it-works" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('nav.how_it_works', 'How It Works')}</a></li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="text-white font-bold mb-4">{t('support', 'Support')}</h4>
+                  <ul className="space-y-2 text-sm">
+                    <li><a href="#contact" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('nav.contact', 'Contact Us')}</a></li>
+                    <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('faq', 'FAQ')}</a></li>
+                    <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('help_center', 'Help Center')}</a></li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="text-white font-bold mb-4">{t('legal', 'Legal')}</h4>
+                  <ul className="space-y-2 text-sm">
+                    <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('privacy', 'Privacy Policy')}</a></li>
+                    <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('terms', 'Terms of Service')}</a></li>
+                    <li><a href="#" className="text-slate-300 hover:text-emerald-400 transition-colors duration-200">{t('cookie', 'Cookie Policy')}</a></li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="border-t border-slate-700/50 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-slate-400">{t('rights', '© 2024 SAFE - Smart Aid for Food Emergencies. All rights reserved.')}</p>
-            <div className="flex items-center gap-4">
-              <Globe size={16} className="text-slate-400" />
-              <span className="text-sm text-slate-400">{t('available_in', 'Available in: EN | HI | MNI | OR')}</span>
+          <div className="border-t border-slate-700/50 pt-2 md:pt-8 flex flex-row justify-between items-center gap-1 md:gap-4 flex-nowrap">
+            <p className="text-[8px] md:text-sm text-slate-400 text-left whitespace-nowrap">{t('rights', '© 2024 SAFE. All rights reserved.')}</p>
+            <div className="flex items-center gap-1 md:gap-4 flex-nowrap">
+              <Globe size={10} className="text-slate-400 md:w-4 md:h-4" />
+              <span className="text-[8px] md:text-sm text-slate-400 whitespace-nowrap">{t('available_in', 'Available in: EN | HI | MNI | OR')}</span>
             </div>
           </div>
         </div>

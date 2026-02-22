@@ -221,8 +221,9 @@ export default function SupplierDashboard() {
   const [chatMode, setChatMode] = useState("consumer"); // consumer | ai
   const [replyText, setReplyText] = useState("");
   const [aiMessages, setAiMessages] = useState([
-    { sender: "AI", content: "Hi Supplier 👋 Ask me about low stock, orders, or spoilage risk.", type: "received" },
+    { sender: "AI", content: "Hi Supplier 👋 I'm your Nexus Smart Assistant. Ask me about low stock, incoming orders from the **Consumer Dashboard**, or spoilage risks.", type: "received" },
   ]);
+  const [isAiTyping, setIsAiAiTyping] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -351,7 +352,7 @@ export default function SupplierDashboard() {
     try {
       // Get supplier location (you can use a fixed location or get from user)
       const supplierLocation = { lat: 24.8170, lng: 93.9368 }; // Default to Imphal
-      
+
       await axios.post('http://localhost:8000/sos-alert', {
         lat: supplierLocation.lat,
         lng: supplierLocation.lng,
@@ -359,7 +360,7 @@ export default function SupplierDashboard() {
         sender_name: 'Supplier',
         sender_type: 'supplier'
       });
-      
+
       setShowSOSModal(false);
       setSOSReason('');
       toast('success', 'SOS Alert Sent', 'Emergency Command Center notified. Danger zone created on map.');
@@ -402,7 +403,7 @@ export default function SupplierDashboard() {
         setInventory(invRes.data);
         localStorage.setItem('supplier_inventory', JSON.stringify(invRes.data));
       }
-      
+
       if (reqRes.data) {
         setRequests(reqRes.data);
         localStorage.setItem('supplier_requests', JSON.stringify(reqRes.data));
@@ -458,7 +459,7 @@ export default function SupplierDashboard() {
 
     try {
       await axios.post(`${API}/inventory`, { ...newItem, quantity: parseFloat(newItem.quantity) });
-      
+
       // Optimistic update for offline feel
       const updated = [...inventory, { ...newItem, id: Date.now(), quantity: parseFloat(newItem.quantity) }];
       setInventory(updated);
@@ -600,24 +601,45 @@ export default function SupplierDashboard() {
     const userText = replyText.trim();
     setReplyText("");
     setAiMessages((p) => [...p, { sender: "You", content: userText, type: "sent" }]);
+    setIsAiAiTyping(true);
 
-    setTimeout(() => {
+    // Simulate AI thinking and streaming
+    setTimeout(async () => {
       const q = userText.toLowerCase();
-      let reply = "Ask me: low stock, orders, spoilage risk, or restock plan.";
+      let reply = "I'm monitoring the system. You can ask me about low stock, orders pending from the **Consumer Dashboard**, spoilage risk levels, or request a restock plan.";
 
       if (q.includes("stock") || q.includes("low")) {
         reply = lowStockItems.length
-          ? `Low stock: ${lowStockItems.map((x) => x.name).slice(0, 6).join(", ")}`
-          : "All stock looks healthy ✅";
+          ? `I've analyzed your inventory. You have ${lowStockItems.length} items running low: ${lowStockItems.map((x) => x.name).slice(0, 6).join(", ")}. I recommend restocking these soon to meet demands from the **Consumer Dashboard**.`
+          : "Great news! All stock levels are currently within safe margins. No immediate restock required.";
       } else if (q.includes("spoil") || q.includes("risk") || q.includes("quality")) {
         const bad = spoilageRows.filter((x) => x.risk);
-        reply = bad.length ? `Risk items: ${bad.map((x) => x.location).join(", ")}` : "No current spoilage risk ✅";
+        reply = bad.length
+          ? `Alert: Spoilage risk detected for ${bad.map((x) => x.location).join(", ")}. The IoT sensors indicate unfavorable conditions. You should prioritize these for the next batch of orders.`
+          : "All storage units are operating at optimal temperature and humidity. Spoilage risk is minimal.";
       } else if (q.includes("order")) {
-        reply = orders.length ? `You have ${orders.length} orders. Fulfill pending first.` : "No orders yet.";
+        reply = orders.length
+          ? `You currently have ${orders.length} active orders processed via the **Consumer Dashboard**. Please fulfill the pending ones to maintain high supplier ratings.`
+          : "There are no new orders from the **Consumer Dashboard** at the moment. Keep your inventory ready for the next peak period.";
       }
 
-      setAiMessages((p) => [...p, { sender: "AI", content: reply, type: "received" }]);
-    }, 600);
+      // Create empty message to stream into
+      setAiMessages((p) => [...p, { sender: "AI", content: "", type: "received" }]);
+      setIsAiAiTyping(false);
+
+      // Streaming effect
+      let currentContent = "";
+      const words = reply.split(" ");
+      for (let i = 0; i < words.length; i++) {
+        currentContent += (i === 0 ? "" : " ") + words[i];
+        setAiMessages((p) => {
+          const updated = [...p];
+          updated[updated.length - 1].content = currentContent;
+          return updated;
+        });
+        await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 40));
+      }
+    }, 800);
   };
 
   const scrollToSection = (id) => {
@@ -735,7 +757,7 @@ export default function SupplierDashboard() {
       {/* Main Content - 65-95% */}
       <main className={`transition-all duration-300 flex-1 ${chatOpen ? 'mr-0 md:mr-80' : ''} overflow-y-auto mb-16 md:mb-0`}>
         <div className={`${darkMode ? 'bg-slate-900' : 'bg-white/70 backdrop-blur'} border-r ${darkMode ? 'border-slate-800' : 'border-slate-200'} h-auto min-h-[160px]`}>
-          
+
           {/* FIXED ALERT BAR */}
           {crisisAlerts.length > 0 && (
             <div className="bg-red-600 text-white px-6 py-3 flex items-center justify-between shadow-md sticky top-0 z-30">
@@ -778,20 +800,20 @@ export default function SupplierDashboard() {
 
               {/* Compact Stats */}
               <div className="hidden md:flex items-center gap-4 text-xs font-bold bg-black/10 rounded-lg px-3 py-1.5 border border-white/10">
-                 <div className="flex items-center gap-1.5">
-                    <PackageCheck size={14} className="text-emerald-200" />
-                    <span>{ordersCompleted} Orders</span>
-                 </div>
-                 <div className="w-px h-3 bg-white/20"></div>
-                 <div className="flex items-center gap-1.5">
-                    <Package size={14} className="text-blue-200" />
-                    <span>{totalItems} Items</span>
-                 </div>
-                 <div className="w-px h-3 bg-white/20"></div>
-                 <div className="flex items-center gap-1.5">
-                    <AlertTriangle size={14} className="text-amber-200" />
-                    <span>{formatNumber(spoilageRows.filter(s => s.risk).length, lang)} Alerts</span>
-                 </div>
+                <div className="flex items-center gap-1.5">
+                  <PackageCheck size={14} className="text-emerald-200" />
+                  <span>{ordersCompleted} Orders</span>
+                </div>
+                <div className="w-px h-3 bg-white/20"></div>
+                <div className="flex items-center gap-1.5">
+                  <Package size={14} className="text-blue-200" />
+                  <span>{totalItems} Items</span>
+                </div>
+                <div className="w-px h-3 bg-white/20"></div>
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle size={14} className="text-amber-200" />
+                  <span>{formatNumber(spoilageRows.filter(s => s.risk).length, lang)} Alerts</span>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -861,7 +883,7 @@ export default function SupplierDashboard() {
 
           {/* Content */}
           <div className={`p-4 md:p-8 space-y-6 md:space-y-8 ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-b from-blue-50/50 to-indigo-50/50'}`}>
-          
+
             {/* Quick KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <SmallStat label="Total Items" value={totalItems} />
@@ -879,7 +901,7 @@ export default function SupplierDashboard() {
 
             {/* MAIN DASHBOARD GRID */}
             <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 items-start">
-              
+
               {/* LEFT COLUMN: Inventory + Monitoring */}
               <div className="space-y-4">
                 {/* Inventory */}
@@ -1008,7 +1030,7 @@ export default function SupplierDashboard() {
 
               {/* RIGHT COLUMN: Requests + Alerts */}
               <div className="space-y-4">
-                
+
                 {/* Supplier Orders */}
                 <SoftCard
                   id="orders"
@@ -1598,13 +1620,13 @@ export default function SupplierDashboard() {
                     key={notif.id}
                     onClick={() => markAsRead(notif.id)}
                     className={`p-4 rounded-xl border cursor-pointer transition-all ${notif.read
-                        ? 'bg-white border-slate-200 opacity-60'
-                        : 'bg-white border-slate-300 shadow-md hover:shadow-lg'
+                      ? 'bg-white border-slate-200 opacity-60'
+                      : 'bg-white border-slate-300 shadow-md hover:shadow-lg'
                       }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-2 h-2 rounded-full mt-2 ${notif.type === 'warning' ? 'bg-amber-500' :
-                          notif.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+                        notif.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
                         } ${!notif.read && 'animate-pulse'}`} />
                       <div className="flex-1">
                         <div className="font-semibold text-sm text-slate-900">{notif.title}</div>
@@ -1632,113 +1654,143 @@ export default function SupplierDashboard() {
         )}
       </aside>
 
-      {/* Chat Sidebar - Fixed Width */}
-      <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-50 flex flex-col ${chatOpen ? 'w-full md:w-80' : 'w-0'}`}>
+      {/* Premium Chat Sidebar */}
+      <aside className={`fixed top-0 right-0 h-full w-80 md:w-96 bg-white/80 backdrop-blur-xl border-l border-slate-200/50 shadow-2xl z-50 transform transition-all duration-500 ease-in-out flex flex-col ${chatOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         {chatOpen && (
           <>
             {/* Chat Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-4 flex items-center justify-between">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm">
               <div className="flex items-center gap-3">
-                <MessageSquare size={20} />
-                <h3 className="font-bold text-lg">{t("chat", { defaultValue: "Chat" })}</h3>
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <MessageSquare size={20} />
+                </div>
+                <div>
+                  <div className="font-bold text-sm tracking-tight">{chatMode === "ai" ? "Assistant" : "Consumer Chat"}</div>
+                  <div className="text-[10px] text-emerald-100 font-medium uppercase tracking-widest opacity-80">
+                    {chatMode === "ai" ? "Nexus Intelligence" : "Live Messages"}
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setChatOpen(false)}
-                className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition"
+                className="p-2 hover:bg-white/10 rounded-xl transition-colors"
                 type="button"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            {/* Chat Mode Toggle */}
-            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex gap-2">
-              <button
-                onClick={() => setChatMode("consumer")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition inline-flex items-center justify-center gap-2 ${chatMode === "consumer"
-                    ? "bg-emerald-600 text-white shadow-md"
-                    : "bg-white text-slate-600 hover:bg-slate-100"
-                  }`}
-                type="button"
-              >
-                <MessageSquare size={14} /> Consumer
-              </button>
-              <button
-                onClick={() => setChatMode("ai")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition inline-flex items-center justify-center gap-2 ${chatMode === "ai"
-                    ? "bg-emerald-600 text-white shadow-md"
-                    : "bg-white text-slate-600 hover:bg-slate-100"
-                  }`}
-                type="button"
-              >
-                <Bot size={14} /> AI Help
-              </button>
+            {/* Mode Selector */}
+            <div className="p-4 bg-slate-50/50">
+              <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
+                <button
+                  onClick={() => setChatMode("consumer")}
+                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all inline-flex items-center justify-center gap-2 ${chatMode === "consumer" ? "bg-emerald-600 text-white shadow-md font-extrabold" : "text-slate-500 hover:bg-slate-50"}`}
+                  type="button"
+                >
+                  <MessageSquare size={14} /> Consumer
+                </button>
+                <button
+                  onClick={() => setChatMode("ai")}
+                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all inline-flex items-center justify-center gap-2 ${chatMode === "ai" ? "bg-emerald-600 text-white shadow-md font-extrabold" : "text-slate-500 hover:bg-slate-50"}`}
+                  type="button"
+                >
+                  <Bot size={14} /> Nexus AI
+                </button>
+              </div>
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+            <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide bg-slate-50/30">
               {chatMode === "consumer" ? (
                 <>
                   {messages.length === 0 && (
                     <div className="text-center text-sm text-slate-400 italic py-8">
-                      {t("no_messages", { defaultValue: "No messages yet." })}
+                      No messages from consumers yet.
                     </div>
                   )}
                   {messages.map((m, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-xl shadow-sm ${m.sender === "Supplier"
-                          ? "bg-emerald-600 text-white ml-12"
-                          : "bg-white text-slate-800 mr-12"
-                        }`}
-                    >
-                      <div className={`text-[10px] font-bold mb-1 ${m.sender === "Supplier" ? "text-emerald-100" : "text-slate-500"
+                    <div key={idx} className={`flex flex-col ${m.sender === "Supplier" ? "items-end" : "items-start"}`}>
+                      <div className={`max-w-[85%] p-4 rounded-2xl text-sm shadow-sm ring-1 ring-black/5 ${m.sender === "Supplier"
+                          ? "bg-emerald-600 text-white rounded-tr-none"
+                          : "bg-white text-slate-800 rounded-tl-none border border-slate-200"
                         }`}>
-                        {m.sender}
+                        {m.content}
                       </div>
-                      <div className="text-sm">{m.content}</div>
+                      <div className="mt-1 text-[10px] font-bold text-slate-400 px-1 uppercase tracking-tighter">
+                        {m.sender} • {t("just_now", { defaultValue: "Just now" })}
+                      </div>
                     </div>
                   ))}
                 </>
               ) : (
                 <>
                   {aiMessages.map((m, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-xl shadow-sm ${m.type === "sent"
-                          ? "bg-emerald-600 text-white ml-12"
-                          : "bg-white text-slate-800 mr-12"
-                        }`}
-                    >
-                      <div className={`text-[10px] font-bold mb-1 ${m.type === "sent" ? "text-emerald-100" : "text-slate-500"
+                    <div key={idx} className={`flex flex-col ${m.type === "sent" ? "items-end" : "items-start"}`}>
+                      <div className={`max-w-[85%] p-4 rounded-2xl text-sm shadow-sm ring-1 ring-black/5 ${m.type === "sent"
+                          ? "bg-emerald-600 text-white rounded-tr-none"
+                          : "bg-white text-slate-800 rounded-tl-none border-l-4 border-emerald-500 border border-slate-200"
                         }`}>
-                        {m.sender}
+                        {m.content || (
+                          <div className="flex gap-1 py-1">
+                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"></span>
+                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce delay-75"></span>
+                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce delay-150"></span>
+                          </div>
+                        )}
                       </div>
-                      <div className="text-sm">{m.content}</div>
+                      <div className="mt-1 text-[10px] font-bold text-slate-400 px-1 uppercase tracking-tighter">
+                        {m.sender} • {m.type === "sent" ? "User" : "Nexus Assistant"}
+                      </div>
                     </div>
                   ))}
+                  {isAiTyping && (
+                    <div className="flex flex-col items-start translate-y-2 opacity-100 transition-all duration-300">
+                      <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border-l-4 border-emerald-500 border border-slate-200">
+                        <div className="flex gap-1.5 items-center">
+                          <span className="text-emerald-500 italic text-xs font-semibold">Nexus is analyzing system state...</span>
+                          <span className="flex gap-0.5">
+                            <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse"></span>
+                            <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse delay-75"></span>
+                            <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse delay-150"></span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               <div ref={chatEndRef} />
             </div>
 
-            {/* Chat Input */}
-            <form onSubmit={handleSendChat} className="p-4 bg-white border-t border-slate-200">
-              <div className="flex gap-2">
-                <input
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder={t("type_reply", { defaultValue: "Type message..." })}
-                  className="flex-1 border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-3 rounded-xl font-semibold text-white inline-flex items-center gap-2 shadow-md hover:shadow-lg transition bg-emerald-600 hover:bg-emerald-700"
-                >
-                  <Send size={16} />
-                </button>
-              </div>
-            </form>
+            {/* Chat Input Area */}
+            <div className="p-5 bg-white border-t border-slate-100">
+              <form onSubmit={handleSendChat} className="flex flex-col gap-3">
+                <div className="relative group">
+                  <input
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder={chatMode === "ai" ? "Ask Nexus AI about inventory..." : "Type message..."}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder-slate-400 group-hover:bg-slate-100/50 pr-14"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!replyText.trim() || isAiTyping}
+                    className={`absolute right-2 top-2 p-2.5 rounded-xl transition-all ${replyText.trim() && !isAiTyping
+                        ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:scale-105 active:scale-95"
+                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                      }`}
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
+                {chatMode === "ai" && (
+                  <div className="text-[10px] text-slate-400 text-center font-bold tracking-tight uppercase opacity-70">
+                    AI aggregates data across Nexus Platform
+                  </div>
+                )}
+              </form>
+            </div>
           </>
         )}
       </aside>
@@ -1883,23 +1935,23 @@ export default function SupplierDashboard() {
               <button onClick={() => setShowTeamModal(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
             </div>
             <div className="space-y-4">
-               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">B</div>
-                  <div>
-                    <div className="font-bold text-sm">Breny</div>
-                    <div className="text-xs text-slate-500">Logistics Manager</div>
-                  </div>
-               </div>
-               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">S</div>
-                  <div>
-                    <div className="font-bold text-sm">Sinthoiba</div>
-                    <div className="text-xs text-slate-500">Inventory Specialist</div>
-                  </div>
-               </div>
-               <button className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-semibold hover:bg-slate-50 hover:border-slate-400 transition">
-                  + Add Team Member
-               </button>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">B</div>
+                <div>
+                  <div className="font-bold text-sm">Breny</div>
+                  <div className="text-xs text-slate-500">Logistics Manager</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold">S</div>
+                <div>
+                  <div className="font-bold text-sm">Sinthoiba</div>
+                  <div className="text-xs text-slate-500">Inventory Specialist</div>
+                </div>
+              </div>
+              <button className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-semibold hover:bg-slate-50 hover:border-slate-400 transition">
+                + Add Team Member
+              </button>
             </div>
           </div>
         </div>
@@ -1914,36 +1966,36 @@ export default function SupplierDashboard() {
               <button onClick={() => setShowSettingsModal(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
             </div>
             <div className="space-y-4">
-               
-               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-cyan-100 text-cyan-600 rounded-lg"><Bell size={18} /></div>
-                    <span className="font-medium text-slate-700">Notifications</span>
-                  </div>
-                  <button onClick={() => setNotificationsEnabled(!notificationsEnabled)} className={`w-12 h-6 rounded-full transition-colors relative ${notificationsEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${notificationsEnabled ? 'left-7' : 'left-1'}`}></div>
-                  </button>
-               </div>
 
-               <div className="p-3 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Globe size={18} /></div>
-                    <span className="font-medium text-slate-700">Language</span>
-                  </div>
-                  <select 
-                    value={lang} 
-                    onChange={(e) => {
-                       i18n.changeLanguage(e.target.value);
-                       toast("info", "Language changed", `Now using: ${e.target.value.toUpperCase()}`);
-                    }}
-                    className="w-full p-2 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="en">English</option>
-                    <option value="hi">Hindi</option>
-                    <option value="mni">Manipuri</option>
-                    <option value="or">Odia</option>
-                  </select>
-               </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-cyan-100 text-cyan-600 rounded-lg"><Bell size={18} /></div>
+                  <span className="font-medium text-slate-700">Notifications</span>
+                </div>
+                <button onClick={() => setNotificationsEnabled(!notificationsEnabled)} className={`w-12 h-6 rounded-full transition-colors relative ${notificationsEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${notificationsEnabled ? 'left-7' : 'left-1'}`}></div>
+                </button>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Globe size={18} /></div>
+                  <span className="font-medium text-slate-700">Language</span>
+                </div>
+                <select
+                  value={lang}
+                  onChange={(e) => {
+                    i18n.changeLanguage(e.target.value);
+                    toast("info", "Language changed", `Now using: ${e.target.value.toUpperCase()}`);
+                  }}
+                  className="w-full p-2 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="en">English</option>
+                  <option value="hi">Hindi</option>
+                  <option value="mni">Manipuri</option>
+                  <option value="or">Odia</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
