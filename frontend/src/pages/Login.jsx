@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -132,6 +132,43 @@ const Login = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [activeTab, setActiveTab] = useState('consumer'); 
   
+  // PWA & Online State
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
   // Login/Register Form Data
   const [formData, setFormData] = useState({
     email: '',
@@ -317,7 +354,7 @@ const Login = () => {
         transition={{ delay: 0.2 }}
       >
         {/* Role Selector */}
-        <div className="flex justify-center gap-4 mb-6">
+        <div className="flex justify-center gap-2 md:gap-4 mb-6 flex-wrap">
             {['consumer', 'supplier', 'emergency'].map((role) => (
                 <button
                     key={role}
@@ -327,7 +364,7 @@ const Login = () => {
                         setError(''); 
                         if(role === 'emergency') setIsRegistering(false); 
                     }}
-                    className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-300 w-24 border
+                    className={`flex flex-col items-center gap-2 p-2 md:p-3 rounded-xl transition-all duration-300 w-20 md:w-24 border
                         ${activeTab === role 
                             ? 'bg-white/90 backdrop-blur-md shadow-xl scale-110 border-white/50 text-gray-800' 
                             : 'bg-black/20 hover:bg-black/30 text-white/70 border-transparent scale-100'}

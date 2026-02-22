@@ -85,12 +85,12 @@ const EmergencyDashboard = () => {
 
     return (
         <div className="min-h-screen bg-gray-900 font-sans text-gray-100">
-            <nav className="bg-red-900 text-white px-6 py-4 flex justify-between items-center shadow-lg border-b border-red-700">
-                <div className="flex items-center gap-4">
+            <nav className="bg-red-900 text-white px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row justify-between items-center shadow-lg border-b border-red-700 gap-3 md:gap-0">
+                <div className="flex items-center gap-4 w-full md:w-auto">
                     <h1 className="text-xl font-bold flex items-center gap-2 tracking-wider"><Siren className="animate-pulse"/> EMERGENCY COMMAND</h1>
                     <span className="text-xs bg-red-950 px-2 py-1 rounded text-red-200 border border-red-800">OFFICIAL USE ONLY</span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
                     <button onClick={toggleLanguage} className="bg-red-800 px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-bold hover:bg-red-700">
                         <Globe size={14}/> {i18n.language === 'en' ? 'EN' : i18n.language === 'hi' ? 'HI' : i18n.language === 'mni' ? 'MNI' : 'OR'}
                     </button>
@@ -100,9 +100,9 @@ const EmergencyDashboard = () => {
                 </div>
             </nav>
 
-            <div className="flex h-[calc(100vh-70px)]">
+            <div className="flex flex-col md:flex-row h-[calc(100vh-70px)]">
                 {/* Sidebar */}
-                <div className="w-96 bg-gray-800 border-r border-gray-700 p-4 space-y-4 overflow-y-auto">
+                <div className="w-full md:w-96 h-[40%] md:h-full bg-gray-800 border-r border-gray-700 p-4 space-y-4 overflow-y-auto order-2 md:order-1">
                     <div className="p-4 bg-red-900/30 border border-red-500/30 rounded-lg">
                         <h2 className="text-red-400 font-bold flex items-center gap-2 mb-3"><AlertTriangle size={18}/> Pending Alerts ({pendingAlerts.length})</h2>
                         {pendingAlerts.length === 0 ? (
@@ -143,7 +143,7 @@ const EmergencyDashboard = () => {
                 </div>
 
                 {/* Main Map */}
-                <div className="flex-1 relative">
+                <div className="flex-1 relative h-[60%] md:h-full order-1 md:order-2">
                     <MapContainer center={[24.8170, 93.9368]} zoom={11} style={{ height: "100%", width: "100%" }}>
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                         {riskZones.map(zone => (

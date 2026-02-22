@@ -286,6 +286,11 @@ const LandingPage = () => {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('scroll', handleScroll);
 
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('online', handleOnline);
@@ -635,7 +640,7 @@ const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="pb-20 px-6 relative overflow-hidden pt-32 lg:pt-48 z-10" style={{paddingTop: deferredPrompt ? (isOnline ? '180px' : '216px') : (isOnline ? '160px' : '196px')}}>
+      <section className="pb-20 px-6 relative overflow-hidden pt-24 md:pt-32 lg:pt-48 z-10" style={{paddingTop: deferredPrompt ? (isOnline ? '180px' : '216px') : (isOnline ? '160px' : '196px')}}>
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="animate-fade-in-up relative">

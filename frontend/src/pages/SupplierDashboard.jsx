@@ -23,8 +23,6 @@ import {
   Settings,
   Bell,
   Users,
-  Moon,
-  Sun,
   Download,
   Radio,
   FileText,
@@ -126,6 +124,7 @@ function SoftCard({ title, right, children, className = "", ...props }) {
         "bg-white rounded-2xl border border-slate-200/70",
         "shadow-[0_8px_24px_rgba(15,23,42,0.06)]",
         "dark:bg-slate-800 dark:border-slate-600",
+        "min-h-[260px]",
         className,
       ].join(" ")}
     >
@@ -200,9 +199,7 @@ export default function SupplierDashboard() {
   const [riskZones, setRiskZones] = useState([]);
   const [messages, setMessages] = useState([]);
   const [lastSync, setLastSync] = useState(new Date());
-  const [timeAgo, setTimeAgo] = useState("just now");
   const [loading, setLoading] = useState(true);
-  const [demoMode, setDemoMode] = useState(true);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -239,28 +236,13 @@ export default function SupplierDashboard() {
     { id: 2, type: 'success', title: 'Order Fulfilled', message: 'Order #123 delivered successfully', time: '5 min ago', read: false },
     { id: 3, type: 'error', title: 'Spoilage Risk', message: 'Milk temperature rising', time: '10 min ago', read: true },
   ]);
-  const [darkMode, setDarkMode] = useState(() => {
-    try {
-      const saved = localStorage.getItem('darkMode');
-      return saved ? JSON.parse(saved) : false;
-    } catch (e) {
-      return false;
-    }
-  });
+  const darkMode = false;
   const chatEndRef = useRef(null);
 
   // Crisis Alerts State - Show only recent/active alerts
   const [crisisAlerts] = useState([
     { id: 1, source: 'News API', location: 'Ukhrul', type: 'Communal Crisis', severity: 'critical', time: '18 min ago', affected: 3200 },
   ]);
-
-  // Toggle dark mode
-  const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    localStorage.setItem('darkMode', JSON.stringify(newMode));
-    toast('success', newMode ? 'Dark Mode Enabled' : 'Light Mode Enabled', '🌙 Theme updated');
-  };
 
   const markAsRead = (id) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -405,6 +387,9 @@ export default function SupplierDashboard() {
 
   const fetchData = async () => {
     try {
+      // Fake loading delay for demo
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       const [invRes, reqRes, iotRes, riskRes, msgRes] = await Promise.all([
         axios.get(`${API}/inventory`),
         axios.get(`${API}/food-requests`),
@@ -444,54 +429,6 @@ export default function SupplierDashboard() {
     // return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // --- TIME TICKER (Always runs) ---
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const diff = Math.floor((new Date() - lastSync) / 1000);
-      setTimeAgo(diff < 5 ? "just now" : `${diff}s ago`);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [lastSync]);
-
-  // --- DEMO SIMULATION EFFECT (Only when Demo Mode is ON) ---
-  useEffect(() => {
-    if (!demoMode) return;
-
-    const dataSim = setInterval(() => {
-      setLastSync(new Date());
-      setIotData(prev => {
-        const data = prev.length ? prev : [
-          { id: 1, location: "Tomatoes", temp: 22, humidity: 78, status: "warning", food_quality: "Risk" },
-          { id: 2, location: "Milk", temp: 6, humidity: 70, status: "ok", food_quality: "Good" },
-          { id: 3, location: "Spinach", temp: 10, humidity: 66, status: "ok", food_quality: "Good" },
-          { id: 4, location: "Water", temp: 18, humidity: 55, status: "ok", food_quality: "Good" },
-        ];
-        const idx = Math.floor(Math.random() * data.length);
-        const newData = [...data];
-        const change = Math.random() > 0.5 ? 1 : -1;
-        newData[idx] = { ...newData[idx], temp: newData[idx].temp + change };
-        return newData;
-      });
-    }, 15000);
-
-    // New Request Simulation (every 30s)
-    const reqSim = setInterval(() => {
-      const id = Date.now();
-      const adjustedId = id - (id % 3); // Force "Status" (Pending) based on orders logic
-      const newReq = {
-        id: adjustedId,
-        consumer_name: "Relief Camp #" + Math.floor(Math.random() * 100),
-        item_name: ["Rice", "Dal", "Oil", "Milk"][Math.floor(Math.random() * 4)],
-        quantity: Math.floor(Math.random() * 50) + 10,
-        status: "Status"
-      };
-      setRequests(prev => [newReq, ...prev]);
-      toast("info", "New Request", `Order from ${newReq.consumer_name}`);
-    }, 30000);
-
-    return () => { clearInterval(dataSim); clearInterval(reqSim); };
-  }, [demoMode]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -690,12 +627,32 @@ export default function SupplierDashboard() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/20 via-slate-900 to-slate-900"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 mb-6 relative">
+            <div className="absolute inset-0 border-4 border-slate-800 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <Package className="absolute inset-0 m-auto text-emerald-400" size={24} />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2 tracking-wide">Loading supplier data...</h2>
+          <div className="flex items-center gap-2 text-emerald-400/60 text-xs font-mono uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+            Syncing IoT Nodes
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen flex ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'}`}>
       <ToastStack toasts={toasts} remove={removeToast} />
 
-      {/* Modern Gradient Sidebar - 5% */}
-      <aside className={`w-[5%] ${darkMode ? 'bg-slate-900/95 backdrop-blur-xl' : 'bg-white/95 backdrop-blur-xl'} border-r ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex flex-col items-center py-6 gap-1 shadow-2xl`}>
+      {/* Modern Gradient Sidebar - Responsive Bottom/Side Bar */}
+      <aside className={`fixed bottom-0 left-0 w-full h-16 md:static md:h-auto md:w-20 ${darkMode ? 'bg-slate-900/95 backdrop-blur-xl' : 'bg-white/95 backdrop-blur-xl'} border-t md:border-t-0 md:border-r ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex md:flex-col flex-row items-center justify-around md:justify-start py-2 md:py-6 gap-1 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] md:shadow-2xl z-40`}>
         <button
           onClick={() => scrollToSection("inventory")}
           title="Inventory"
@@ -767,14 +724,6 @@ export default function SupplierDashboard() {
         </button>
         <div className="flex-1" />
         <button
-          onClick={toggleDarkMode}
-          title={darkMode ? "Light Mode" : "Dark Mode"}
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-yellow-400' : 'text-slate-700 hover:text-yellow-600'} hover:bg-yellow-500/10 hover:shadow-lg hover:shadow-yellow-500/20`}
-        >
-          {darkMode ? <Sun size={22} className="group-hover:rotate-180 transition-transform duration-500" /> : <Moon size={22} className="group-hover:rotate-12 transition-transform" />}
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </button>
-        <button
           onClick={() => setShowSettingsModal(true)}
           title="Settings"
           className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-slate-300' : 'text-slate-700 hover:text-slate-800'} ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-100'} hover:shadow-lg`}
@@ -784,7 +733,7 @@ export default function SupplierDashboard() {
       </aside>
 
       {/* Main Content - 65-95% */}
-      <main className={`transition-all duration-300 ${chatOpen ? 'w-[65%]' : 'w-[95%]'} overflow-y-auto`}>
+      <main className={`transition-all duration-300 flex-1 ${chatOpen ? 'mr-0 md:mr-80' : ''} overflow-y-auto mb-16 md:mb-0`}>
         <div className={`${darkMode ? 'bg-slate-900' : 'bg-white/70 backdrop-blur'} border-r ${darkMode ? 'border-slate-800' : 'border-slate-200'} h-auto min-h-[160px]`}>
           
           {/* FIXED ALERT BAR */}
@@ -822,19 +771,8 @@ export default function SupplierDashboard() {
                   <Package size={18} />
                 </div>
                 <div>
-                  <div className="text-lg font-black drop-shadow-sm leading-tight">{t("supplier_dashboard", { defaultValue: "Supplier Dashboard" })}</div>
-                  <div className="flex items-center gap-2 text-[10px] font-semibold text-emerald-50 opacity-90">
-                    <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-pulse"></span>
-                        {t("live_sync", { defaultValue: "Live" })}: {localizeDigits(timeAgo, lang)}
-                    </span>
-                    {demoMode && (
-                        <>
-                            <span>•</span>
-                            <span className="text-amber-200">Demo Data</span>
-                        </>
-                    )}
-                  </div>
+                  <div className="text-lg font-black drop-shadow-sm leading-tight">Supplier Control Panel</div>
+                  <div className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider opacity-90">Live Monitoring System</div>
                 </div>
               </div>
 
@@ -866,20 +804,9 @@ export default function SupplierDashboard() {
                     </span>
                     <span className="text-xs font-bold text-white drop-shadow-sm">System Active</span>
                   </div>
-                  <div className="text-[10px] text-emerald-100 font-medium opacity-90">
-                    Last sync: {localizeDigits(timeAgo, lang)}
+                  <div className="text-[10px] text-emerald-100 font-bold opacity-90 mt-0.5">
+                    Last updated 1 min ago
                   </div>
-                </div>
-
-                {/* Demo Mode Toggle */}
-                <div className="hidden md:flex items-center gap-2 mr-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Demo</span>
-                  <button 
-                    onClick={() => setDemoMode(!demoMode)}
-                    className={`w-7 h-4 rounded-full relative transition-colors duration-300 ${demoMode ? 'bg-emerald-300' : 'bg-slate-600/50'}`}
-                  >
-                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${demoMode ? 'left-3.5' : 'left-0.5'}`}></div>
-                  </button>
                 </div>
 
                 <button
@@ -933,7 +860,7 @@ export default function SupplierDashboard() {
 
 
           {/* Content */}
-          <div className={`p-6 md:p-8 space-y-8 ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-b from-blue-50/50 to-indigo-50/50'}`}>
+          <div className={`p-4 md:p-8 space-y-6 md:space-y-8 ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-b from-blue-50/50 to-indigo-50/50'}`}>
           
             {/* Quick KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -945,20 +872,20 @@ export default function SupplierDashboard() {
             <div>
               <div className="text-lg font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></span>
-                {t("quick_actions", { defaultValue: "Quick Actions" })}
+                {t("quick_actions", { defaultValue: "⚡ Quick Actions" })}
               </div>
               <div className="mt-1 text-sm text-slate-500 dark:text-slate-300">{t("quick_desc", { defaultValue: "Monitor inventory, orders, spoilage and chat in real time." })}</div>
             </div>
 
             {/* MAIN DASHBOARD GRID */}
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-6 items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 items-start">
               
               {/* LEFT COLUMN: Inventory + Monitoring */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Inventory */}
                 <div id="inventory" className="scroll-mt-24">
                   <SoftCard
-                    title={t("inventory_mgmt", { defaultValue: "Inventory Management" })}
+                    title={t("inventory_mgmt", { defaultValue: "📦 Inventory Management" })}
                     right={
                       <div className="flex items-center gap-2">
                         <button
@@ -992,7 +919,7 @@ export default function SupplierDashboard() {
                         <tbody>
                           {loading ? (
                             <tr>
-                              <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
+                              <td colSpan={3} className="px-4 py-10 text-left text-slate-400">
                                 Loading…
                               </td>
                             </tr>
@@ -1023,7 +950,7 @@ export default function SupplierDashboard() {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
+                              <td colSpan={3} className="px-4 py-10 text-left text-slate-400">
                                 {t("inventory_empty", { defaultValue: "Inventory Empty" })}
                               </td>
                             </tr>
@@ -1035,7 +962,7 @@ export default function SupplierDashboard() {
                 </div>
 
                 {/* Live Spoilage Monitor */}
-                <SoftCard id="spoilage" title={t("live_spoilage", { defaultValue: "Live Spoilage Monitor" })} right={<Thermometer className="text-indigo-500" />}>
+                <SoftCard id="spoilage" title={t("live_spoilage", { defaultValue: "🥗 Live Spoilage Monitor" })} right={<Thermometer className="text-indigo-500" />}>
                   <div className="space-y-4">
                     {spoilageRows.slice(0, 3).map((s, idx) => (
                       <div key={s.id ?? idx} className="rounded-2xl border border-slate-200/70 bg-white dark:bg-slate-700/50 dark:border-slate-600 p-4">
@@ -1057,7 +984,7 @@ export default function SupplierDashboard() {
                             </div>
                           </div>
 
-                          <div className="text-right">
+                          <div className="text-left">
                             <div className="text-xs text-slate-500 dark:text-slate-400">{localizeDigits(`${s.percent}%`, lang)}</div>
                             <Pill variant={s.risk ? "red" : "green"}>{s.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}</Pill>
                           </div>
@@ -1080,12 +1007,12 @@ export default function SupplierDashboard() {
               </div>
 
               {/* RIGHT COLUMN: Requests + Alerts */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 
                 {/* Supplier Orders */}
                 <SoftCard
                   id="orders"
-                  title={t("supplier_orders", { defaultValue: "Food Requests" })}
+                  title={t("supplier_orders", { defaultValue: "📋 Food Requests" })}
                   right={<div className="text-[11px] font-semibold text-slate-400 uppercase">{t("pending_requests", { defaultValue: "PENDING REQUESTS" })}</div>}
                 >
                   <div className="space-y-4">
@@ -1154,14 +1081,14 @@ export default function SupplierDashboard() {
                                 <div className="flex gap-3">
                                   <button
                                     onClick={() => handleReject(o.id)}
-                                    className="flex-1 py-3 rounded-xl border-2 border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:border-rose-200 transition-all uppercase tracking-wider"
+                                    className="flex-1 h-[42px] px-4 rounded-xl border-2 border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:border-rose-200 transition-all uppercase tracking-wider flex items-center justify-center"
                                     type="button"
                                   >
                                     Reject
                                   </button>
                                   <button
                                     onClick={() => handleFulfill(o.id)}
-                                    className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
+                                    className="flex-1 h-[42px] px-4 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
                                     type="button"
                                   >
                                     <CheckCircle2 size={16} />
@@ -1169,7 +1096,7 @@ export default function SupplierDashboard() {
                                   </button>
                                 </div>
                               ) : (
-                                <div className="w-full py-3 text-center text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
+                                <div className="w-full py-3 text-left px-4 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
                                   {localizeDigits(t("eta", { defaultValue: "ETA 10 Mins" }), lang)}
                                 </div>
                               )}
@@ -1182,7 +1109,7 @@ export default function SupplierDashboard() {
 
                 {/* Stock Alerts */}
                 <div id="alerts" className="scroll-mt-24">
-                  <SoftCard title={t("stock_alerts", { defaultValue: "Stock Alerts" })}>
+                  <SoftCard title={t("stock_alerts", { defaultValue: "⚠ Stock Alerts" })}>
                     <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
                       <table className="w-full text-sm">
                         <thead className="bg-slate-50 dark:bg-slate-700/50">
@@ -1231,19 +1158,18 @@ export default function SupplierDashboard() {
             {/* Section 3: Quick Stats Summary */}
             <div id="summary" className="space-y-6 scroll-mt-24">
               <div className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span className="text-2xl">📊</span>
-                {t("quick_summary", { defaultValue: "Quick Summary" })}
+                {t("quick_summary", { defaultValue: "📊 Quick Summary" })}
               </div>
 
               <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
-                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-5 dark:from-slate-800 dark:to-slate-800 dark:border-slate-700">
+                <div className="bg-[#dcfce7] border border-[#86efac] rounded-2xl p-5 dark:bg-slate-800 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs text-emerald-700 font-semibold uppercase dark:text-emerald-200">{t("total_inventory", { defaultValue: "Total Inventory" })}</div>
-                      <div className="text-2xl font-extrabold text-emerald-900 mt-1 dark:text-white">{formatNumber(inventory.length, lang)}</div>
-                      <div className="text-xs text-emerald-600 mt-1 dark:text-emerald-300">{t("items_in_stock", { defaultValue: "items in stock" })}</div>
+                      <div className="text-xs text-emerald-800 font-bold uppercase dark:text-emerald-200">{t("total_inventory", { defaultValue: "Total Inventory" })}</div>
+                      <div className="text-2xl font-extrabold text-emerald-950 mt-1 dark:text-white">{formatNumber(inventory.length, lang)}</div>
+                      <div className="text-xs text-emerald-700 mt-1 dark:text-emerald-300">{t("items_in_stock", { defaultValue: "items in stock" })}</div>
                     </div>
-                    <Package className="text-emerald-600 dark:text-emerald-400" size={32} />
+                    <Package className="text-emerald-700 dark:text-emerald-400" size={32} />
                   </div>
                 </div>
 
@@ -1277,7 +1203,7 @@ export default function SupplierDashboard() {
       {/* Floating Add Item Button (Primary Action) */}
       <button
         onClick={() => setShowAddModal(true)}
-        className="fixed bottom-24 right-6 z-40 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-full shadow-2xl hover:shadow-emerald-500/40 transition-all transform hover:scale-105 flex items-center gap-3 font-bold text-lg"
+        className="fixed bottom-32 right-6 z-40 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-full shadow-2xl hover:shadow-emerald-500/40 transition-all transform hover:scale-105 flex items-center gap-3 font-bold text-lg"
       >
         <Plus size={24} strokeWidth={3} />
         {t("add_item", { defaultValue: "Add Item" })}
@@ -1640,7 +1566,7 @@ export default function SupplierDashboard() {
       )}
 
       {/* Notifications Panel */}
-      <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-50 flex flex-col ${notificationsOpen ? 'w-[350px]' : 'w-0'}`}>
+      <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-50 flex flex-col ${notificationsOpen ? 'w-full md:w-[350px]' : 'w-0'}`}>
         {notificationsOpen && (
           <>
             <div className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-4 flex items-center justify-between">
@@ -1706,8 +1632,8 @@ export default function SupplierDashboard() {
         )}
       </aside>
 
-      {/* Chat Sidebar - 30% */}
-      <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-40 flex flex-col ${chatOpen ? 'w-[30%]' : 'w-0'}`}>
+      {/* Chat Sidebar - Fixed Width */}
+      <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-50 flex flex-col ${chatOpen ? 'w-full md:w-80' : 'w-0'}`}>
         {chatOpen && (
           <>
             {/* Chat Header */}
@@ -1850,7 +1776,7 @@ export default function SupplierDashboard() {
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold mb-4 text-slate-900">{t("add_item", { defaultValue: "Add Item" })}</h3>
+            <h3 className="text-lg font-semibold mb-4 text-slate-900">{t("add_item", { defaultValue: "➕ Add Item" })}</h3>
 
             <form onSubmit={handleAddItem} className="space-y-3">
               <input
@@ -1921,7 +1847,7 @@ export default function SupplierDashboard() {
                     eventHandlers={{ click: () => handleDeleteZone(zone.id) }}
                   >
                     <Popup>
-                      <div className="text-center">
+                      <div className="text-left">
                         <b className="text-red-600 uppercase">{t("risk_zone", { defaultValue: "RISK ZONE" })}</b>
                         <div className="mt-1">{zone.reason}</div>
                         <div className="mt-2 text-xs text-slate-500">({t("click_delete", { defaultValue: "Click circle to delete" })})</div>
@@ -1953,7 +1879,7 @@ export default function SupplierDashboard() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">Team Management</h3>
+              <h3 className="text-lg font-semibold text-slate-900">👥 Team Management</h3>
               <button onClick={() => setShowTeamModal(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
             </div>
             <div className="space-y-4">
@@ -1984,19 +1910,10 @@ export default function SupplierDashboard() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white p-6 rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">Settings</h3>
+              <h3 className="text-lg font-semibold text-slate-900">⚙️ Settings</h3>
               <button onClick={() => setShowSettingsModal(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
             </div>
             <div className="space-y-4">
-               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><Moon size={18} /></div>
-                    <span className="font-medium text-slate-700">Dark Mode</span>
-                  </div>
-                  <button onClick={toggleDarkMode} className={`w-12 h-6 rounded-full transition-colors relative ${darkMode ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${darkMode ? 'left-7' : 'left-1'}`}></div>
-                  </button>
-               </div>
                
                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                   <div className="flex items-center gap-3">

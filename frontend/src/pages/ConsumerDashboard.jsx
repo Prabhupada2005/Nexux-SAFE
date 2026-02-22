@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search
+    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search, WifiOff
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -99,6 +99,9 @@ const ConsumerDashboard = () => {
     const [activeChip, setActiveChip] = useState(null); // 'open' | 'nearest' | 'low' | 'hot' | null
     const [isTyping, setIsTyping] = useState(false);
 
+    const [loading, setLoading] = useState(true);
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
     const toggleLanguage = () => {
         const langs = ['en', 'hi', 'mni', 'or'];
         const current = langs.indexOf(i18n.language) > -1 ? langs.indexOf(i18n.language) : 0;
@@ -110,9 +113,23 @@ const ConsumerDashboard = () => {
     useEffect(() => { scrollToBottom(); }, [centerMessages, aiMessages, activeChat, isTyping]);
 
     useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    useEffect(() => {
         if (i18n.addResourceBundle) {
+            i18n.addResourceBundle('en', 'translation', {
+                'quantity': 'Quantity'
+            }, true, true);
             i18n.addResourceBundle('hi', 'translation', {
-                'nearest_center': 'निकटतम केंद्र', 'crowd': 'भीड़', 'hot_meals': 'गर्म भोजन', 'menu_available': 'मेनू उपलब्ध', 'delivery_truck': 'डिलीवरी ट्रक रास्ते में है', 'directions': 'केंद्र के लिए दिशा-निर्देश', 'away': 'दूर', 'progress': 'प्रगति', 'truck_on_way': 'ट्रक आपके स्थान के रास्ते पर है', 'truck_arrived': 'ट्रक आ गया है!', 'follow_route': 'खाद्य केंद्र तक पहुंचने के लिए नीले मार्ग का अनुसरण करें', 'request_delivery': 'डिलीवरी का अनुरोध करें', 'ai_help': 'एआई सहायता', 'nearest_centers': 'निकटतम केंद्र', 'feedback': 'प्रतिक्रिया', 'open': 'खुला', 'closed': 'बंद', 'cancel_pickup': 'पिकअप रद्द करें', 'request_pickup': 'पिकअप का अनुरोध करें', 'chat': 'चैट', 'you': 'आप', 'danger_zone': 'खतरा क्षेत्र', 'avoid_area': 'इस क्षेत्र से बचें', 'do_not_enter': 'प्रवेश न करें', 'ai_assistant': 'एआई सहायक', 'supplier_support': 'आपूर्तिकर्ता सहायता', 'type_message': 'संदेश टाइप करें...', 'request_food': 'भोजन का अनुरोध करें', 'collection_method': 'संग्रह विधि', 'pickup_at_center': 'केंद्र पर पिकअप', 'delivery': 'डिलीवरी', 'delivery_warning': 'डिलीवरी केवल तभी उपलब्ध है जब ट्रक खाली हो। तत्काल जरूरतों के लिए, पिकअप चुनें।', 'food_type': 'भोजन का प्रकार', 'select_food': '-- भोजन चुनें --', 'cooked_food': 'पकाया हुआ भोजन (खाने के लिए तैयार)', 'raw_veg': 'कच्ची सब्जियां', 'grains': 'अनाज और स्टेपल', 'plate_size': 'प्लेट का आकार', 'half_plate': 'हाफ प्लेट', 'full_plate': 'फुल प्लेट', 'quantity': 'मात्रा', 'cancel': 'रद्द करें', 'send_request': 'अनुरोध भेजें', 'send_feedback': 'प्रतिक्रिया भेजें', 'submit': 'जमा करें', 'emergency_sos': 'आपातकालीन एसओएस', 'sos_desc': 'आपका स्थान आपातकालीन कमांड सेंटर को भेजा जाएगा', 'describe_emergency': 'आपातकाल का वर्णन करें (हिंसा, बाढ़, आग, चिकित्सा आपातकाल, आदि)...', 'send_sos': 'एसओएस भेजें', 'logout': 'लॉग आउट', 'consumer_app': 'उपभोक्ता ऐप', 'sos_btn': 'एसओएस'
+                'nearest_center': 'निकटतम केंद्र', 'crowd': 'भीड़', 'hot_meals': 'गर्म भोजन', 'menu_available': 'मेनू उपलब्ध', 'delivery_truck': 'डिलीवरी ट्रक रास्ते में है', 'directions': 'केंद्र के लिए दिशा-निर्देश', 'away': 'दूर', 'progress': 'प्रगति', 'truck_on_way': 'ट्रक आपके स्थान के रास्ते पर है', 'truck_arrived': 'ट्रक आ गया है!', 'follow_route': 'खाद्य केंद्र तक पहुंचने के लिए नीले मार्ग का अनुसरण करें', 'request_delivery': 'डिलीवरी का अनुरोध करें', 'ai_help': 'एआई सहायता', 'nearest_centers': 'निकटतम केंद्र', 'feedback': 'प्रतिक्रिया', 'open': 'खुला', 'closed': 'बंद', 'cancel_pickup': 'पिकअप रद्द करें', 'request_pickup': 'पिकअप का अनुरोध करें', 'chat': 'चैट', 'you': 'आप', 'danger_zone': 'खतरा क्षेत्र', 'avoid_area': 'इस क्षेत्र से बचें', 'do_not_enter': 'प्रवेश न करें', 'ai_assistant': 'एआई सहायक', 'supplier_support': 'आपूर्तिकर्ता सहायता', 'type_message': 'संदेश टाइप करें...', 'request_food': 'भोजन का अनुरोध करें', 'collection_method': 'संग्रह विधि', 'pickup_at_center': 'केंद्र पर पिकअप', 'delivery': 'डिलीवरी', 'delivery_warning': 'डिलीवरी केवल तभी उपलब्ध है जब ट्रक खाली हो। तत्काल जरूरतों के लिए, पिकअप चुनें।', 'food_type': 'भोजन का प्रकार', 'select_food': '-- भोजन चुनें --', 'cooked_food': 'पकाया हुआ भोजन (खाने के लिए तैयार)', 'raw_veg': 'कच्ची सब्जियां', 'grains': 'अनाज और स्टेपल', 'plate_size': 'प्लेट का आकार', 'half_plate': 'हाफ प्लेट', 'full_plate': 'फुल प्लेट', 'quantity': 'मात्रा', 'cancel': 'रद्द करें', 'send_request': 'अनुरोध भेजें', 'send_feedback': 'प्रतिक्रिया भेजें', 'submit': 'जमा करें', 'emergency_sos': 'आपातकालीन एसओएस', 'sos_desc': 'आपका स्थान आपातकालीन कमांड सेंटर को भेजा जाएगा', 'describe_emergency': 'आपातकाल का वर्णन करें (हिंसा, बाढ़, आग, चिकित्सा आपातकाल, आदि)...', 'send_sos': 'एसओएस भेजें', 'logout': 'लॉग आउट', 'consumer_app': 'उपभोक्ता पोर्टल', 'sos_btn': 'एसओएस'
             }, true, true);
             i18n.addResourceBundle('mni', 'translation', {
                 'nearest_center': 'ꯈ꯭ꯋꯥꯏꯗꯒꯤ ꯅꯛꯄ ꯁꯦꯟꯇꯔ', 'crowd': 'ꯃꯤꯌꯥꯝ', 'hot_meals': 'ꯑꯁꯥꯕ ꯆꯥꯛ', 'menu_available': 'ꯃꯦꯅꯨ ꯐꯪꯉꯤ', 'delivery_truck': 'ꯗꯦꯂꯤꯕꯔꯤ ꯇ꯭ꯔꯛ ꯂꯥꯛꯂꯤ', 'directions': 'ꯂꯝꯕꯤ ꯇꯥꯛꯄ', 'away': 'ꯂꯥꯞꯄ', 'progress': 'ꯆꯪꯁꯤꯟꯕ', 'truck_on_way': 'ꯇ꯭ꯔꯛ ꯂꯥꯛꯂꯤ', 'truck_arrived': 'ꯇ꯭ꯔꯛ ꯌꯧꯔꯛꯂꯦ!', 'follow_route': 'ꯁꯦꯟꯇꯔ ꯌꯧꯅꯕ ꯍꯤꯒꯣꯛ ꯃꯆꯨꯒꯤ ꯂꯝꯕꯤ ꯏꯟꯕꯤꯌꯨ', 'request_delivery': 'ꯗꯦꯂꯤꯕꯔꯤ ꯅꯤꯕ', 'ai_help': 'AI ꯃꯇꯦꯡ', 'nearest_centers': 'ꯅꯛꯅꯕ ꯁꯦꯟꯇꯔꯁꯤꯡ', 'feedback': 'ꯐꯤꯗꯕꯦꯛ', 'open': 'ꯍꯥꯡꯉꯤ', 'closed': 'ꯊꯤꯡꯉꯤ', 'cancel_pickup': 'ꯄꯤꯛꯑꯞ ꯇꯣꯛꯄ', 'request_pickup': 'ꯄꯤꯛꯑꯞ ꯅꯤꯕ', 'chat': 'ꯋꯥꯔꯤ ꯁꯥꯟꯅꯕ', 'you': 'ꯅꯍꯥꯛ', 'danger_zone': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯐꯝ', 'avoid_area': 'ꯃꯐꯝ ꯑꯁꯤꯗꯒꯤ ꯂꯥꯞꯊꯣꯛꯎ', 'do_not_enter': 'ꯆꯪꯒꯅꯨ', 'ai_assistant': 'AI ꯑꯦꯁꯤꯁꯇꯦꯟ', 'supplier_support': 'ꯁꯄ꯭ꯂꯥꯏꯌꯔ ꯁꯄꯣꯔꯠ', 'type_message': 'ꯃꯦꯁꯦꯖ ꯏꯕ...', 'request_food': 'ꯆꯥꯛ-ꯊꯨꯝ ꯅꯤꯕ', 'collection_method': 'ꯂꯧꯕꯒꯤ ꯃꯑꯣꯡ', 'pickup_at_center': 'ꯁꯦꯟꯇꯔꯗ ꯂꯧꯕ', 'delivery': 'ꯗꯦꯂꯤꯕꯔꯤ', 'delivery_warning': 'ꯇ꯭ꯔꯛ ꯂꯩꯕ ꯃꯇꯝꯗꯈꯛ ꯗꯦꯂꯤꯕꯔꯤ ꯐꯪꯒꯅꯤ꯫ ꯊꯨꯅ ꯗꯔꯀꯥꯔ ꯑꯣꯏꯔꯕꯗꯤ ꯄꯤꯛꯑꯞ ꯈꯟꯕꯤꯌꯨ꯫', 'food_type': 'ꯆꯥꯛ-ꯊꯨꯝ ꯃꯈꯜ', 'select_food': '-- ꯈꯟꯕꯤꯌꯨ --', 'cooked_food': 'ꯊꯣꯡꯂꯕ ꯆꯥꯛ', 'raw_veg': 'ꯍꯤꯗꯥꯛ-ꯅꯥꯄꯤ', 'grains': 'ꯆꯦꯡ-ꯍꯋꯥꯏ', 'plate_size': 'ꯄ꯭ꯂꯦꯠ ꯁꯥꯏꯖ', 'half_plate': 'ꯍꯥꯐ ꯄ꯭ꯂꯦꯠ', 'full_plate': 'ꯐꯨꯜ ꯄ꯭ꯂꯦꯠ', 'quantity': 'ꯃꯁꯤꯡ', 'cancel': 'ꯇꯣꯛꯄ', 'send_request': 'ꯔꯤꯀ꯭ꯋꯦꯁ ꯊꯥꯕ', 'send_feedback': 'ꯐꯤꯗꯕꯦꯛ ꯊꯥꯕ', 'submit': 'ꯁꯕꯃꯤꯠ ꯇꯧꯕ', 'emergency_sos': 'ꯏꯃꯔꯖꯦꯟꯁꯤ SOS', 'sos_desc': 'ꯅꯍꯥꯛꯀꯤ ꯂꯩꯐꯝ ꯏꯃꯔꯖꯦꯟꯁꯤ ꯀꯃꯥꯟ ꯁꯦꯟꯇꯔꯗ ꯌꯧꯍꯟꯒꯅꯤ', 'describe_emergency': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯇꯧ ꯇꯥꯛꯄ (ꯏꯁꯤꯡ ꯏꯆꯥꯎ, ꯃꯩ ꯆꯥꯛꯄ, ꯑꯅꯥ-ꯂꯥꯌꯦꯡ, ꯑꯁꯤꯅꯆꯤꯡꯕ)...', 'send_sos': 'SOS ꯊꯥꯕ', 'logout': 'ꯂꯣꯒ ꯑꯥꯎꯠ', 'consumer_app': 'ꯀꯟꯁꯨꯃꯔ ꯑꯦꯞ', 'sos_btn': 'SOS'
@@ -124,42 +141,57 @@ const ConsumerDashboard = () => {
     }, [i18n]);
 
     useEffect(() => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                () => alert("Please enable location for routing.")
-            );
-        }
-        
-        // Fetch registered centers from backend
-        axios.get('http://localhost:8000/centers').then(res => {
-            if (res.data && res.data.length > 0) {
-                // Merge with existing centers
-                const newCenters = res.data.map(c => ({
-                    ...c,
-                    cookedFood: c.menu?.some(item => ['Rice Meals', 'Dal Chawal', 'Khichdi'].includes(item))
-                }));
-                setCenters(newCenters);
-                localStorage.setItem('consumer_centers', JSON.stringify(newCenters));
+        const initDashboard = async () => {
+            try {
+                // Fake loading delay for smooth transition
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                        () => console.log("Location access denied")
+                    );
+                }
+
+                // Fetch registered centers from backend
+                try {
+                    const res = await axios.get('http://localhost:8000/centers');
+                    if (res.data && res.data.length > 0) {
+                        const newCenters = res.data.map(c => ({
+                            ...c,
+                            cookedFood: c.menu?.some(item => ['Rice Meals', 'Dal Chawal', 'Khichdi'].includes(item))
+                        }));
+                        setCenters(newCenters);
+                        localStorage.setItem('consumer_centers', JSON.stringify(newCenters));
+                    }
+                } catch (e) { console.log('No registered centers yet'); }
+
+                // Fetch risk zones
+                try {
+                    const res = await axios.get('http://localhost:8000/risk-zones');
+                    setRiskZones(res.data);
+                    localStorage.setItem('consumer_riskZones', JSON.stringify(res.data));
+                } catch (e) { console.log('No risk zones'); }
+
+            } catch (err) {
+                console.error("Dashboard init error", err);
+            } finally {
+                setLoading(false);
             }
-        }).catch(err => console.log('No registered centers yet'));
-        
-        // Fetch risk zones
-        axios.get('http://localhost:8000/risk-zones').then(res => {
-            setRiskZones(res.data);
-            localStorage.setItem('consumer_riskZones', JSON.stringify(res.data));
-        }).catch(err => console.log('No risk zones'));
-        
-        // Poll messages for all centers
+        };
+
+        initDashboard();
+    }, []);
+
+    // Poll messages separately
+    useEffect(() => {
+        if (loading) return;
         const interval = setInterval(() => {
             centers.forEach(center => {
                 axios.get(`http://localhost:8000/messages/${center.id}`)
                     .then(res => {
                         setCenterMessages(prev => {
-                            const newState = {
-                                ...prev,
-                                [center.id]: res.data.reverse()
-                            };
+                            const newState = { ...prev, [center.id]: res.data.reverse() };
                             localStorage.setItem('consumer_messages', JSON.stringify(newState));
                             return newState;
                         });
@@ -168,7 +200,7 @@ const ConsumerDashboard = () => {
             });
         }, 5000);
         return () => clearInterval(interval);
-    }, [centers]);
+    }, [centers, loading]);
 
     // Filtered centers for UI (search + chips)
     const filteredCenters = useMemo(() => {
@@ -523,24 +555,51 @@ const ConsumerDashboard = () => {
         }
     };
 
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-green-200/20 via-slate-50 to-slate-50"></div>
+                <div className="relative z-10 flex flex-col items-center">
+                    <div className="w-16 h-16 mb-6 relative">
+                        <div className="absolute inset-0 border-4 border-slate-200 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                        <MapPin className="absolute inset-0 m-auto text-green-500" size={24} />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-800 mb-2 tracking-wide">Loading consumer data...</h2>
+                    <div className="flex items-center gap-2 text-green-600/60 text-xs font-mono uppercase tracking-widest">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                        Locating nearby centers
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50 relative overflow-hidden">
+            {/* Offline Indicator */}
+            {!isOnline && (
+                <div className="absolute top-0 w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-amber-500/50">
+                    <WifiOff size={14} />
+                    {t('offline_msg', "You're offline - Some features may be limited")}
+                </div>
+            )}
             {/* Animated Background Blobs */}
             <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-emerald-400/20 to-teal-500/20 rounded-full blur-3xl animate-pulse"></div>
             <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-green-400/20 to-emerald-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
 
             {/* Premium Header */}
-            <header className="relative bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 text-white px-6 py-5 flex justify-between items-center shadow-2xl z-20 border-b-4 border-green-400">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30 shadow-lg">
-                        <MapPin size={24} className="animate-pulse" />
+            <header className="relative bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 text-white px-4 py-3 md:px-6 md:py-5 flex flex-col md:flex-row justify-between items-center shadow-2xl z-20 border-b-4 border-green-400 gap-3 md:gap-0">
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30 shadow-lg">
+                        <MapPin className="w-5 h-5 md:w-6 md:h-6 animate-pulse" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black drop-shadow-md tracking-tight">{t('consumer_app')}</h1>
+                        <h1 className="text-lg md:text-2xl font-black drop-shadow-md tracking-tight">{t('consumer_app', 'Consumer Portal')}</h1>
                         <p className="text-xs text-green-100 font-semibold">Smart Aid for Food Emergencies</p>
                     </div>
                 </div>
-                <div className="flex gap-3 items-center">
+                <div className="flex gap-2 md:gap-3 items-center w-full md:w-auto justify-between md:justify-end">
                     <button onClick={toggleLanguage} className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2.5 rounded-xl flex items-center gap-2 text-xs font-bold hover:bg-white/20 transition-all shadow-md">
                         <Globe size={16} /> {i18n.language === 'en' ? 'EN' : i18n.language === 'hi' ? 'HI' : i18n.language === 'mni' ? 'MNI' : 'OR'}
                     </button>
@@ -553,9 +612,8 @@ const ConsumerDashboard = () => {
 
             <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
                 {/* Premium Sidebar */}
-                <div className="w-full md:w-[420px] bg-white/80 backdrop-blur-xl shadow-2xl z-10 flex flex-col border-r border-slate-200/50 relative overflow-hidden">
-                    <div className="p-6 space-y-5 overflow-y-auto h-full">
-
+                <div className="w-full md:w-[420px] h-[40%] md:h-full bg-white/80 backdrop-blur-xl shadow-2xl z-10 flex flex-col border-r border-slate-200/50 relative overflow-hidden order-2 md:order-1">
+                    <div className="p-4 md:p-6 space-y-4 md:space-y-5 overflow-y-auto h-full">
                         {/* NEAREST CENTER RECOMMENDATION */}
                         {nearestCenter && (
                             <div className="bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-2xl p-5 shadow-xl border border-green-400 animate-in fade-in slide-in-from-top duration-500">
@@ -566,7 +624,7 @@ const ConsumerDashboard = () => {
                                         </div>
                                         <div>
                                             <p className="text-xs text-green-100 font-bold uppercase tracking-wider">{t('nearest_center', 'Nearest Center')}</p>
-                                            <p className="text-2xl font-black text-white">{nearestCenter.distance} {t('km', 'km')}</p>
+                                            <p className="text-xl md:text-2xl font-black text-white">{nearestCenter.distance} {t('km', 'km')}</p>
                                         </div>
                                     </div>
                                     <div className="bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
@@ -635,7 +693,7 @@ const ConsumerDashboard = () => {
                                                 <><Navigation size={14} /> {t('directions', 'Directions to Center')}</>
                                             )}
                                         </p>
-                                        <h3 className="text-3xl font-black text-white">{routeInfo.duration}</h3>
+                                        <h3 className="text-2xl md:text-3xl font-black text-white">{routeInfo.duration}</h3>
                                         <p className="text-sm text-emerald-100 mt-1">{routeInfo.distance} {t('away', 'away')}</p>
                                     </div>
                                     <button onClick={openGoogleMaps} className="bg-white/20 backdrop-blur-sm text-white px-3 py-2 rounded-xl hover:bg-white/30 text-xs font-bold flex items-center gap-1.5 border border-white/30 transition-all">
@@ -688,13 +746,12 @@ const ConsumerDashboard = () => {
                                         alert('Please enable location to find nearest center');
                                     }
                                 }} 
-                                className="group relative bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 hover:from-orange-600 hover:via-orange-700 hover:to-red-700 text-white py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden"
+                                className="group relative bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 hover:from-orange-600 hover:via-orange-700 hover:to-red-700 text-white py-3 md:py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden"
                             >
                                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <Truck size={28} className="relative z-10" />
-                                <span className="text-sm relative z-10">{t('request_delivery', 'Request Delivery')}</span>
                             </button>
-                            <button onClick={() => setActiveChat('ai')} className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 hover:from-emerald-700 hover:via-teal-700 hover:to-teal-800 text-white py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden">
+                            <button onClick={() => setActiveChat('ai')} className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 hover:from-emerald-700 hover:via-teal-700 hover:to-teal-800 text-white py-3 md:py-5 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all overflow-hidden">
                                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <Bot size={28} className="relative z-10" />
                                 <span className="text-sm relative z-10">{t('ai_help')}</span>
@@ -757,7 +814,7 @@ const ConsumerDashboard = () => {
 
                                     {/* Center Info */}
                                     <div className="pr-20 mb-4">
-                                        <h4 className="font-bold text-[16px] text-slate-900 leading-tight mb-2">{t(`center_names.${center.id}`, center.name)}</h4>
+                                        <h4 className="font-bold text-sm md:text-[16px] text-slate-900 leading-tight mb-2">{t(`center_names.${center.id}`, center.name)}</h4>
                                         <p className="text-[12px] text-slate-500 flex items-center gap-1.5">
                                             <MapPin size={12} className="text-emerald-600 flex-shrink-0" />
                                             <span>{center.address}</span>
@@ -841,7 +898,7 @@ const ConsumerDashboard = () => {
                 </div>
 
                 {/* Map */}
-                <div className="flex-1 relative z-0">
+                <div className="flex-1 relative z-0 h-[60%] md:h-full order-1 md:order-2">
                     <MapContainer center={[24.8170, 93.9368]} zoom={10} style={{ height: "100%", width: "100%" }}>
                         <TileLayer
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -986,7 +1043,7 @@ const ConsumerDashboard = () => {
 
             {/* Chat Widget & Modals (Preserved) */}
             {activeChat && (
-                <div className="fixed bottom-6 right-6 w-96 bg-white rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden">
+                <div className="fixed bottom-0 left-0 right-0 w-full md:w-96 md:bottom-6 md:right-6 md:left-auto bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[50vh] md:h-auto">
                     <div className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white p-4 flex justify-between items-center`}>
                         <div>
                             <span className="font-black flex gap-2 text-base items-center">
