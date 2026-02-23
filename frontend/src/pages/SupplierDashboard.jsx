@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { MapContainer, TileLayer, Circle, Popup, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Circle, Popup, useMapEvents, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 const API = "http://localhost:8000";
@@ -200,6 +200,22 @@ export default function SupplierDashboard() {
   const [lastSync, setLastSync] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
+  // Center registration
+  const [showCenterSetup, setShowCenterSetup] = useState(false);
+  const [centerForm, setCenterForm] = useState({
+    name: '',
+    address: '',
+    lat: 24.8170,
+    lng: 93.9368,
+    phone: ''
+  });
+  const [mapClickEnabled, setMapClickEnabled] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const [centerInfo, setCenterInfo] = useState(null);
+  const [supplierEmail, setSupplierEmail] = useState(() => {
+    return localStorage.getItem('supplier_email') || '';
+  });
+
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRiskMap, setShowRiskMap] = useState(false);
@@ -207,6 +223,18 @@ export default function SupplierDashboard() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  // Center status
+  const [centerStatus, setCenterStatus] = useState(() => {
+    const saved = localStorage.getItem('center_status');
+    return saved ? JSON.parse(saved) : { isOpen: true, lastUpdated: new Date().toISOString() };
+  });
+
+  // Crowd indicator
+  const [crowdLevel, setCrowdLevel] = useState(() => {
+    const saved = localStorage.getItem('crowd_level');
+    return saved || 'Low';
+  });
 
   // Add item form
   const [newItem, setNewItem] = useState({
@@ -367,6 +395,22 @@ export default function SupplierDashboard() {
   };
   const removeToast = (id) => setToasts((p) => p.filter((x) => x.id !== id));
 
+  const toggleCenterStatus = () => {
+    const newStatus = {
+      isOpen: !centerStatus.isOpen,
+      lastUpdated: new Date().toISOString()
+    };
+    setCenterStatus(newStatus);
+    localStorage.setItem('center_status', JSON.stringify(newStatus));
+    toast('success', 'Center Status Updated', `Center is now ${newStatus.isOpen ? 'OPEN' : 'CLOSED'}`);
+  };
+
+  const updateCrowdLevel = (level) => {
+    setCrowdLevel(level);
+    localStorage.setItem('crowd_level', level);
+    toast('success', 'Crowd Level Updated', `Crowd level set to ${level}`);
+  };
+
   const toggleLanguage = () => {
     const langs = ["en", "hi", "mni", "or"];
     const current = langs.indexOf(lang) > -1 ? langs.indexOf(lang) : 0;
@@ -377,6 +421,29 @@ export default function SupplierDashboard() {
 
   const fetchData = async () => {
     try {
+      // Check if supplier has registered center
+      const email = localStorage.getItem('supplier_email');
+      if (email) {
+        setSupplierEmail(email);
+        try {
+          const centerRes = await axios.get(`${API}/centers/supplier/${email}`);
+          if (!centerRes.data.exists) {
+            setShowCenterSetup(true);
+            setLoading(false);
+            return;
+          }
+          // Store center info
+          if (centerRes.data.center) {
+            setCenterInfo(centerRes.data.center);
+          }
+        } catch (err) {
+          console.log('Center check failed, showing setup');
+          setShowCenterSetup(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       // Fake loading delay for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -413,6 +480,13 @@ export default function SupplierDashboard() {
   };
 
   useEffect(() => {
+    // Get supplier email from login
+    const email = localStorage.getItem('supplier_email');
+    if (!email) {
+      // Redirect to login if no email found
+      navigate('/login');
+      return;
+    }
     fetchData();
     // return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -537,6 +611,63 @@ export default function SupplierDashboard() {
   };
 
   // Risk zones
+  const geocodeAddress = async () => {
+    if (!centerForm.address.trim()) {
+      toast('error', 'No Address', 'Please enter an address first');
+      return;
+    }
+
+    setGeocoding(true);
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search`, {
+        params: {
+          q: centerForm.address,
+          format: 'json',
+          limit: 1
+        }
+      });
+
+      if (response.data && response.data.length > 0) {
+        const { lat, lon } = response.data[0];
+        setCenterForm({...centerForm, lat: parseFloat(lat), lng: parseFloat(lon)});
+        toast('success', 'Location Found!', 'Address mapped successfully');
+      } else {
+        toast('error', 'Not Found', 'Could not find this address. Try being more specific or use map click.');
+      }
+    } catch (err) {
+      toast('error', 'Geocoding Failed', 'Please try again or click on map');
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  const handleCenterSetup = async (e) => {
+    e.preventDefault();
+    if (!centerForm.name || !centerForm.address || !centerForm.phone) {
+      toast('error', 'Missing Fields', 'Please fill all required fields');
+      return;
+    }
+
+    try {
+      await axios.post(`${API}/centers`, {
+        ...centerForm,
+        supplier_email: supplierEmail
+      });
+      toast('success', 'Center Registered', 'Your distribution center is now live!');
+      setShowCenterSetup(false);
+      fetchData();
+    } catch (err) {
+      toast('error', 'Registration Failed', err?.response?.data?.detail || 'Please try again');
+    }
+  };
+
+  const handleSetupMapClick = (latlng) => {
+    if (mapClickEnabled) {
+      setCenterForm({...centerForm, lat: latlng.lat, lng: latlng.lng});
+      toast('success', 'Location Set', `Coordinates: ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
+    }
+  };
+
   const handleMapClick = async (latlng) => {
     const reason = prompt("Enter reason for Risk Zone:");
     if (!reason) return;
@@ -773,8 +904,12 @@ export default function SupplierDashboard() {
                   <Package size={18} />
                 </div>
                 <div>
-                  <div className="text-lg font-black drop-shadow-sm leading-tight">Supplier Control Panel</div>
-                  <div className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider opacity-90">Live Monitoring System</div>
+                  <div className="text-lg font-black drop-shadow-sm leading-tight">
+                    {centerInfo ? centerInfo.name : 'Supplier Control Panel'}
+                  </div>
+                  <div className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider opacity-90">
+                    {centerInfo ? 'Distribution Center' : 'Live Monitoring System'}
+                  </div>
                 </div>
               </div>
 
@@ -851,6 +986,88 @@ export default function SupplierDashboard() {
               <SmallStat label="Total Items" value={totalItems} />
               <SmallStat label="Pending Requests" value={formatNumber(orders.length, lang)} />
               <SmallStat label="Risk Alerts" value={formatNumber(spoilageRows.filter(s => s.risk).length, lang)} />
+            </div>
+
+            {/* Center Status & Crowd Control */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Center Status Toggle */}
+              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_8px_24px_rgba(15,23,42,0.06)] p-6">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${centerStatus.isOpen ? 'bg-emerald-100' : 'bg-rose-100'}`}>
+                      <Package size={24} className={centerStatus.isOpen ? 'text-emerald-600' : 'text-rose-600'} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-bold text-slate-900">{t('center_status', { defaultValue: 'Center Status' })}</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {centerStatus.isOpen ? 'Visible to consumers' : 'Hidden from consumers'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleCenterStatus}
+                    className={`relative inline-flex h-10 w-20 items-center rounded-full transition-colors ${centerStatus.isOpen ? 'bg-emerald-600' : 'bg-slate-300'}`}
+                    type="button"
+                  >
+                    <span className={`inline-block h-8 w-8 transform rounded-full bg-white shadow-lg transition-transform ${centerStatus.isOpen ? 'translate-x-10' : 'translate-x-1'}`} />
+                    <span className={`absolute text-[10px] font-bold ${centerStatus.isOpen ? 'left-1.5 text-white' : 'right-1.5 text-slate-600'}`}>
+                      {centerStatus.isOpen ? 'OPEN' : 'CLOSED'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Crowd Indicator */}
+              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_8px_24px_rgba(15,23,42,0.06)] p-6">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      crowdLevel === 'Low' ? 'bg-green-100' : crowdLevel === 'Medium' ? 'bg-amber-100' : 'bg-red-100'
+                    }`}>
+                      <Users size={24} className={crowdLevel === 'Low' ? 'text-green-600' : crowdLevel === 'Medium' ? 'text-amber-600' : 'text-red-600'} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-bold text-slate-900">{t('crowd_level', { defaultValue: 'Crowd Level' })}</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Shown to consumers on map</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => updateCrowdLevel('Low')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                        crowdLevel === 'Low'
+                          ? 'bg-green-600 text-white shadow-md'
+                          : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                      }`}
+                      type="button"
+                    >
+                      Low
+                    </button>
+                    <button
+                      onClick={() => updateCrowdLevel('Medium')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                        crowdLevel === 'Medium'
+                          ? 'bg-amber-600 text-white shadow-md'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                      }`}
+                      type="button"
+                    >
+                      Medium
+                    </button>
+                    <button
+                      onClick={() => updateCrowdLevel('High')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                        crowdLevel === 'High'
+                          ? 'bg-red-600 text-white shadow-md'
+                          : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                      }`}
+                      type="button"
+                    >
+                      High
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -1724,6 +1941,127 @@ export default function SupplierDashboard() {
                 </select>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CENTER SETUP MODAL */}
+      {showCenterSetup && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[70]">
+          <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-6">
+              <div className="flex items-center gap-4">
+                <Package size={32} />
+                <div>
+                  <h2 className="text-2xl font-black">Register Your Distribution Center</h2>
+                  <p className="text-sm text-emerald-100 mt-1">Complete your profile to start serving consumers</p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleCenterSetup} className="flex-1 overflow-y-auto">
+              <div className="p-8 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Center Name *</label>
+                  <input
+                    type="text"
+                    value={centerForm.name}
+                    onChange={(e) => setCenterForm({...centerForm, name: e.target.value})}
+                    placeholder="e.g., Imphal Community Kitchen"
+                    className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Full Address *</label>
+                  <div className="flex gap-2">
+                    <textarea
+                      value={centerForm.address}
+                      onChange={(e) => setCenterForm({...centerForm, address: e.target.value})}
+                      placeholder="e.g., Thangal Bazar, Imphal West, Manipur"
+                      className="flex-1 border-2 border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 resize-none"
+                      rows={2}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={geocodeAddress}
+                      disabled={geocoding || !centerForm.address.trim()}
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <MapIcon size={16} />
+                      {geocoding ? 'Finding...' : 'Find on Map'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Enter your address and click "Find on Map" to auto-locate</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Contact Phone *</label>
+                  <input
+                    type="tel"
+                    value={centerForm.phone}
+                    onChange={(e) => setCenterForm({...centerForm, phone: e.target.value})}
+                    placeholder="e.g., +91 9876543210"
+                    className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Center Location *</label>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3">
+                    <div className="flex items-start gap-2 text-xs text-blue-800">
+                      <MapIcon size={16} className="mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-bold">Two ways to set location:</span> 1) Click "Find on Map" button above to auto-locate from address, or 2) Enable map click and click directly on the map.
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setMapClickEnabled(!mapClickEnabled)}
+                    className={`w-full mb-3 py-2 px-4 rounded-xl font-semibold text-sm transition-all ${
+                      mapClickEnabled
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
+                    }`}
+                  >
+                    {mapClickEnabled ? '✓ Map Click Enabled - Click on map to set location' : 'Enable Map Click to Set Location'}
+                  </button>
+
+                  <div className="h-64 rounded-xl overflow-hidden border-2 border-slate-200">
+                    <MapContainer center={[centerForm.lat, centerForm.lng]} zoom={12} style={{ height: "100%", width: "100%" }}>
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                      <MapClickHandler onMapClick={handleSetupMapClick} />
+                      <Marker position={[centerForm.lat, centerForm.lng]}>
+                        <Popup>
+                          <div className="text-center">
+                            <b className="text-emerald-600">Your Center Location</b><br/>
+                            <span className="text-xs text-slate-600">{centerForm.lat.toFixed(4)}, {centerForm.lng.toFixed(4)}</span>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    </MapContainer>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-2 text-center">
+                    Current: {centerForm.lat.toFixed(4)}, {centerForm.lng.toFixed(4)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                <button
+                  type="submit"
+                  className="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                >
+                  <Package size={18} />
+                  Register Center
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

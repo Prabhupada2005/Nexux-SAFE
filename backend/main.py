@@ -69,6 +69,18 @@ class SOSAlert(Base):
     timestamp = Column(String)
     is_official = Column(Boolean, default=False)  # True if from supplier/emergency
 
+class Center(Base):
+    __tablename__ = "centers"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    address = Column(String)
+    lat = Column(Float)
+    lng = Column(Float)
+    phone = Column(String)
+    supplier_email = Column(String)
+    status = Column(String, default="open")
+    crowd = Column(String, default="Low")
+
 # Create Tables
 Base.metadata.create_all(bind=engine)
 
@@ -119,6 +131,14 @@ class RejectRequest(BaseModel):
 class PasswordReset(BaseModel):
     email: str
     new_password: str
+
+class CenterCreate(BaseModel):
+    name: str
+    address: str
+    lat: float
+    lng: float
+    phone: str
+    supplier_email: str
 
 # --- 4. APP & CORS ---
 app = FastAPI()
@@ -260,8 +280,34 @@ def get_messages(db: Session = Depends(get_db)):
 
 @app.get("/centers")
 def get_centers(db: Session = Depends(get_db)):
-    # Return empty list for now - centers are hardcoded in frontend
-    return []
+    return db.query(Center).all()
+
+@app.post("/centers")
+def create_center(center: CenterCreate, db: Session = Depends(get_db)):
+    # Check if supplier already has a center
+    existing = db.query(Center).filter(Center.supplier_email == center.supplier_email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have a registered center")
+    
+    new_center = Center(
+        name=center.name,
+        address=center.address,
+        lat=center.lat,
+        lng=center.lng,
+        phone=center.phone,
+        supplier_email=center.supplier_email
+    )
+    db.add(new_center)
+    db.commit()
+    db.refresh(new_center)
+    return new_center
+
+@app.get("/centers/supplier/{email}")
+def get_supplier_center(email: str, db: Session = Depends(get_db)):
+    center = db.query(Center).filter(Center.supplier_email == email).first()
+    if not center:
+        return {"exists": False}
+    return {"exists": True, "center": center}
 
 @app.get("/messages/{center_id}")
 def get_center_messages(center_id: int, db: Session = Depends(get_db)):
@@ -438,18 +484,79 @@ def get_iot_data():
 @app.get("/safe-route")
 def get_safe_route(start_lat: float, start_lng: float, end_lat: float, end_lng: float, db: Session = Depends(get_db)):
     """Calculate route avoiding verified risk zones"""
+    from math import radians, cos, sin, asin, sqrt, atan2, degrees
+    
+    def haversine(lat1, lon1, lat2, lon2):
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        return 6371 * c  # km
+    
+    def point_intersects_zone(lat, lng, zone_lat, zone_lng, radius_m):
+        """Check if point is within danger zone"""
+        dist_km = haversine(lat, lng, zone_lat, zone_lng)
+        return dist_km * 1000 < radius_m
+    
+    def calculate_waypoint(start, end, zone, offset_km=0.6):
+        """Calculate waypoint to avoid danger zone"""
+        # Calculate perpendicular offset point
+        mid_lat = (start[0] + end[0]) / 2
+        mid_lng = (start[1] + end[1]) / 2
+        
+        # Vector from start to end
+        dlat = end[0] - start[0]
+        dlng = end[1] - start[1]
+        
+        # Perpendicular vector (rotated 90 degrees)
+        perp_lat = -dlng
+        perp_lng = dlat
+        
+        # Normalize and scale
+        length = (perp_lat**2 + perp_lng**2)**0.5
+        if length > 0:
+            perp_lat = (perp_lat / length) * offset_km / 111  # ~111km per degree
+            perp_lng = (perp_lng / length) * offset_km / 111
+        
+        return [mid_lat + perp_lat, mid_lng + perp_lng]
+    
     risk_zones = db.query(RiskZone).filter(RiskZone.verified == True).all()
+    
+    # Check if direct route intersects any danger zones
+    waypoints = []
+    route_intersects = False
+    
+    for zone in risk_zones:
+        # Check multiple points along the direct route
+        for i in range(10):
+            t = i / 10.0
+            check_lat = start_lat + t * (end_lat - start_lat)
+            check_lng = start_lng + t * (end_lng - start_lng)
+            
+            if point_intersects_zone(check_lat, check_lng, zone.lat, zone.lng, zone.radius):
+                route_intersects = True
+                # Add waypoint to avoid this zone
+                waypoint = calculate_waypoint(
+                    [start_lat, start_lng],
+                    [end_lat, end_lng],
+                    [zone.lat, zone.lng]
+                )
+                waypoints.append(waypoint)
+                break
     
     return {
         "start": {"lat": start_lat, "lng": start_lng},
         "end": {"lat": end_lat, "lng": end_lng},
+        "waypoints": waypoints,
+        "has_danger_zones": route_intersects,
         "danger_zones": [{
             "lat": zone.lat,
             "lng": zone.lng,
             "radius": zone.radius,
             "reason": zone.reason
         } for zone in risk_zones],
-        "message": "Use OSRM with waypoints to avoid danger zones"
+        "route_type": "detour" if route_intersects else "direct"
     }
 
 if __name__ == "__main__":

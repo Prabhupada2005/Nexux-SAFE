@@ -246,8 +246,11 @@ const Login = () => {
           }
 
           localStorage.setItem('foodtech_user', JSON.stringify(res.data.user));
-          if (userRole === 'consumer') navigate('/consumer');
-          else if (userRole === 'supplier') navigate('/supplier');
+          if (userRole === 'supplier') {
+            localStorage.setItem('supplier_email', res.data.user.email);
+            navigate('/supplier');
+          }
+          else if (userRole === 'consumer') navigate('/consumer');
           else if (userRole === 'emergency') navigate('/emergency');
           else if (userRole === 'admin') navigate('/consumer');
         } else {

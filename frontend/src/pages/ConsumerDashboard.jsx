@@ -274,10 +274,14 @@ const ConsumerDashboard = () => {
                     if (validData.length > 0) {
                         const newCenters = validData.map(c => ({
                             ...c,
-                            cookedFood: c.menu?.some(item => ['Rice Meals', 'Dal Chawal', 'Khichdi'].includes(item))
+                            items: c.items || 50,
+                            cookedFood: true,
+                            menu: c.menu || ['Rice Meals', 'Dal Chawal']
                         }));
-                        setCenters(newCenters);
-                        localStorage.setItem('consumer_centers', JSON.stringify(newCenters));
+                        // Merge with hardcoded centers
+                        const merged = [...FOOD_CENTERS, ...newCenters];
+                        setCenters(merged);
+                        localStorage.setItem('consumer_centers', JSON.stringify(merged));
                     }
                 } catch (e) { console.log('No registered centers yet'); }
 
