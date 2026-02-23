@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  Siren, LogOut, Map as MapIcon, ShieldAlert, Radio, Activity, Globe, CheckCircle, XCircle, AlertTriangle, Clock 
+  Siren, LogOut, Map as MapIcon, ShieldAlert, Radio, Activity, Globe, CheckCircle, XCircle, AlertTriangle, Clock, WifiOff 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Circle, Marker, Popup } from 'react-leaflet';
@@ -25,6 +25,7 @@ const EmergencyDashboard = () => {
     });
     const [addresses, setAddresses] = useState({});
     const navigate = useNavigate();
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     const getAddress = async (lat, lng, alertId) => {
         try {
@@ -58,6 +59,17 @@ const EmergencyDashboard = () => {
         return () => clearInterval(interval);
     }, []);
 
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
     const handleVerify = async (alertId) => {
         try {
             await axios.post(`http://localhost:8000/sos-alerts/${alertId}/verify`);
@@ -85,6 +97,14 @@ const EmergencyDashboard = () => {
 
     return (
         <div className="h-screen flex flex-col bg-gray-900 font-sans text-gray-100 p-4 md:p-0 overflow-hidden">
+            {/* Offline Indicator */}
+            {!isOnline && (
+                <div className="absolute top-0 left-0 w-full bg-red-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[100] flex items-center justify-center gap-2 border-b border-red-500/50">
+                    <WifiOff size={14} />
+                    {t('offline_msg', "OFFLINE MODE - Live updates paused")}
+                </div>
+            )}
+
             <div className="flex-1 flex flex-col relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-gray-800 w-full h-full border border-gray-700 md:border-none">
             <nav className="bg-red-900 text-white px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row justify-between items-center shadow-lg border-b border-red-700 gap-3 md:gap-0">
                 <div className="flex items-center gap-4 w-full md:w-auto">

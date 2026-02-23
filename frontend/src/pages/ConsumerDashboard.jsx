@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
+<<<<<<< HEAD
     MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search, WifiOff, Shield, Crosshair, LogOut, SlidersHorizontal, List, Package
+=======
+    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search, WifiOff, Shield, Crosshair, LogOut, SlidersHorizontal, List, Download
+>>>>>>> 8ff7144 (Update frontend)
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -205,6 +209,8 @@ const ConsumerDashboard = () => {
     const [recenterTrigger, setRecenterTrigger] = useState(0);
     const [showFilters, setShowFilters] = useState(true);
     const [isListExpanded, setIsListExpanded] = useState(false);
+    const [isLocating, setIsLocating] = useState(false);
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     const [loading, setLoading] = useState(true);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -215,6 +221,24 @@ const ConsumerDashboard = () => {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    }, []);
+
+    const handleInstallClick = async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            setDeferredPrompt(null);
+        }
+    };
 
     const toggleLanguage = () => {
         const langs = ['en', 'hi', 'mni', 'or'];
@@ -811,24 +835,33 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
             </div>
             <div className="flex items-center gap-2">
                 <button onClick={() => {
+                    setIsLocating(true);
                     if (navigator.geolocation) {
                         navigator.geolocation.getCurrentPosition(
                             (pos) => {
                                 setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                                 setRecenterTrigger(prev => prev + 1);
+                                setIsLocating(false);
                             },
                             (err) => {
                                 console.error("Geolocation error:", err);
                                 alert("Unable to retrieve location. Please enable location services.");
+                                setIsLocating(false);
                             },
                             { enableHighAccuracy: true }
                         );
                     } else {
                         alert("Geolocation is not supported by your browser.");
+                        setIsLocating(false);
                     }
                 }} className="p-2 rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100" title="Locate Me">
-                    <Crosshair size={20} />
+                    {isLocating ? <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div> : <Crosshair size={20} />}
                 </button>
+                {deferredPrompt && (
+                    <button onClick={handleInstallClick} className="p-2 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100" title="Install App">
+                        <Download size={20} />
+                    </button>
+                )}
                 <button onClick={() => { localStorage.removeItem('foodtech_user'); navigate('/login'); }} className="p-2 rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100">
                     <LogOut size={20} />
                 </button>
@@ -899,7 +932,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
     const renderSOSButton = () => (
         <button
             onClick={handleSOS}
-            className="absolute bottom-24 right-4 z-[500] bg-red-600 hover:bg-red-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(220,38,38,0.4)] flex items-center justify-center animate-pulse border-2 border-white transition-transform hover:scale-110 active:scale-95"
+            className="absolute bottom-6 md:bottom-24 right-4 z-[500] bg-red-600 hover:bg-red-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(220,38,38,0.4)] flex items-center justify-center animate-pulse border-2 border-white transition-transform hover:scale-110 active:scale-95"
         >
             <AlertTriangle size={24} fill="currentColor" />
         </button>
@@ -909,15 +942,15 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
     const renderAIButton = () => (
         <button
             onClick={() => setActiveChat('ai')}
-            className="absolute bottom-24 left-4 z-[500] bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(16,185,129,0.4)] flex items-center justify-center border-2 border-white transition-transform hover:scale-110 active:scale-95"
+            className="absolute bottom-6 md:bottom-24 left-4 z-[500] bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(16,185,129,0.4)] flex items-center justify-center border-2 border-white transition-transform hover:scale-110 active:scale-95"
         >
             <Bot size={24} />
         </button>
     );
 
     return (
-        <div className="h-screen flex flex-col bg-slate-50 font-sans relative overflow-hidden p-4 md:p-0">
-            <div className="flex-1 flex flex-col relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white w-full h-full border border-slate-200 md:border-none">
+        <div className="h-screen flex flex-col bg-slate-50 font-sans relative overflow-hidden p-0 md:p-0">
+            <div className="flex-1 flex flex-col relative overflow-hidden rounded-none md:rounded-none shadow-none md:shadow-none bg-white w-full h-full border-none md:border-none">
                 {renderHeader()}
                 
                 <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
@@ -939,6 +972,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         </div>
                         
                         {/* List */}
+<<<<<<< HEAD
                         <div id="centers-list-container" className="flex-1 overflow-y-auto p-4 pb-32 md:pb-4 bg-slate-50">
                             
                             {/* My Requests Section */}
@@ -980,6 +1014,9 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                                 </div>
                             )}
 
+=======
+                        <div id="centers-list-container" className="flex-1 overflow-y-auto p-4 pb-24 md:pb-4 bg-slate-50">
+>>>>>>> 8ff7144 (Update frontend)
                             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2 sticky top-0 bg-slate-50 py-2 z-10">
                                 <Navigation size={12} /> {filteredCenters.length} Centers Found
                             </h3>

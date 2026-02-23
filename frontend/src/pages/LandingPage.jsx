@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   MapPin, Utensils, TrendingUp, Shield, Users, Heart, 
   ArrowRight, Menu, X, Phone, Mail, MapPinned, ChevronDown,
-  Package, Zap, Globe, CheckCircle, Thermometer, Truck, Download, WifiOff, ShieldAlert, Twitter, Instagram
+  Package, Zap, Globe, CheckCircle, Thermometer, Truck, Download, WifiOff, ShieldAlert, Twitter, Instagram, Wifi
 } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -122,6 +122,7 @@ const LandingPage = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [scrolled, setScrolled] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
+  const [isPwaReady, setIsPwaReady] = useState(false);
   const scrollContainerRef = useRef(null);
 
   useEffect(() => {
@@ -132,6 +133,12 @@ const LandingPage = () => {
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(() => {
+        setIsPwaReady(true);
+      });
+    }
     
     const handleScroll = () => {
         if (scrollContainerRef.current) {
@@ -146,11 +153,6 @@ const LandingPage = () => {
     const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
         scrollContainer.addEventListener('scroll', handleScroll);
-    }
-
-    // Register Service Worker for PWA
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
     }
 
     return () => {
@@ -506,7 +508,7 @@ const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="pb-12 md:pb-24 px-6 md:px-14 relative overflow-visible pt-28 md:pt-40 lg:pt-48 z-10 min-h-[auto] md:min-h-[85vh] flex items-center">
+      <section className="pb-6 md:pb-24 px-4 md:px-14 relative overflow-visible pt-20 md:pt-40 lg:pt-48 z-10 min-h-[auto] md:min-h-[85vh] flex items-center">
         <div className="max-w-7xl mx-auto w-full relative z-10">
           <div className="grid grid-cols-2 gap-3 md:gap-12 lg:gap-20 items-center">
             <div className="animate-fade-in-up relative col-span-1">
@@ -544,6 +546,12 @@ const LandingPage = () => {
                     <div className="w-5 h-5 md:w-8 md:h-8 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:bg-cyan-200 transition-colors"><CheckCircle size={10} className="md:w-4 md:h-4" /></div>
                     <span className="text-[9px] md:text-sm font-bold text-slate-700">{t('realtime_tracking', 'Real-time Tracking')}</span>
                   </div>
+                  {isPwaReady && (
+                    <div className="flex items-center gap-1.5 group hover:scale-110 transition-transform duration-300">
+                      <div className="w-5 h-5 md:w-8 md:h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 group-hover:bg-teal-200 transition-colors"><Wifi size={10} className="md:w-4 md:h-4" /></div>
+                      <span className="text-[9px] md:text-sm font-bold text-slate-700">Offline Ready</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -732,7 +740,7 @@ const LandingPage = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-12 md:py-20 px-6 relative overflow-visible z-10">
+      <section className="py-6 md:py-20 px-4 md:px-6 relative overflow-visible z-10">
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {stats.map((stat, i) => (
@@ -747,7 +755,7 @@ const LandingPage = () => {
               </div>
             ))}
           </div>
-          <p className="text-center text-xs text-slate-400 mt-8 font-medium italic">
+          <p className="text-center text-xs text-slate-400 mt-4 md:mt-8 font-medium italic">
             * Demo simulation data for prototype
           </p>
         </div>
