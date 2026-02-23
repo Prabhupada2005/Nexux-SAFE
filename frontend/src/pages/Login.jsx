@@ -129,8 +129,9 @@ const EmergencyBackground = () => (
 
 const Login = () => {
   const { t, i18n } = useTranslation();
+  const location = useLocation();
   const [isRegistering, setIsRegistering] = useState(false);
-  const [activeTab, setActiveTab] = useState('consumer'); 
+  const [activeTab, setActiveTab] = useState(location.state?.role || 'consumer'); 
   
   // PWA & Online State
   const [deferredPrompt, setDeferredPrompt] = useState(null);

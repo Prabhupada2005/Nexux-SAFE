@@ -514,12 +514,12 @@ const LandingPage = () => {
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 {t('active_india', '🇮🇳 Active in India • Focus: Manipur Crisis')}
               </div>
-              <h1 className="text-3xl md:text-7xl font-black tracking-tighter mb-4 md:mb-8 leading-[1.1] text-slate-900">
+              <h1 className="text-2xl md:text-6xl font-black tracking-tighter mb-4 md:mb-8 leading-[1.1] text-slate-900">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600">SAFE</span><br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-700 font-black">{t('smart_aid', 'Smart Aid for')}</span><br/>
                 <span className="bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 bg-clip-text text-transparent font-black drop-shadow-lg">{t('food_emergency', 'Food Emergency')}</span>
               </h1>
-              <p className="text-sm md:text-xl text-slate-600 mb-6 leading-relaxed max-w-lg font-medium line-clamp-2 md:line-clamp-none">
+              <p className="text-xs md:text-lg text-slate-600 mb-6 leading-relaxed max-w-lg font-medium line-clamp-2 md:line-clamp-none">
                 {t('hero_desc', 'Find the nearest food center, request help, and track delivery in real time.')}
               </p>
               <p className="hidden md:flex text-xs font-bold text-slate-500 uppercase tracking-widest mb-10 items-center gap-2">
@@ -756,8 +756,8 @@ const LandingPage = () => {
       <section className="py-2 md:py-16 px-4 md:px-6 relative z-10">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-6 md:mb-8">
-            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-2 md:mb-4">{t('live_map', 'Live Relief Coverage Map')}</h2>
-            <p className="text-sm md:text-lg text-slate-600">{t('map_desc', 'Enable geolocation to discover relief centers closest to your location. Real-time network visualization.')}</p>
+            <h2 className="text-xl md:text-4xl font-black text-slate-900 mb-2 md:mb-4">{t('live_map', 'Live Relief Coverage Map')}</h2>
+            <p className="text-xs md:text-base text-slate-600">{t('map_desc', 'Enable geolocation to discover relief centers closest to your location. Real-time network visualization.')}</p>
           </div>
           
           {/* Geolocation Network Map */}
@@ -886,13 +886,13 @@ const LandingPage = () => {
       <section className="py-4 md:py-16 px-2 md:px-6 relative z-10 bg-gradient-to-b from-transparent via-cyan-50/30 to-transparent mt-4 md:mt-0">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-6 md:mb-12">
-            <h2 className="text-3xl md:text-6xl font-black text-slate-900 mb-3 md:mb-6">
+            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-3 md:mb-6">
               Who Uses <span className="bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent">SAFE</span>
             </h2>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
               Designed for real disaster response coordination.
             </p>
-            <p className="text-sm md:text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-xs md:text-lg text-slate-600 max-w-2xl mx-auto">
               A focused ecosystem connecting consumers and suppliers in emergency food relief.
             </p>
           </div>
@@ -1033,10 +1033,10 @@ const LandingPage = () => {
             <div className="inline-block mb-4">
               <span className="bg-gradient-to-r from-emerald-50 to-cyan-50 border border-emerald-300/50 text-emerald-700 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg shadow-emerald-200/30 backdrop-blur-sm">{t('about_us', 'About Us')}</span>
             </div>
-            <h2 className="text-3xl md:text-6xl font-black text-slate-900 mb-4 md:mb-6">
+            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-4 md:mb-6">
               About <span className="bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent">SAFE</span>
             </h2>
-            <p className="text-sm md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xs md:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed">
               <span className="font-bold bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent">Smart Aid for Food Emergency</span> - When delayed logistics, unsafe routes, and spoiled food supplies turn relief efforts into life-threatening risks, SAFE provides the smart solution with <span className="font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">cutting-edge Web & IoT technology</span>.
             </p>
           </div>
@@ -1116,8 +1116,8 @@ const LandingPage = () => {
       <section id="features" className="py-4 md:py-16 px-2 md:px-6 relative z-10">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-4 md:mb-10">
-            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-2 md:mb-4">{t('features_title', 'Powerful Features')}</h2>
-            <p className="text-sm md:text-lg text-slate-600">{t('everything_needed', 'Everything you need for crisis food management')}</p>
+            <h2 className="text-xl md:text-4xl font-black text-slate-900 mb-2 md:mb-4">{t('features_title', 'Powerful Features')}</h2>
+            <p className="text-xs md:text-base text-slate-600">{t('everything_needed', 'Everything you need for crisis food management')}</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6">
             {features.map((feature, i) => {
@@ -1151,8 +1151,8 @@ const LandingPage = () => {
             <div className="inline-block mb-4">
               <span className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-300/50 text-purple-700 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg shadow-purple-200/30 backdrop-blur-sm">{t('process', 'Process')}</span>
             </div>
-            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-2 md:mb-4">{t('how_it_works_title', 'How It Works')}</h2>
-            <p className="text-sm md:text-lg text-slate-600">{t('get_assistance', 'Get food assistance in 4 simple steps')}</p>
+            <h2 className="text-xl md:text-4xl font-black text-slate-900 mb-2 md:mb-4">{t('how_it_works_title', 'How It Works')}</h2>
+            <p className="text-xs md:text-base text-slate-600">{t('get_assistance', 'Get food assistance in 4 simple steps')}</p>
           </div>
 
           {/* Horizontal Layout - Premium Design */}
@@ -1199,8 +1199,8 @@ const LandingPage = () => {
               <div className="inline-block mb-3">
                 <span className="bg-gradient-to-r from-pink-50 to-orange-50 border border-pink-300/50 text-pink-700 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg shadow-pink-200/30 backdrop-blur-sm">Contact</span>
               </div>
-              <h2 className="text-2xl md:text-4xl font-black text-slate-900 mb-4 md:mb-6">{t('get_in_touch', 'Get In Touch')}</h2>
-              <p className="text-slate-600 mb-6 md:mb-8 text-sm md:text-lg">{t('contact_sub', "Have questions? Need help? We're here 24/7 during crisis situations.")}</p>
+              <h2 className="text-xl md:text-3xl font-black text-slate-900 mb-4 md:mb-6">{t('get_in_touch', 'Get In Touch')}</h2>
+              <p className="text-slate-600 mb-6 md:mb-8 text-xs md:text-base">{t('contact_sub', "Have questions? Need help? We're here 24/7 during crisis situations.")}</p>
               <div className="grid grid-cols-3 gap-2">
                 <div className="flex flex-col items-center text-center gap-2 group cursor-pointer hover:scale-105 transition-transform duration-300 p-2 rounded-xl border border-emerald-100 bg-emerald-50/50">
                   <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-emerald-500 via-teal-400 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-400/60 group-hover:shadow-emerald-500/80 transition-all duration-300 border border-emerald-400/30">

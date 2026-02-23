@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search, WifiOff
+    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search, WifiOff, Shield, Crosshair, LogOut, SlidersHorizontal, List
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -26,12 +26,108 @@ const FOOD_CENTERS = [
     { id: 8, name: "Jiribam Food Point", address: "Jiribam Town, Jiribam", lat: 24.8050, lng: 93.1100, status: "open", crowd: "Medium", items: 34, cookedFood: false, menu: ["Rice", "Dal", "Wheat Flour", "Potato", "Onion"] },
 ];
 
+// --- Helper Component (Must be outside to avoid re-mounting) ---
+const RecenterMap = ({ loc, trigger }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (loc && loc.lat && loc.lng) {
+            map.flyTo([loc.lat, loc.lng], 15, { duration: 2 });
+        }
+    }, [loc, map, trigger]);
+    return null;
+};
+
+// --- Helper: Distance Calculation (Moved outside) ---
+const calculateDistance = (origin, target) => {
+    if (!origin || !target || !target.lat || !target.lng) return "N/A";
+    const R = 6371;
+    const dLat = (target.lat - origin.lat) * Math.PI / 180;
+    const dLng = (target.lng - origin.lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(origin.lat * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return (R * c).toFixed(1);
+};
+
+// --- Helper: Data Validation ---
+const validateCenters = (data) => {
+    if (!Array.isArray(data)) return [];
+    return data.filter(c => 
+        c && 
+        (typeof c.lat === 'number' || (typeof c.lat === 'string' && !isNaN(parseFloat(c.lat)))) &&
+        (typeof c.lng === 'number' || (typeof c.lng === 'string' && !isNaN(parseFloat(c.lng))))
+    ).map(c => ({ ...c, lat: parseFloat(c.lat), lng: parseFloat(c.lng) }));
+};
+
+// --- Component: Map View (Extracted for reuse/safety) ---
+const MapComponent = ({ userLoc, centers, routePath, truckPosition, truckProgress, riskZones, t, recenterTrigger }) => {
+    return (
+        <MapContainer center={[24.8170, 93.9368]} zoom={10} style={{ height: "100%", width: "100%" }} zoomControl={true}>
+            <RecenterMap loc={userLoc} trigger={recenterTrigger} />
+            <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            />
+            {centers.map(c => (c.lat && c.lng ? (
+                <Marker
+                    key={c.id}
+                    position={[c.lat, c.lng]}
+                    icon={L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 40px; height: 40px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><div style="transform: rotate(45deg); color: white; font-weight: bold; font-size: 18px;">📍</div></div>`,
+                        iconSize: [40, 40],
+                        iconAnchor: [20, 40]
+                    })}
+                >
+                    <Popup className="custom-popup">
+                        <div className="bg-white rounded-lg p-3 min-w-[200px]">
+                            <h3 className="font-bold text-green-600 text-sm mb-2">{t(`center_names.${c.id}`, c.name)}</h3>
+                            <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><span className="text-green-500">📍</span> {c.address}</p>
+                            <div className="flex gap-2 flex-wrap mb-2">
+                                <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">{c.status === 'open' ? t('open', 'OPEN') : t('closed', 'CLOSED')}</span>
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">{c.crowd} {t('crowd', 'Crowd')}</span>
+                            </div>
+                        </div>
+                    </Popup>
+                </Marker>
+            ) : null))}
+            
+            {userLoc && <Marker position={[userLoc.lat, userLoc.lng]} icon={L.icon({ iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', iconSize: [40, 40], iconAnchor: [20, 40] })}><Popup>Your Location</Popup></Marker>}
+
+            {truckPosition && (
+                <Marker position={truckPosition} icon={L.divIcon({ className: 'truck-marker', html: `<div style="font-size: 24px;">🚚</div>` })}>
+                    <Popup>Delivery Truck ({truckProgress}%)</Popup>
+                </Marker>
+            )}
+
+            {routePath.length > 0 && <Polyline positions={routePath} color="#10b981" weight={6} opacity={0.9} dashArray="10, 5" />}
+
+            {riskZones.map(zone => (zone.lat && zone.lng ? (
+                <React.Fragment key={zone.id}>
+                    <Circle center={[zone.lat, zone.lng]} radius={zone.radius} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.3, weight: 2 }}>
+                        <Popup>
+                            <div className="text-center">
+                                <b className="text-red-600">DANGER ZONE</b><br/>{zone.reason}
+                            </div>
+                        </Popup>
+                    </Circle>
+                </React.Fragment>
+            ) : null))}
+        </MapContainer>
+    );
+};
+
 const ConsumerDashboard = () => {
     const { t, i18n } = useTranslation();
     const [userLoc, setUserLoc] = useState(null);
     const [centers, setCenters] = useState(() => {
-        const saved = localStorage.getItem('consumer_centers');
-        return saved ? JSON.parse(saved) : FOOD_CENTERS;
+        try { 
+            const saved = localStorage.getItem('consumer_centers'); 
+            const parsed = saved ? JSON.parse(saved) : null;
+            const validated = validateCenters(parsed);
+            return validated.length > 0 ? validated : FOOD_CENTERS; 
+        } catch(e) { return FOOD_CENTERS; }
     });
     const navigate = useNavigate();
     const chatEndRef = useRef(null);
@@ -54,8 +150,12 @@ const ConsumerDashboard = () => {
     const [truckProgress, setTruckProgress] = useState(0); // 0-100% progress
     const [activePickupCenter, setActivePickupCenter] = useState(null); // Track which center has active pickup
     const [riskZones, setRiskZones] = useState(() => {
-        const saved = localStorage.getItem('consumer_riskZones');
-        return saved ? JSON.parse(saved) : [];
+        try { 
+            const saved = localStorage.getItem('consumer_riskZones'); 
+            const parsed = saved ? JSON.parse(saved) : null;
+            const validated = validateCenters(parsed); // Reuse validation for zones
+            return validated; 
+        } catch(e) { return []; }
     }); // Danger zones
 
     // Calculate nearest low-crowded center
@@ -90,30 +190,30 @@ const ConsumerDashboard = () => {
     const [activeChatCenter, setActiveChatCenter] = useState(null);
     const [msgText, setMsgText] = useState("");
     const [centerMessages, setCenterMessages] = useState(() => {
-        const saved = localStorage.getItem('consumer_messages');
-        return saved ? JSON.parse(saved) : {};
+        try { 
+            const saved = localStorage.getItem('consumer_messages'); 
+            const parsed = saved ? JSON.parse(saved) : null;
+            return (parsed && typeof parsed === 'object') ? parsed : {}; 
+        } catch(e) { return {}; }
     });
     const [aiMessages, setAiMessages] = useState([{ sender: 'AI Bot', content: 'Hello! I am your FoodTech Assistant.', self: false }]);
     // Search & Filter UI states
     const [searchTerm, setSearchTerm] = useState('');
     const [activeChip, setActiveChip] = useState(null); // 'open' | 'nearest' | 'low' | 'hot' | null
     const [isTyping, setIsTyping] = useState(false);
+    const [recenterTrigger, setRecenterTrigger] = useState(0);
+    const [showFilters, setShowFilters] = useState(true);
+    const [isListExpanded, setIsListExpanded] = useState(false);
 
     const [loading, setLoading] = useState(true);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-    // Helper for distance calculation
-    const calculateDistance = (origin, target) => {
-        if (!origin) return "N/A";
-        const R = 6371;
-        const dLat = (target.lat - origin.lat) * Math.PI / 180;
-        const dLng = (target.lng - origin.lng) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(origin.lat * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180) *
-            Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return (R * c).toFixed(1);
-    };
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const toggleLanguage = () => {
         const langs = ['en', 'hi', 'mni', 'or'];
@@ -169,8 +269,9 @@ const ConsumerDashboard = () => {
                 // Fetch registered centers from backend
                 try {
                     const res = await axios.get('http://localhost:8000/centers');
-                    if (res.data && res.data.length > 0) {
-                        const newCenters = res.data.map(c => ({
+                    const validData = validateCenters(res.data);
+                    if (validData.length > 0) {
+                        const newCenters = validData.map(c => ({
                             ...c,
                             cookedFood: c.menu?.some(item => ['Rice Meals', 'Dal Chawal', 'Khichdi'].includes(item))
                         }));
@@ -182,8 +283,9 @@ const ConsumerDashboard = () => {
                 // Fetch risk zones
                 try {
                     const res = await axios.get('http://localhost:8000/risk-zones');
-                    setRiskZones(res.data);
-                    localStorage.setItem('consumer_riskZones', JSON.stringify(res.data));
+                    const validZones = validateCenters(res.data);
+                    setRiskZones(validZones);
+                    localStorage.setItem('consumer_riskZones', JSON.stringify(validZones));
                 } catch (e) { console.log('No risk zones'); }
 
             } catch (err) {
@@ -219,7 +321,7 @@ const ConsumerDashboard = () => {
     const filteredCenters = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
         // start from all centers
-        let list = centers.slice();
+        let list = Array.isArray(centers) ? centers.slice() : [];
 
         // Apply text search (name, address, menu)
         if (term) {
@@ -242,17 +344,11 @@ const ConsumerDashboard = () => {
 
         // Nearest acts as a sort (requires location)
         if (activeChip === 'nearest' && userLoc) {
-            const R = 6371;
-            list = list.map(center => {
-                const dLat = (center.lat - userLoc.lat) * Math.PI / 180;
-                const dLng = (center.lng - userLoc.lng) * Math.PI / 180;
-                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos(userLoc.lat * Math.PI / 180) * Math.cos(center.lat * Math.PI / 180) *
-                    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                const distance = R * c;
-                return { ...center, __distance: distance };
-            }).sort((a, b) => a.__distance - b.__distance);
+            list.sort((a, b) => {
+                const distA = parseFloat(calculateDistance(userLoc, a)) || Infinity;
+                const distB = parseFloat(calculateDistance(userLoc, b)) || Infinity;
+                return distA - distB;
+            });
         }
 
         return list;
@@ -683,492 +779,226 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
         );
     }
 
-    return (
-        <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden p-4 md:p-0">
-            <div className="flex-1 flex flex-col relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white w-full h-full border border-slate-200 md:border-none">
-            {/* Offline Indicator */}
+    // --- 1️⃣ HEADER BAR (FIXED TOP) ---
+    const renderHeader = () => (
+        <header className="absolute top-0 left-0 right-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center h-16 border-b border-slate-100 z-[100]">
+            {/* Offline Indicator (Overlay) */}
             {!isOnline && (
-                <div className="absolute top-0 w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-amber-500/50">
+                <div className="absolute top-16 left-0 w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-amber-500/50">
                     <WifiOff size={14} />
                     {t('offline_msg', "You're offline - Some features may be limited")}
                 </div>
             )}
-
-            {/* Premium Header */}
-            <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md text-slate-800 px-4 h-14 flex flex-row justify-between items-center shadow-sm border-b border-slate-200">
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                        <MapPin className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-base md:text-xl font-black tracking-tight text-slate-900">{t('consumer_app', 'Consumer Portal')}</h1>
-                    </div>
+            <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center shadow-sm">
+                    <Shield size={18} className="text-white" />
                 </div>
-                <div className="flex gap-2 items-center">
-                    <button onClick={toggleLanguage} className="bg-slate-100 border border-slate-200 px-3 py-2 rounded-lg flex items-center gap-2 text-xs font-bold hover:bg-slate-200 transition-all text-slate-700">
-                        <Globe size={14} /> {i18n.language === 'en' ? 'EN' : i18n.language === 'hi' ? 'HI' : i18n.language === 'mni' ? 'MNI' : 'OR'}
-                    </button>
-                    <button onClick={() => { localStorage.removeItem('foodtech_user'); navigate('/login'); }} className="bg-slate-100 border border-slate-200 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all text-slate-700">{t('logout')}</button>
-                </div>
-            </header>
-
-            <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden h-full">
-
-                {/* Premium Sidebar */}
-                <div className="w-full flex-1 md:flex-none md:w-[400px] md:h-full z-20 bg-white md:bg-white/90 md:backdrop-blur-xl border-t md:border-t-0 md:border-r border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] md:shadow-none order-2 md:order-1 flex flex-col overflow-hidden">
-                    <div className="w-full h-full overflow-y-auto p-4 md:p-6 space-y-4">
-
-                        {/* NEAREST CENTER RECOMMENDATION */}
-                        {nearestCenter && (
-                            <div className="bg-white rounded-[20px] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-100 animate-in fade-in slide-in-from-bottom duration-500">
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
-                                            <Navigation size={20} className="text-emerald-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t('nearest_center', 'Nearest Center')}</p>
-                                            <p className="text-lg font-black text-slate-900">
-                                                Nearest Food: <span className="text-emerald-600">{nearestCenter.distance} {t('km', 'km')}</span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-100 px-3 py-1.5 rounded-full">
-                                        <span className={`text-xs font-black ${nearestCenter.crowd === 'High' ? 'text-red-600' : nearestCenter.crowd === 'Medium' ? 'text-orange-600' : 'text-emerald-600'} flex items-center gap-1`}>
-                                            <span className={`w-2 h-2 rounded-full ${nearestCenter.crowd === 'High' ? 'bg-red-500' : nearestCenter.crowd === 'Medium' ? 'bg-orange-500' : 'bg-emerald-500'} animate-pulse`}></span>
-                                            {nearestCenter.crowd} {t('crowd', 'Crowd')}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="bg-slate-50 rounded-xl p-3 mb-3 border border-slate-100">
-                                    <h4 className="font-bold text-slate-800 text-sm mb-1">{t(`center_names.${nearestCenter.id}`, nearestCenter.name)}</h4>
-                                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                                        <MapPin size={11} className="text-slate-400" />
-                                        {nearestCenter.address}
-                                    </p>
-                                </div>
-
-                                <div className="flex items-center gap-2 mb-3">
-                                    {nearestCenter.cookedFood && (
-                                        <div className="bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100">
-                                            <span className="text-xs font-bold text-orange-700">🍛 {t('hot_meals', 'Hot Meals')}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Menu Available */}
-                                {nearestCenter.menu && nearestCenter.menu.length > 0 && (
-                                    <div className="bg-slate-50 rounded-xl p-3 mb-3 border border-slate-100">
-                                        <button
-                                            onClick={() => setExpandedMenus(prev => ({ ...prev, [nearestCenter.id]: !prev[nearestCenter.id] }))}
-                                            className="w-full text-left"
-                                        >
-                                            <p className="text-xs text-slate-500 font-bold mb-2 flex items-center justify-between">
-                                                📋 {t('menu_available', 'Menu Available')} ({nearestCenter.menu.length})
-                                                <span className="text-[10px]">{expandedMenus[nearestCenter.id] ? '▼' : '▶'}</span>
-                                            </p>
-                                        </button>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {(expandedMenus[nearestCenter.id] ? nearestCenter.menu : nearestCenter.menu.slice(0, 4)).map((item, idx) => (
-                                                <span key={idx} className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-md text-slate-600 font-semibold">{item}</span>
-                                            ))}
-                                            {!expandedMenus[nearestCenter.id] && nearestCenter.menu.length > 4 && (
-                                                <button
-                                                    onClick={() => setExpandedMenus(prev => ({ ...prev, [nearestCenter.id]: true }))}
-                                                    className="text-[10px] text-emerald-600 underline"
-                                                >
-                                                    +{nearestCenter.menu.length - 4} more
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Action Buttons for Nearest Center */}
-                                <div className="flex flex-col gap-3 mt-4">
-                                    <button
-                                        onClick={() => {
-                                            setSelectedCenter(nearestCenter);
-                                            setReqItem({ ...reqItem, deliveryType: 'delivery' });
-                                            setShowRequestModal(true);
-                                        }}
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/30 transition-all w-full"
-                                    >
-                                        🚚 {t('request_delivery', 'Request Delivery')}
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setSelectedCenter(nearestCenter);
-                                            setReqItem({ ...reqItem, deliveryType: 'pickup' });
-                                            setShowRequestModal(true);
-                                        }}
-                                        className="bg-white border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 py-3 rounded-xl font-bold text-sm transition-all w-full"
-                                    >
-                                        {t('request_pickup', 'Pickup')}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ROUTE INFO CARD WITH TRUCK TRACKING */}
-                        {routePath.length > 0 && routeInfo && (
-                            <div className="bg-white rounded-[20px] p-5 shadow-xl animate-in fade-in slide-in-from-left duration-500 border border-slate-100">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                            {truckPosition ? (
-                                                <><Truck size={14} className="animate-bounce" /> {t('delivery_truck', 'Delivery Truck En Route')}</>
-                                            ) : (
-                                                <><Navigation size={14} /> {t('directions', 'Directions to Center')}</>
-                                            )}
-                                        </p>
-                                        <h3 className="text-2xl md:text-3xl font-black text-slate-900">{routeInfo.duration}</h3>
-                                        <p className="text-sm text-slate-500 mt-1">{routeInfo.distance} {t('away', 'away')}</p>
-                                    </div>
-                                    <button onClick={openGoogleMaps} className="bg-blue-50 text-blue-600 px-3 py-2 rounded-xl hover:bg-blue-100 text-xs font-bold flex items-center gap-1.5 border border-blue-100 transition-all">
-                                        <Navigation size={14} /> Open
-                                    </button>
-                                </div>
-
-                                {/* Progress Bar - Only show for delivery */}
-                                {truckPosition && (
-                                    <>
-                                        <div className="mb-3">
-                                            <div className="flex justify-between text-xs text-slate-500 mb-1">
-                                                <span>{t('progress', 'Progress')}</span>
-                                                <span className="font-bold">{truckProgress}%</span>
-                                            </div>
-                                            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                                                <div
-                                                    className="bg-emerald-500 h-full rounded-full transition-all duration-300 ease-linear"
-                                                    style={{ width: `${truckProgress}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                            {truckProgress < 100 ? t('truck_on_way', 'Truck is on the way to your location') : t('truck_arrived', 'Truck has arrived!')}
-                                        </div>
-                                    </>
-                                )}
-
-                                {/* Pickup directions message */}
-                                {!truckPosition && (
-                                    <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                                        {t('follow_route', 'Follow the blue route to reach the food center')}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Centers List - Visible on Mobile with padding */}
-                        <div className="space-y-4 pb-24 md:pb-0">
-                            {/* Search + Filter */}
-                            <div className="mb-3 mt-2">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" size={18} />
-                                    <input
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        placeholder="Search centers, areas, or meals…"
-                                        className="w-full border-2 border-slate-200 pl-10 pr-3 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 transition placeholder-slate-500"
-                                    />
-                                </div>
-                                {searchTerm ? (
-                                    <p className="text-xs text-emerald-600 font-bold mt-2 animate-pulse">Showing nearest matching centers...</p>
-                                ) : (
-                                    <p className="text-xs text-slate-400 mt-2">Try: Imphal / Moirang / Hot meals</p>
-                                )}
-
-                                <div className="flex gap-2 mt-3 flex-wrap">
-                                    {[
-                                        { key: null, label: 'All' },
-                                        { key: 'open', label: 'Open now' },
-                                        { key: 'nearest', label: 'Nearest' },
-                                        { key: 'low', label: 'Low crowd' },
-                                        { key: 'hot', label: 'Hot meals' },
-                                    ].map(chip => (
-                                        <button
-                                            key={String(chip.key)}
-                                            onClick={() => setActiveChip(prev => prev === chip.key ? null : chip.key)}
-                                            className={`text-xs font-bold px-3 py-1.5 rounded-full border ${activeChip === chip.key ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-700 border-slate-200'}`}
-                                        >
-                                            {chip.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center px-1">
-                                <h3 className="font-black text-slate-800 text-base uppercase tracking-tight flex items-center gap-2">
-                                    <span className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></span>
-                                    {t('nearest_centers')}
-                                </h3>
-                                <button onClick={() => setShowFeedbackModal(true)} className="text-xs text-slate-500 hover:text-emerald-600 flex items-center gap-1 font-semibold transition-colors">
-                                    <ThumbsUp size={13} /> {t('feedback')}
-                                </button>
-                            </div>
-                            {filteredCenters.map(center => (
-                                <div key={center.id} className="group relative bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-5 border-2 border-slate-100 hover:border-emerald-300 transition-all shadow-md hover:shadow-2xl hover:scale-[1.02]">
-                                    {/* Status Badge */}
-                                    <div className="absolute top-4 right-4">
-                                        <span className={`text-[9px] px-3 py-1.5 rounded-full font-black uppercase tracking-wider shadow-md ${center.status === 'open' ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white' : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
-                                            }`}>{center.status === 'open' ? `● ${t('open', 'OPEN')}` : `● ${t('closed', 'CLOSED')}`}</span>
-                                    </div>
-
-                                    {/* Center Info */}
-                                    <div className="pr-20 mb-4">
-                                        <h4 className="font-bold text-sm md:text-[16px] text-slate-900 leading-tight mb-2">{t(`center_names.${center.id}`, center.name)}</h4>
-                                        <p className="text-[12px] text-slate-500 flex items-center gap-1.5">
-                                            <MapPin size={12} className="text-emerald-600 flex-shrink-0" />
-                                            <span>{center.address}</span>
-                                        </p>
-                                    </div>
-
-                                    {/* Stats Row */}
-                                    <div className="flex items-center gap-3 mb-4 flex-wrap">
-                                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg">
-                                            <div className={`w-2.5 h-2.5 rounded-full ${center.crowd === 'High' ? 'bg-red-500 animate-pulse' : center.crowd === 'Medium' ? 'bg-amber-500' : 'bg-green-500'
-                                                }`}></div>
-                                            <span className="text-[11px] font-bold text-slate-700">{center.crowd} {t('crowd', 'Crowd')}</span>
-                                        </div>
-                                        {center.cookedFood && (
-                                            <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 px-3 py-1.5 rounded-lg border border-orange-200">
-                                                <span className="text-[11px] font-black text-orange-700">🍛 {t('hot_meals', 'Hot Meals')}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Menu Available */}
-                                    {center.menu && center.menu.length > 0 && (
-                                        <div className="mb-4 bg-slate-50 rounded-xl p-3">
-                                            <button
-                                                onClick={() => setExpandedMenus(prev => ({ ...prev, [center.id]: !prev[center.id] }))}
-                                                className="w-full text-left"
-                                            >
-                                                <p className="text-[10px] text-slate-600 font-bold mb-2 uppercase tracking-wider flex items-center justify-between">
-                                                    📋 {t('menu_available', 'Available Menu')} ({center.menu.length})
-                                                    <span className="text-[10px]">{expandedMenus[center.id] ? '▼' : '▶'}</span>
-                                                </p>
-                                            </button>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {(expandedMenus[center.id] ? center.menu : center.menu.slice(0, 5)).map((item, idx) => (
-                                                    <span key={idx} className="text-[9px] bg-white border border-slate-200 px-2 py-1 rounded-md text-slate-700 font-semibold">{item}</span>
-                                                ))}
-                                                {!expandedMenus[center.id] && center.menu.length > 5 && (
-                                                    <button
-                                                        onClick={() => setExpandedMenus(prev => ({ ...prev, [center.id]: true }))}
-                                                        className="text-[9px] text-slate-500 font-semibold underline"
-                                                    >
-                                                        +{center.menu.length - 5} more
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Action Buttons */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {activePickupCenter === center.id ? (
-                                            <button
-                                                onClick={() => handleCancelPickup(center.id)}
-                                                className="text-[12px] bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
-                                            >
-                                                ✕ {t('cancel_pickup', 'Cancel Pickup')}
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => { setSelectedCenter(center); setReqItem({ ...reqItem, deliveryType: 'pickup' }); setShowRequestModal(true); }}
-                                                className="text-[12px] bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
-                                            >
-                                                <Utensils size={13} /> {t('request_pickup', 'Request Pickup')}
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => {
-                                                setActiveChat('supplier');
-                                                setActiveChatCenter(center);
-                                                setMsgText(""); // Clear input when switching centers
-                                            }}
-                                            className="text-[12px] bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-3 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all"
-                                        >
-                                            <MessageCircle size={13} /> {t('chat', 'Chat')}
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Map */}
-                <div className="h-[60vh] md:h-full md:flex-1 z-0 order-1 md:order-2 relative">
-                    <style>
-                        {`
-                            .leaflet-control-zoom { margin-top: 80px !important; }
-                            @media (min-width: 768px) { .leaflet-control-zoom { transform: scale(1.3); margin-top: 60px !important; } }
-                        `}
-                    </style>
-                    <MapContainer center={[24.8170, 93.9368]} zoom={10} style={{ height: "100%", width: "100%" }} zoomControl={true}>
-                        <TileLayer
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        />
-                        {filteredCenters.map(c => (
-                            <Marker
-                                key={c.id}
-                                position={[c.lat, c.lng]}
-                                icon={L.divIcon({
-                                    className: 'custom-marker',
-                                    html: `<div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 40px; height: 40px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><div style="transform: rotate(45deg); color: white; font-weight: bold; font-size: 18px;">📍</div></div>`,
-                                    iconSize: [40, 40],
-                                    iconAnchor: [20, 40]
-                                })}
-                                eventHandlers={{
-                                    popupopen: (e) => {
-                                        setTimeout(() => e.target.closePopup(), 5000);
-                                    }
-                                }}
-                            >
-                                <Popup className="custom-popup">
-                                    <div className="bg-white rounded-lg p-3 min-w-[200px]">
-                                        <h3 className="font-bold text-green-600 text-sm mb-2">{t(`center_names.${c.id}`, c.name)}</h3>
-                                        <p className="text-xs text-gray-600 mb-2 flex items-center gap-1">
-                                            <span className="text-green-500">📍</span> {c.address}
-                                        </p>
-                                        <div className="flex gap-2 flex-wrap mb-2">
-                                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">{c.status === 'open' ? t('open', 'OPEN') : t('closed', 'CLOSED')}</span>
-                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">{c.crowd} {t('crowd', 'Crowd')}</span>
-                                            {c.cookedFood && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-semibold">🍛 {t('hot_meals', 'Hot Meals')}</span>}
-                                        </div>
-                                    </div>
-                                </Popup>
-                            </Marker>
-                        ))}
-                        {userLoc && <Marker position={[userLoc.lat, userLoc.lng]} icon={L.icon({ iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', iconSize: [40, 40], iconAnchor: [20, 40] })} eventHandlers={{
-                            popupopen: (e) => {
-                                setTimeout(() => e.target.closePopup(), 5000);
-                            }
-                        }}>
-                            <Popup>
-                                <div className="bg-white rounded-lg p-3 text-center min-w-[150px]">
-                                    <h3 className="font-bold text-green-600 text-sm mb-1">📍 {t('you')}</h3>
-                                    <p className="text-xs text-gray-600">Your Current Location</p>
-                                </div>
-                            </Popup>
-                        </Marker>}
-
-                        {/* LIVE TRUCK MARKER */}
-                        {truckPosition && (
-                            <Marker
-                                position={truckPosition}
-                                icon={L.divIcon({
-                                    className: 'truck-marker',
-                                    html: `<div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); width: 48px; height: 48px; border-radius: 50%; border: 4px solid white; box-shadow: 0 6px 20px rgba(249,115,22,0.5); display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite;"><div style="color: white; font-size: 24px;">🚚</div></div>`,
-                                    iconSize: [48, 48],
-                                    iconAnchor: [24, 24]
-                                })}
-                                eventHandlers={{
-                                    popupopen: (e) => {
-                                        setTimeout(() => e.target.closePopup(), 5000);
-                                    }
-                                }}
-                            >
-                                <Popup>
-                                    <div className="bg-white rounded-lg p-3 text-center min-w-[160px]">
-                                        <h3 className="font-bold text-orange-600 text-sm mb-2">🚚 {t('delivery_truck', 'Delivery Truck')}</h3>
-                                        <p className="text-xs font-semibold text-gray-700 mb-1">{t('progress', 'Progress')}: {truckProgress}%</p>
-                                        <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                                            <div className="bg-orange-500 h-2 rounded-full transition-all" style={{ width: `${truckProgress}%` }}></div>
-                                        </div>
-                                        <p className="text-xs text-gray-600">{truckProgress < 100 ? `🚀 ${t('truck_on_way', 'On the way to you')}` : `✅ ${t('truck_arrived', 'Arrived!')}`}</p>
-                                    </div>
-                                </Popup>
-                            </Marker>
-                        )}
-
-                        {/* --- DYNAMIC ROAD PATH (Premium Gradient) --- */}
-                        {routePath.length > 0 && (
-                            <Polyline
-                                positions={routePath}
-                                color="#10b981"
-                                weight={6}
-                                opacity={0.9}
-                                dashArray="10, 5"
-                            />
-                        )}
-
-                        {/* DANGER ZONES */}
-                        {riskZones.map(zone => (
-                            <React.Fragment key={zone.id}>
-                                <Circle
-                                    center={[zone.lat, zone.lng]}
-                                    radius={zone.radius}
-                                    pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.3, weight: 2 }}
-                                    eventHandlers={{
-                                        popupopen: (e) => {
-                                            setTimeout(() => e.target.closePopup(), 5000);
-                                        }
-                                    }}
-                                >
-                                    <Popup>
-                                        <div className="bg-white rounded-lg p-3 min-w-[180px]">
-                                            <h3 className="font-bold text-red-600 text-sm mb-2">⚠️ {t('danger_zone', 'DANGER ZONE')}</h3>
-                                            <p className="text-xs text-gray-700 mb-2">{zone.reason}</p>
-                                            <p className="text-xs text-gray-600 mb-2">Radius: {zone.radius}m</p>
-                                            <p className="text-xs font-bold text-red-600">⚠️ {t('avoid_area', 'Avoid this area')}</p>
-                                        </div>
-                                    </Popup>
-                                </Circle>
-                                <Marker
-                                    position={[zone.lat, zone.lng]}
-                                    icon={L.divIcon({
-                                        className: 'danger-marker',
-                                        html: `<div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); width: 44px; height: 44px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(220,38,38,0.6); display: flex; align-items: center; justify-content: center;"><div style="color: white; font-size: 24px;">⚠️</div></div>`,
-                                        iconSize: [44, 44],
-                                        iconAnchor: [22, 22]
-                                    })}
-                                    eventHandlers={{
-                                        popupopen: (e) => {
-                                            setTimeout(() => e.target.closePopup(), 5000);
-                                        }
-                                    }}
-                                >
-                                    <Popup>
-                                        <div className="bg-white rounded-lg p-3 text-center min-w-[180px]">
-                                            <h3 className="font-bold text-red-600 text-sm mb-2">⚠️ {t('danger_zone', 'DANGER ZONE')}</h3>
-                                            <p className="text-xs font-semibold text-gray-800 mb-2">{zone.reason}</p>
-                                            <p className="text-xs text-gray-600 mb-2">Affected Radius: {zone.radius}m</p>
-                                            <div className="bg-red-50 border border-red-200 rounded px-2 py-1">
-                                                <p className="text-xs font-bold text-red-700">🚫 {t('do_not_enter', 'DO NOT ENTER')}</p>
-                                            </div>
-                                        </div>
-                                    </Popup>
-                                </Marker>
-                            </React.Fragment>
-                        ))}
-                    </MapContainer>
-
-                    {/* FLOATING AI BUTTON (Bottom Left) */}
-                    <button
-                        onClick={() => setActiveChat('ai')}
-                        className="absolute bottom-6 left-4 z-[400] bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-lg shadow-emerald-500/40 flex items-center justify-center transition-transform hover:scale-110 active:scale-95 border-2 border-white"
-                    >
-                        <span className="text-2xl">🤖</span>
-                    </button>
-
-                    {/* FLOATING SOS BUTTON (Bottom Right) */}
-                    <button
-                        onClick={handleSOS}
-                        className="absolute bottom-6 right-4 z-[400] bg-red-600 hover:bg-red-700 text-white w-16 h-16 rounded-full shadow-[0_8px_30px_rgba(220,38,38,0.5)] flex flex-col items-center justify-center animate-pulse border-4 border-white transition-transform hover:scale-110 active:scale-95"
-                    >
-                        <AlertTriangle size={24} fill="currentColor" className="mb-0.5" />
-                        <span className="text-[10px] font-black">SOS</span>
-                    </button>
+                <div>
+                    <h1 className="text-sm font-bold text-slate-900 leading-none">Consumer App</h1>
+                    <p className="text-[10px] text-slate-500 font-medium">Emergency Response · SAFE</p>
                 </div>
             </div>
+            <div className="flex items-center gap-2">
+                <button onClick={() => {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                                setRecenterTrigger(prev => prev + 1);
+                            },
+                            (err) => {
+                                console.error("Geolocation error:", err);
+                                alert("Unable to retrieve location. Please enable location services.");
+                            },
+                            { enableHighAccuracy: true }
+                        );
+                    } else {
+                        alert("Geolocation is not supported by your browser.");
+                    }
+                }} className="p-2 rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100" title="Locate Me">
+                    <Crosshair size={20} />
+                </button>
+                <button onClick={() => { localStorage.removeItem('foodtech_user'); navigate('/login'); }} className="p-2 rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100">
+                    <LogOut size={20} />
+                </button>
+            </div>
+        </header>
+    );
+
+    // --- 2️⃣ SEARCH BAR SECTION ---
+    const renderSearchBar = () => (
+        <div className="px-4 py-3 bg-white z-40 mt-16">
+            <div className="flex gap-2">
+                <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Search centers, area, food..."
+                        className="w-full bg-slate-100 border-none rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-700 placeholder-slate-400"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${showFilters ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <SlidersHorizontal size={20} />
+                </button>
+                <button
+                    onClick={() => setIsListExpanded(!isListExpanded)}
+                    className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${isListExpanded ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    {isListExpanded ? <MapPin size={20} /> : <List size={20} />}
+                </button>
+            </div>
+        </div>
+    );
+
+    // --- 3️⃣ FILTER CHIPS ROW ---
+    const renderFilterChips = () => {
+        if (!showFilters) return null;
+        return (
+        <div className="bg-white pb-3 px-4 z-40 overflow-x-auto scrollbar-hide border-b border-slate-100">
+            <div className="flex gap-2 min-w-max">
+                {[
+                    { label: 'All', value: null },
+                    { label: 'Nearby', value: 'nearest' },
+                    { label: 'Hot Meals', value: 'hot' },
+                    { label: 'Low Crowd', value: 'low' },
+                    { label: 'Open Now', value: 'open' }
+                ].map((chip) => {
+                    const isActive = activeChip === chip.value;
+                    return (
+                        <button
+                            key={chip.label}
+                            onClick={() => setActiveChip(isActive ? null : chip.value)}
+                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors border ${isActive ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                        >
+                            {chip.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+        );
+    };
+
+    // --- 6️⃣ FLOATING SOS BUTTON ---
+    const renderSOSButton = () => (
+        <button
+            onClick={handleSOS}
+            className="absolute bottom-24 right-4 z-[500] bg-red-600 hover:bg-red-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(220,38,38,0.4)] flex items-center justify-center animate-pulse border-2 border-white transition-transform hover:scale-110 active:scale-95"
+        >
+            <AlertTriangle size={24} fill="currentColor" />
+        </button>
+    );
+
+    // --- 7️⃣ FLOATING AI BUTTON ---
+    const renderAIButton = () => (
+        <button
+            onClick={() => setActiveChat('ai')}
+            className="absolute bottom-24 left-4 z-[500] bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(16,185,129,0.4)] flex items-center justify-center border-2 border-white transition-transform hover:scale-110 active:scale-95"
+        >
+            <Bot size={24} />
+        </button>
+    );
+
+    return (
+        <div className="h-screen flex flex-col bg-slate-50 font-sans relative overflow-hidden p-4 md:p-0">
+            <div className="flex-1 flex flex-col relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white w-full h-full border border-slate-200 md:border-none">
+                {renderHeader()}
+                
+                <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+                    
+                    {/* Sidebar (Desktop) / Main Content (Mobile) */}
+                    <div className="w-full md:w-[420px] flex flex-col h-full bg-white md:border-r border-slate-200 z-20 order-2 md:order-1 shadow-xl md:shadow-none">
+                        
+                        {/* Search & Filters */}
+                        <div className="shrink-0 bg-white z-30">
+                            {renderSearchBar()}
+                            {renderFilterChips()}
+                        </div>
+
+                        {/* Mobile Map (Visible only on mobile) */}
+                        <div className={`md:hidden w-full shrink-0 relative z-10 bg-slate-100 border-b border-slate-200 overflow-hidden transition-all duration-300 ${isListExpanded ? 'h-0' : 'h-[40vh]'}`}>
+                            {isMobile && (
+                                <MapComponent userLoc={userLoc} centers={filteredCenters} routePath={routePath} truckPosition={truckPosition} truckProgress={truckProgress} riskZones={riskZones} t={t} recenterTrigger={recenterTrigger} />
+                            )}
+                        </div>
+                        
+                        {/* List */}
+                        <div id="centers-list-container" className="flex-1 overflow-y-auto p-4 pb-32 md:pb-4 bg-slate-50">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2 sticky top-0 bg-slate-50 py-2 z-10">
+                                <Navigation size={12} /> {filteredCenters.length} Centers Found
+                            </h3>
+                            <div className="space-y-3">
+                                {filteredCenters.map(center => (
+                                    <div 
+                                        key={center.id}
+                                        onClick={() => setSelectedCenter(center)}
+                                        className={`bg-white p-4 rounded-xl border transition-all shadow-sm hover:shadow-md cursor-pointer ${selectedCenter?.id === center.id ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-100'}`}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <h4 className="font-bold text-slate-900">{t(`center_names.${center.id}`, center.name)}</h4>
+                                                <p className="text-xs text-slate-500">{center.address}</p>
+                                            </div>
+                                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${center.crowd === 'High' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                {center.crowd}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-4 text-xs text-slate-600 mb-3">
+                                            <span className="flex items-center gap-1"><Navigation size={12}/> {center.distance || calculateDistance(userLoc, center)} km</span>
+                                            {center.cookedFood && <span className="text-orange-600 font-bold">🍛 Hot Meals</span>}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                setSelectedCenter(center);
+                                                setReqItem({ ...reqItem, deliveryType: 'delivery' });
+                                                setShowRequestModal(true);
+                                            }}
+                                            className="flex-1 bg-emerald-50 text-emerald-700 py-2 rounded-lg text-xs font-bold hover:bg-emerald-100"
+                                        >
+                                            Delivery
+                                        </button>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedCenter(center);
+                                                setReqItem({ ...reqItem, deliveryType: 'pickup' });
+                                                setShowRequestModal(true);
+                                            }}
+                                            className="flex-1 border border-slate-200 text-slate-600 py-2 rounded-lg text-xs font-bold hover:bg-slate-50"
+                                        >
+                                            Pickup
+                                        </button>
+                                    </div>
+                                </div>
+                                ))}
+                                {filteredCenters.length === 0 && (
+                                    <div className="text-center py-10 text-slate-400 text-sm">
+                                        No centers found matching your criteria.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Desktop Map (Visible only on desktop) */}
+                    <div className="hidden md:block flex-1 h-full relative z-0 order-1 md:order-2">
+                        {!isMobile && (
+                            <MapComponent userLoc={userLoc} centers={filteredCenters} routePath={routePath} truckPosition={truckPosition} truckProgress={truckProgress} riskZones={riskZones} t={t} recenterTrigger={recenterTrigger} />
+                        )}
+                    </div>
+
+                </div>
+                
+                {/* Fixed Buttons */}
+                {renderSOSButton()}
+                {renderAIButton()}
 
             {/* Chat Widget & Modals (Preserved) */}
             {activeChat && (
@@ -1267,7 +1097,6 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     </form>
                 </div>
             )}
-            </div>
 
             {showRequestModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
@@ -1453,6 +1282,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     </div>
                 </div>
             )}
+            </div>
         </div>
     );
 };
