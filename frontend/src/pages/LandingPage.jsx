@@ -506,56 +506,55 @@ const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="pb-6 md:pb-12 px-4 md:px-6 relative overflow-hidden pt-10 md:pt-24 lg:pt-32 z-10 min-h-[60vh] flex items-center">
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="animate-fade-in-up relative">
-              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-50/80 via-cyan-50/80 to-emerald-50/80 border border-emerald-300/60 text-emerald-700 text-xs font-bold uppercase tracking-widest mb-8 shadow-lg shadow-emerald-200/30 hover:shadow-emerald-200/50 transition-all duration-300 backdrop-blur-sm">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                {t('active_india', '🇮🇳 Active in India • Focus: Manipur Crisis')}
-              </div>
-              <h1 className="text-2xl md:text-6xl font-black tracking-tighter mb-4 md:mb-8 leading-[1.1] text-slate-900">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600">SAFE</span><br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-700 font-black">{t('smart_aid', 'Smart Aid for')}</span><br/>
-                <span className="bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 bg-clip-text text-transparent font-black drop-shadow-lg">{t('food_emergency', 'Food Emergency')}</span>
-              </h1>
-              <p className="text-xs md:text-lg text-slate-600 mb-6 leading-relaxed max-w-lg font-medium line-clamp-2 md:line-clamp-none">
-                {t('hero_desc', 'Find the nearest food center, request help, and track delivery in real time.')}
-              </p>
-              <p className="hidden md:flex text-xs font-bold text-slate-500 uppercase tracking-widest mb-10 items-center gap-2">
-                <span className="w-6 h-0.5 bg-emerald-500 rounded-full"></span>
-                {t('hero_sub', 'Built for disaster response and humanitarian logistics across India')}
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <button onClick={() => navigate('/register')} className="group px-6 py-3 md:px-8 md:py-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-2xl font-bold shadow-2xl shadow-emerald-400/50 hover:shadow-2xl hover:shadow-emerald-500/60 transition-all duration-300 flex items-center gap-2 hover:scale-105 transform border border-emerald-400/20 text-sm md:text-base w-[92%] md:w-auto justify-center">
-                  {t('get_started', 'Get Started Free')}
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-              
-              {/* Trust Badges */}
-              <div className="mt-6 md:mt-12 grid grid-cols-3 gap-1 md:flex md:flex-wrap md:items-center md:gap-6">
-                <div className="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 group hover:scale-110 transition-transform duration-300 p-1">
-                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-200 transition-colors"><CheckCircle size={12} className="md:w-4 md:h-4" /></div>
-                  <span className="text-[9px] md:text-sm font-bold text-slate-700 text-center leading-tight">{t('iot_enabled', 'IoT Enabled')}</span>
+      <section className="pb-12 md:pb-24 px-6 md:px-14 relative overflow-visible pt-28 md:pt-40 lg:pt-48 z-10 min-h-[auto] md:min-h-[85vh] flex items-center">
+        <div className="max-w-7xl mx-auto w-full relative z-10">
+          <div className="grid grid-cols-2 gap-3 md:gap-12 lg:gap-20 items-center">
+            <div className="animate-fade-in-up relative col-span-1">
+              <div className="w-full">
+                <div className="inline-flex items-center gap-2 px-2 py-1 md:px-4 md:py-2.5 rounded-full bg-gradient-to-r from-emerald-50/80 via-cyan-50/80 to-emerald-50/80 border border-emerald-300/60 text-emerald-700 text-[8px] md:text-xs font-bold uppercase tracking-widest mb-2 md:mb-8 shadow-lg shadow-emerald-200/30 hover:shadow-emerald-200/50 transition-all duration-300 backdrop-blur-sm">
+                  <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
+                  <span className="truncate">{t('active_india', '🇮🇳 Active in India • Focus: Manipur Crisis')}</span>
                 </div>
-                <div className="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 group hover:scale-110 transition-transform duration-300 p-1">
-                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:bg-cyan-200 transition-colors"><CheckCircle size={12} className="md:w-4 md:h-4" /></div>
-                  <span className="text-[9px] md:text-sm font-bold text-slate-700 text-center leading-tight">{t('realtime_tracking', 'Real-time Tracking')}</span>
+                <h1 className="text-xl md:text-6xl font-black tracking-tighter mb-2 md:mb-8 leading-[1.1] text-slate-900">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-cyan-500 to-blue-600">SAFE</span><br/>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-700 font-black">{t('smart_aid', 'Smart Aid for')}</span><br/>
+                  <span className="bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 bg-clip-text text-transparent font-black drop-shadow-lg">{t('food_emergency', 'Food Emergency')}</span>
+                </h1>
+                <p className="text-[10px] md:text-lg text-slate-600 mb-3 md:mb-6 leading-relaxed max-w-lg font-medium line-clamp-3 md:line-clamp-none">
+                  {t('hero_desc', 'Find the nearest food center, request help, and track delivery in real time.')}
+                </p>
+                <p className="flex text-[8px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 md:mb-10 items-center gap-2">
+                  <span className="w-2 md:w-6 h-0.5 bg-emerald-500 rounded-full"></span>
+                  {t('hero_sub', 'Built for disaster response and humanitarian logistics across India')}
+                </p>
+                <div className="flex flex-wrap gap-2 md:gap-4">
+                  <button onClick={() => navigate('/register')} className="group px-3 py-2 md:px-8 md:py-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-lg md:rounded-2xl font-bold shadow-2xl shadow-emerald-400/50 hover:shadow-2xl hover:shadow-emerald-500/60 transition-all duration-300 flex items-center gap-1 md:gap-2 hover:scale-105 transform border border-emerald-400/20 text-[10px] md:text-base w-auto justify-center">
+                    {t('get_started', 'Get Started Free')}
+                    <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform md:w-5 md:h-5" />
+                  </button>
                 </div>
-                <div className="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 group hover:scale-110 transition-transform duration-300 p-1">
-                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-200 transition-colors"><CheckCircle size={12} className="md:w-4 md:h-4" /></div>
-                  <span className="text-[9px] md:text-sm font-bold text-slate-700 text-center leading-tight">{t('multilang', 'Multi-language')}</span>
+                
+                {/* Trust Badges */}
+                <div className="mt-3 md:mt-12 flex flex-wrap items-center gap-2 md:gap-6">
+                  <div className="flex items-center gap-1.5 group hover:scale-110 transition-transform duration-300">
+                    <div className="w-5 h-5 md:w-8 md:h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-200 transition-colors"><CheckCircle size={10} className="md:w-4 md:h-4" /></div>
+                    <span className="text-[9px] md:text-sm font-bold text-slate-700">{t('iot_enabled', 'IoT Enabled')}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 group hover:scale-110 transition-transform duration-300">
+                    <div className="w-5 h-5 md:w-8 md:h-8 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:bg-cyan-200 transition-colors"><CheckCircle size={10} className="md:w-4 md:h-4" /></div>
+                    <span className="text-[9px] md:text-sm font-bold text-slate-700">{t('realtime_tracking', 'Real-time Tracking')}</span>
+                  </div>
                 </div>
               </div>
             </div>
             
-            <div className="relative animate-fade-in-right">
+            <div className="relative animate-fade-in-right flex justify-center lg:justify-end">
+              <div className="relative w-full max-w-lg lg:max-w-full">
               {/* Real Dashboard Preview - Consumer + Supplier Combined */}
-              <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-black rounded-[2rem] md:rounded-[2.5rem] p-2 shadow-2xl shadow-emerald-500/30 transform hover:scale-[1.02] transition-all duration-500 border border-emerald-400/40 max-h-[240px] md:max-h-none overflow-hidden md:overflow-visible">
-                <div className="bg-gradient-to-b from-slate-950 to-black rounded-[1.5rem] md:rounded-[2rem] overflow-hidden relative aspect-video border border-slate-700/50">
+              <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-black rounded-2xl md:rounded-[2.5rem] p-1.5 md:p-3 shadow-2xl shadow-emerald-500/30 transform hover:scale-[1.01] transition-all duration-500 border border-emerald-400/40 relative z-10">
+                <div className="bg-gradient-to-b from-slate-950 to-black rounded-xl md:rounded-[2rem] overflow-hidden relative aspect-square md:aspect-video border border-slate-700/50">
                   {/* Window Header */}
-                  <div className="h-10 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700/50 flex items-center px-4 gap-2 sticky top-0 z-10">
+                  <div className="h-8 md:h-10 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700/50 flex items-center px-2 md:px-4 gap-1 md:gap-2 sticky top-0 z-10">
                     <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
                     <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
                     <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
@@ -563,13 +562,13 @@ const LandingPage = () => {
                   </div>
                   
                   {/* Dashboard Grid Content */}
-                  <div className="flex h-full">
+                  <div className="flex h-full overflow-hidden">
                     {/* LEFT: Consumer View - Map & Centers */}
                     <div className="flex-1 flex flex-col border-r border-slate-700/30 bg-slate-900/50">
                       {/* Tabs */}
-                      <div className="flex border-b border-slate-700/30 px-3 bg-slate-900/30">
-                        <div className="px-3 py-2 text-xs font-bold text-emerald-400 border-b-2 border-emerald-400">📍 Map</div>
-                        <div className="px-3 py-2 text-xs font-bold text-slate-500">🏪 Centers</div>
+                      <div className="flex border-b border-slate-700/30 px-1 md:px-3 bg-slate-900/30">
+                        <div className="px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-xs font-bold text-emerald-400 border-b-2 border-emerald-400">📍 Map</div>
+                        <div className="px-2 md:px-3 py-1 md:py-2 text-[8px] md:text-xs font-bold text-slate-500">🏪 Centers</div>
                       </div>
 
                       {/* Map Area */}
@@ -597,16 +596,16 @@ const LandingPage = () => {
                         </MapContainer>
 
                         {/* Top Status */}
-                        <div className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-2 py-1 rounded text-[10px] text-emerald-300 font-bold z-10">
+                        <div className="absolute top-1 md:top-2 left-1 md:left-2 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-[6px] md:text-[10px] text-emerald-300 font-bold z-10">
                           ● LIVE RELIEF NETWORK
                         </div>
 
                         {/* Stats Overlay */}
-                        <div className="absolute bottom-2 left-2 right-2 flex gap-2 text-[10px] z-10">
-                          <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-2 py-1 rounded text-slate-300">
+                        <div className="absolute bottom-1 md:bottom-2 left-1 md:left-2 right-1 md:right-2 flex flex-col md:flex-row gap-1 md:gap-2 text-[7px] md:text-[10px] z-10">
+                          <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-slate-300 w-fit">
                             <span className="text-emerald-400 font-bold">8</span> Centers
                           </div>
-                          <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-2 py-1 rounded text-slate-300">
+                          <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-slate-300 w-fit">
                             <span className="text-cyan-400 font-bold">12</span> Active
                           </div>
                         </div>
@@ -614,60 +613,61 @@ const LandingPage = () => {
                     </div>
 
                     {/* RIGHT: Supplier View - Inventory */}
-                    <div className="w-48 flex flex-col border-l border-slate-700/30 bg-slate-950/50 overflow-hidden">
+                    <div className="w-20 md:w-48 flex flex-col border-l border-slate-700/30 bg-slate-950/50 overflow-hidden">
                       {/* Right Tabs */}
-                      <div className="flex border-b border-slate-700/30 px-2 bg-slate-900/30">
-                        <div className="px-2 py-2 text-xs font-bold text-slate-500">📊 Orders</div>
-                        <div className="px-2 py-2 text-xs font-bold text-emerald-400 border-b-2 border-emerald-400 ml-auto">📦 Stock</div>
+                      <div className="flex border-b border-slate-700/30 px-1 md:px-2 bg-slate-900/30">
+                        <div className="hidden md:block px-2 py-2 text-xs font-bold text-slate-500">📊 Orders</div>
+                        <div className="px-1 md:px-2 py-1 md:py-2 text-[8px] md:text-xs font-bold text-emerald-400 border-b-2 border-emerald-400 ml-auto w-full text-center md:w-auto">📦 Stock</div>
                       </div>
 
                       {/* Inventory Items */}
-                      <div className="flex-1 overflow-y-auto space-y-2 p-2">
+                      <div className="flex-1 overflow-y-auto space-y-1 md:space-y-2 p-1 md:p-2">
                         {/* Inventory Item 1 */}
-                        <div className="bg-slate-800/50 border border-slate-700/30 rounded-lg p-2">
-                          <div className="flex items-start justify-between mb-1">
-                            <div className="text-[10px] font-bold text-slate-200">Rice</div>
-                            <div className="text-[9px] text-emerald-400">45 kg</div>
+                        <div className="bg-slate-800/50 border border-slate-700/30 rounded md:rounded-lg p-1 md:p-2">
+                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-0.5 md:mb-1">
+                            <div className="text-[8px] md:text-[10px] font-bold text-slate-200">Rice</div>
+                            <div className="text-[7px] md:text-[9px] text-emerald-400">45kg</div>
                           </div>
-                          <div className="w-full bg-slate-700 h-1 rounded-full overflow-hidden">
+                          <div className="w-full bg-slate-700 h-0.5 md:h-1 rounded-full overflow-hidden">
                             <div className="bg-emerald-500 h-full w-4/5"></div>
                           </div>
                         </div>
 
                         {/* Inventory Item 2 */}
-                        <div className="bg-slate-800/50 border border-slate-700/30 rounded-lg p-2">
-                          <div className="flex items-start justify-between mb-1">
-                            <div className="text-[10px] font-bold text-slate-200">Dal</div>
-                            <div className="text-[9px] text-amber-400">28 kg</div>
+                        <div className="bg-slate-800/50 border border-slate-700/30 rounded md:rounded-lg p-1 md:p-2">
+                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-0.5 md:mb-1">
+                            <div className="text-[8px] md:text-[10px] font-bold text-slate-200">Dal</div>
+                            <div className="text-[7px] md:text-[9px] text-amber-400">28kg</div>
                           </div>
-                          <div className="w-full bg-slate-700 h-1 rounded-full overflow-hidden">
+                          <div className="w-full bg-slate-700 h-0.5 md:h-1 rounded-full overflow-hidden">
                             <div className="bg-amber-500 h-full w-2/3"></div>
                           </div>
                         </div>
 
                         {/* Inventory Item 3 */}
-                        <div className="bg-slate-800/50 border border-slate-700/30 rounded-lg p-2">
-                          <div className="flex items-start justify-between mb-1">
-                            <div className="text-[10px] font-bold text-slate-200">Vegetables</div>
-                            <div className="text-[9px] text-cyan-400">62 kg</div>
+                        <div className="bg-slate-800/50 border border-slate-700/30 rounded md:rounded-lg p-1 md:p-2">
+                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-0.5 md:mb-1">
+                            <div className="text-[8px] md:text-[10px] font-bold text-slate-200">Veg</div>
+                            <div className="text-[7px] md:text-[9px] text-cyan-400">62kg</div>
                           </div>
-                          <div className="w-full bg-slate-700 h-1 rounded-full overflow-hidden">
+                          <div className="w-full bg-slate-700 h-0.5 md:h-1 rounded-full overflow-hidden">
                             <div className="bg-cyan-500 h-full w-11/12"></div>
                           </div>
                         </div>
 
                         {/* Alert Box */}
-                        <div className="bg-amber-900/30 border border-amber-700/40 rounded-lg p-2 mt-3">
-                          <div className="text-[10px] font-bold text-amber-300">⚠ Alert</div>
-                          <div className="text-[9px] text-amber-200 mt-0.5">High temp zone detected</div>
+                        <div className="bg-amber-900/30 border border-amber-700/40 rounded md:rounded-lg p-1 md:p-2 mt-1 md:mt-3">
+                          <div className="text-[8px] md:text-[10px] font-bold text-amber-300">⚠ Alert</div>
+                          <div className="text-[7px] md:text-[9px] text-amber-200 mt-0.5 leading-tight">High temp</div>
                         </div>
                       </div>
 
                       {/* Bottom Status */}
-                      <div className="border-t border-slate-700/30 px-2 py-2 bg-slate-900/30 text-[9px] text-slate-400">
+                      <div className="border-t border-slate-700/30 px-1 md:px-2 py-1 md:py-2 bg-slate-900/30 text-[7px] md:text-[9px] text-slate-400">
                         <div className="flex items-center gap-1">
                           <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                          All systems operational
+                          <span className="hidden md:inline">All systems operational</span>
+                          <span className="md:hidden">Online</span>
                         </div>
                       </div>
                     </div>
@@ -676,28 +676,29 @@ const LandingPage = () => {
               </div>
               
               {/* Real Stats Floating Cards */}
-              <div className="absolute -bottom-6 -left-6 bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl shadow-emerald-200/50 border border-emerald-100 animate-float hover:shadow-2xl hover:shadow-emerald-300/60 transition-all duration-300 hidden md:block">
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-400/50">
-                    <MapPin className="text-white" size={28} />
+              <div className="absolute -bottom-2 -left-2 md:-bottom-8 md:-left-8 bg-white/95 backdrop-blur-xl rounded-xl md:rounded-2xl p-2 md:p-5 shadow-xl shadow-emerald-200/50 border border-emerald-100 animate-float hover:shadow-2xl hover:shadow-emerald-300/60 transition-all duration-300 z-20 max-w-[100px] md:max-w-xs block">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="w-6 h-6 md:w-12 md:h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-emerald-400/50">
+                    <MapPin className="text-white w-3 h-3 md:w-5 md:h-5" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Live Tracking</p>
-                    <p className="text-2xl font-black text-emerald-600">8 Centers</p>
+                    <p className="text-[6px] md:text-xs text-slate-500 font-bold uppercase tracking-widest">Live Tracking</p>
+                    <p className="text-xs md:text-2xl font-black text-emerald-600">8 Centers</p>
                   </div>
                 </div>
               </div>
               
-              <div className="absolute -top-6 -right-6 bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl shadow-cyan-200/50 border border-cyan-100 animate-float animation-delay-2000 hover:shadow-2xl hover:shadow-cyan-300/60 transition-all duration-300 hidden md:block">
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-400/50">
-                    <Package className="text-white" size={28} />
+              <div className="absolute -top-2 -right-2 md:-top-8 md:-right-8 bg-white/95 backdrop-blur-xl rounded-xl md:rounded-2xl p-2 md:p-5 shadow-xl shadow-cyan-200/50 border border-cyan-100 animate-float animation-delay-2000 hover:shadow-2xl hover:shadow-cyan-300/60 transition-all duration-300 z-20 max-w-[100px] md:max-w-xs block">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="w-6 h-6 md:w-12 md:h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-cyan-400/50">
+                    <Package className="text-white w-3 h-3 md:w-5 md:h-5" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Inventory</p>
-                    <p className="text-2xl font-black text-cyan-600">156 kg</p>
+                    <p className="text-[6px] md:text-xs text-slate-500 font-bold uppercase tracking-widest">Inventory</p>
+                    <p className="text-xs md:text-2xl font-black text-cyan-600">156 kg</p>
                   </div>
                 </div>
+              </div>
               </div>
             </div>
           </div>
@@ -731,9 +732,9 @@ const LandingPage = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-2 md:py-16 px-2 md:px-6 relative overflow-hidden z-10">
+      <section className="py-12 md:py-20 px-6 relative overflow-visible z-10">
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid grid-cols-4 gap-1 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {stats.map((stat, i) => (
               <div key={i} className="text-center group cursor-pointer">
                 <div className="bg-white rounded-lg md:rounded-2xl p-1 md:p-6 border border-slate-100 hover:border-emerald-300 shadow-md hover:shadow-2xl hover:shadow-emerald-200/40 transition-all duration-300 transform hover:scale-110 hover:-translate-y-2">
@@ -1235,19 +1236,19 @@ const LandingPage = () => {
               </div>
             </div>
 
-            <div className="col-span-1 md:col-span-1 md:row-span-2 md:col-start-2 md:row-start-1 bg-gradient-to-br from-white to-emerald-50/20 rounded-xl md:rounded-3xl p-2 md:p-6 border border-emerald-100/60 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/50 transition-all duration-300 backdrop-blur-sm flex flex-col justify-center">
-              <h3 className="text-xs md:text-2xl font-bold text-slate-900 mb-2 md:mb-6 text-center md:text-left">{t('send_message', 'Send a Message')}</h3>
-              <form className="space-y-1.5 md:space-y-3">
+            <div className="col-span-1 md:col-span-1 md:row-span-2 md:col-start-2 md:row-start-1 bg-gradient-to-br from-white to-emerald-50/20 rounded-xl md:rounded-3xl p-1.5 md:p-6 border border-emerald-100/60 shadow-lg hover:shadow-2xl hover:shadow-emerald-300/50 transition-all duration-300 backdrop-blur-sm flex flex-col justify-center">
+              <h3 className="text-[10px] md:text-2xl font-bold text-slate-900 mb-1 md:mb-6 text-center md:text-left">{t('send_message', 'Send a Message')}</h3>
+              <form className="space-y-1 md:space-y-3">
                 <input type="text" placeholder={t('your_name', 'Your Name')} className="w-full px-1 py-0.5 md:px-2 md:py-1.5 bg-white/70 border border-emerald-100 rounded-lg md:rounded-xl text-[10px] md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 backdrop-blur-sm" />
                 <input type="email" placeholder={t('your_email', 'Your Email')} className="w-full px-1 py-0.5 md:px-2 md:py-1.5 bg-white/70 border border-emerald-100 rounded-lg md:rounded-xl text-[10px] md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 backdrop-blur-sm" />
-                <textarea placeholder={t('your_message', 'Message')} rows="3" className="w-full px-1 py-0.5 md:px-2 md:py-1.5 bg-white/70 border border-emerald-100 rounded-lg md:rounded-xl text-[10px] md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 resize-none backdrop-blur-sm"></textarea>
-                <button type="submit" className="w-half  px-2 py-1 md:py-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-lg md:rounded-xl font-bold shadow-lg shadow-emerald-400/60 hover:shadow-xl hover:shadow-emerald-500/80 transition-all duration-300 transform hover:scale-105 border border-emerald-400/30 text-[10px] md:text-base">
+                <textarea placeholder={t('your_message', 'Message')} rows="2" className="w-full px-1 py-0.5 md:px-2 md:py-1.5 bg-white/70 border border-emerald-100 rounded-lg md:rounded-xl text-[10px] md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all focus:shadow-lg focus:shadow-emerald-200/30 resize-none backdrop-blur-sm"></textarea>
+                <button type="submit" className="w-full px-2 py-1 md:py-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-lg md:rounded-xl font-bold shadow-lg shadow-emerald-400/60 hover:shadow-xl hover:shadow-emerald-500/80 transition-all duration-300 transform hover:scale-105 border border-emerald-400/30 text-[10px] md:text-base">
                   {t('send_btn', 'Send')}
                 </button>
               </form>
             </div>
 
-            <div className="col-span-1 md:col-span-1 bg-red-50 border-2 border-red-500 rounded-xl p-2 md:p-4 text-center flex flex-col justify-center">
+            <div className="col-span-1 md:col-span-1 bg-red-50 border-2 border-red-500 rounded-xl p-1.5 md:p-4 text-center flex flex-col justify-center">
                 <h3 className="text-red-700 font-black text-[10px] md:text-lg mb-0.5 md:mb-1">🚨 Need help?</h3>
                 <p className="text-red-600 mb-1 md:mb-2 font-medium text-[8px] md:text-xs leading-tight">Use Emergency Access to locate food.</p>
                 <button onClick={() => navigate('/login', { state: { role: 'emergency' } })} className="bg-red-600 text-white px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-500/30 w-full text-[9px] md:text-sm">
