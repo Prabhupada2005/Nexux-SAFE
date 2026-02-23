@@ -38,6 +38,7 @@ class FoodRequest(Base):
     item_name = Column(String)
     quantity = Column(Float)
     status = Column(String, default="pending")
+    rejection_reason = Column(String, nullable=True)
 
 class Message(Base):
     __tablename__ = "messages"
@@ -111,6 +112,9 @@ class SOSAlertCreate(BaseModel):
     reason: str
     sender_name: str
     sender_type: str
+
+class RejectRequest(BaseModel):
+    reason: str
 
 class PasswordReset(BaseModel):
     email: str
@@ -208,6 +212,18 @@ def request_food(req: RequestItem, db: Session = Depends(get_db)):
     db.add(new_req)
     db.commit()
     return new_req
+
+@app.post("/reject-request/{request_id}")
+def reject_request(request_id: int, data: RejectRequest, db: Session = Depends(get_db)):
+    req = db.query(FoodRequest).filter(FoodRequest.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    req.status = "rejected"
+    req.rejection_reason = data.reason
+    db.commit()
+    
+    return {"message": "Request rejected", "reason": data.reason}
 
 # --- THE FIXED FULFILL ENDPOINT ---
 @app.post("/fulfill-request/{request_id}")

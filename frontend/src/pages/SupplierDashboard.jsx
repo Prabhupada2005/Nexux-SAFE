@@ -197,7 +197,6 @@ export default function SupplierDashboard() {
   });
   const [iotData, setIotData] = useState([]);
   const [riskZones, setRiskZones] = useState([]);
-  const [messages, setMessages] = useState([]);
   const [lastSync, setLastSync] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
@@ -217,16 +216,14 @@ export default function SupplierDashboard() {
     category: "Cooked Food",
   });
 
-  // Chat
-  const [chatMode, setChatMode] = useState("consumer"); // consumer | ai
-  const [replyText, setReplyText] = useState("");
+  const [aiInput, setAiInput] = useState("");
   const [aiMessages, setAiMessages] = useState([
     { sender: "AI", content: "Hi Supplier 👋 I'm your Nexus Smart Assistant. Ask me about low stock, incoming orders from the **Consumer Dashboard**, or spoilage risks.", type: "received" },
   ]);
   const [isAiTyping, setIsAiAiTyping] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false);
+
   const [showExport, setShowExport] = useState(false);
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [showSOSModal, setShowSOSModal] = useState(false);
@@ -276,15 +273,7 @@ export default function SupplierDashboard() {
     });
   }, [iotData]);
 
-  // Analytics data
-  const analyticsData = useMemo(() => {
-    const last7Days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const orderTrend = [12, 19, 15, 25, 22, 30, 28];
-    const inventoryTrend = [145, 142, 138, 135, 148, 150, inventory.length || 145];
-    const spoilageRate = [5, 3, 4, 2, 3, 1, spoilageRows.filter(s => s.risk).length];
 
-    return { last7Days, orderTrend, inventoryTrend, spoilageRate };
-  }, [inventory.length, spoilageRows]);
 
   // Export functions
   const exportToCSV = (type) => {
@@ -391,12 +380,11 @@ export default function SupplierDashboard() {
       // Fake loading delay for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const [invRes, reqRes, iotRes, riskRes, msgRes] = await Promise.all([
+      const [invRes, reqRes, iotRes, riskRes] = await Promise.all([
         axios.get(`${API}/inventory`),
         axios.get(`${API}/food-requests`),
         axios.get(`${API}/iot/spoilage`),
         axios.get(`${API}/risk-zones`),
-        axios.get(`${API}/messages`),
       ]);
 
       if (invRes.data) {
@@ -411,7 +399,6 @@ export default function SupplierDashboard() {
 
       setIotData(iotRes.data || []);
       setRiskZones(riskRes.data || []);
-      setMessages(Array.isArray(msgRes.data) ? msgRes.data.slice().reverse() : []);
       setLastSync(new Date());
       setLoading(false);
     } catch (err) {
@@ -433,11 +420,11 @@ export default function SupplierDashboard() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMode, messages.length, aiMessages.length]);
+  }, [aiMessages.length]);
 
-  // Orders with mock status
+  // Orders - filter out rejected requests
   const orders = useMemo(() => {
-    return (requests || []).map((r) => {
+    return (requests || []).filter(r => r.status !== 'rejected').map((r) => {
       const mod = (r.id ?? 0) % 3;
       const status = mod === 0 ? "Status" : mod === 1 ? "Accepted" : "Delivered";
       return { ...r, status };
@@ -533,9 +520,20 @@ export default function SupplierDashboard() {
     }
   };
 
-  const handleReject = (id) => {
-    setRequests(prev => prev.filter(r => r.id !== id));
-    toast("info", "Request Rejected", "Order has been removed.");
+  const handleReject = async (id) => {
+    const reason = prompt("Enter reason for rejection:");
+    if (!reason || !reason.trim()) {
+      toast("error", "Rejection cancelled", "Reason is required");
+      return;
+    }
+
+    try {
+      await axios.post(`${API}/reject-request/${id}`, { reason: reason.trim() });
+      toast("success", "Request Rejected", "Consumer will be notified");
+      fetchData();
+    } catch (err) {
+      toast("error", "Reject failed", err?.response?.data?.detail || "Check backend.");
+    }
   };
 
   // Risk zones
@@ -581,25 +579,13 @@ export default function SupplierDashboard() {
     });
   }, [inventory]);
 
-  // Chat
+  // AI Chat
   const handleSendChat = async (e) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
+    if (!aiInput.trim()) return;
 
-    if (chatMode === "consumer") {
-      try {
-        await axios.post(`${API}/messages`, { sender: "Supplier", content: replyText.trim() });
-        setReplyText("");
-        fetchData();
-        toast("success", "Message sent");
-      } catch {
-        toast("error", "Message failed");
-      }
-      return;
-    }
-
-    const userText = replyText.trim();
-    setReplyText("");
+    const userText = aiInput.trim();
+    setAiInput("");
     setAiMessages((p) => [...p, { sender: "You", content: userText, type: "sent" }]);
     setIsAiAiTyping(true);
 
@@ -716,14 +702,7 @@ export default function SupplierDashboard() {
           <MapIcon size={22} className="group-hover:scale-110 transition-transform" />
           <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-red-400 to-red-600 rounded-r-full group-hover:h-8 transition-all"></div>
         </button>
-        <button
-          onClick={(e) => { e.preventDefault(); setShowAnalytics(true); }}
-          title="Analytics"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-purple-400' : 'text-slate-700 hover:text-purple-600'} hover:bg-purple-500/10 hover:shadow-lg hover:shadow-purple-500/20`}
-        >
-          <BarChart3 size={22} className="group-hover:scale-110 transition-transform" />
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-purple-400 to-purple-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </button>
+
         <button
           onClick={() => setNotificationsOpen(!notificationsOpen)}
           title="Notifications"
@@ -799,24 +778,6 @@ export default function SupplierDashboard() {
                 </div>
               </div>
 
-              {/* Compact Stats */}
-              <div className="hidden md:flex items-center gap-4 text-xs font-bold bg-black/10 rounded-lg px-3 py-1.5 border border-white/10">
-                <div className="flex items-center gap-1.5">
-                  <PackageCheck size={14} className="text-emerald-200" />
-                  <span>{ordersCompleted} Orders</span>
-                </div>
-                <div className="w-px h-3 bg-white/20"></div>
-                <div className="flex items-center gap-1.5">
-                  <Package size={14} className="text-blue-200" />
-                  <span>{totalItems} Items</span>
-                </div>
-                <div className="w-px h-3 bg-white/20"></div>
-                <div className="flex items-center gap-1.5">
-                  <AlertTriangle size={14} className="text-amber-200" />
-                  <span>{formatNumber(spoilageRows.filter(s => s.risk).length, lang)} Alerts</span>
-                </div>
-              </div>
-
               <div className="flex items-center gap-2">
                 {/* LIVE STATUS INDICATOR */}
                 <div className="hidden lg:block text-right mr-3">
@@ -888,7 +849,7 @@ export default function SupplierDashboard() {
             {/* Quick KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <SmallStat label="Total Items" value={totalItems} />
-              <SmallStat label="Pending Requests" value={formatNumber(requests.length, lang)} />
+              <SmallStat label="Pending Requests" value={formatNumber(orders.length, lang)} />
               <SmallStat label="Risk Alerts" value={formatNumber(spoilageRows.filter(s => s.risk).length, lang)} />
             </div>
 
@@ -1015,17 +976,6 @@ export default function SupplierDashboard() {
                       </div>
                     ))}
                   </div>
-
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={() => setShowRiskMap(true)}
-                      className="bg-[#E14B4B] hover:bg-[#d24242] text-white px-5 py-3 rounded-2xl font-semibold shadow-sm inline-flex items-center gap-2"
-                      type="button"
-                    >
-                      <ShieldAlert size={18} />
-                      {t("manage_risk", { defaultValue: "Manage Risk Zones" })}
-                    </button>
-                  </div>
                 </SoftCard>
               </div>
 
@@ -1036,66 +986,40 @@ export default function SupplierDashboard() {
                 <SoftCard
                   id="orders"
                   title={t("supplier_orders", { defaultValue: "📋 Food Requests" })}
-                  right={<div className="text-[11px] font-semibold text-slate-400 uppercase">{t("pending_requests", { defaultValue: "PENDING REQUESTS" })}</div>}
+                  right={<div className="text-[11px] font-semibold text-slate-400 uppercase">{formatNumber(orders.length, lang)} {t("pending_requests", { defaultValue: "REQUESTS" })}</div>}
                 >
-                  <div className="space-y-4">
-                    {(orders.length ? orders : [{ id: 1, consumer_name: "FreshBite Cafe", item_name: "Tomatoes", quantity: 15, status: "Status" }])
-                      .slice(0, 3)
-                      .map((o) => {
+                  {orders.length === 0 ? (
+                    <div className="text-center py-12">
+                      <PackageCheck className="mx-auto text-slate-300 mb-3" size={48} />
+                      <div className="text-sm font-semibold text-slate-600">No pending requests</div>
+                      <div className="text-xs text-slate-400 mt-1">Food requests from consumers will appear here</div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {orders.map((o) => {
                         const variant = o.status === "Status" ? "red" : o.status === "Accepted" ? "green" : "blue";
 
                         return (
                           <div key={o.id} className="rounded-2xl border border-slate-200/70 bg-white dark:bg-slate-700/50 dark:border-slate-600 shadow-sm p-4">
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                {o.id % 2 !== 0 && (
-                                  <div className="mb-1">
-                                    <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200 animate-pulse">
-                                      🔴 HIGH PRIORITY
-                                    </span>
-                                  </div>
-                                )}
-                                <div className="font-semibold text-slate-900 dark:text-slate-200">{o.consumer_name || "Client"}</div>
+                                <div className="font-semibold text-slate-900 dark:text-slate-200">{o.consumer_name || "Consumer"}</div>
                                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                  {(o.status === "Delivered"
-                                    ? t("delivered_order", { defaultValue: "Delivered order" })
-                                    : o.status === "Accepted"
-                                      ? t("accepted_order", { defaultValue: "Accepted order" })
-                                      : t("discovered_order", { defaultValue: "Discovered order" }))}{" "}
-                                  : <span className="font-semibold">{formatNumber(o.quantity, lang)}</span>{" "}
+                                  Requested: <span className="font-semibold">{formatNumber(o.quantity, lang)}</span>{" "}
                                   {t("units", { defaultValue: "units" })} • <span className="text-slate-700 dark:text-slate-300">{o.item_name}</span>
                                 </div>
 
                                 <div className="mt-2 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
                                   <span className="inline-flex items-center gap-1">
-                                    <CheckCircle2 size={14} className="text-emerald-600" />
-                                    {formatNumber(Math.max(10, Number(o.quantity) || 15), lang)} {t("lbs", { defaultValue: "lbs" })}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1">
                                     <Timer size={14} className="text-amber-600" />
-                                    {localizeDigits(t("time_ago", { defaultValue: "1 min • 30 ago" }), lang)}
+                                    {localizeDigits("Just now", lang)}
                                   </span>
-                                </div>
-
-                                {/* INTELLIGENT MATCHING SCORE */}
-                                <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 dark:bg-indigo-900/30 dark:border-indigo-800">
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Match Score</span>
-                                    <span className="text-xs font-black text-indigo-600 dark:text-indigo-200">82%</span>
-                                  </div>
-                                  <div className="w-full bg-indigo-200 dark:bg-indigo-800 h-1.5 rounded-full overflow-hidden mb-2">
-                                    <div className="bg-indigo-500 h-full rounded-full" style={{ width: '82%' }}></div>
-                                  </div>
-                                  <div className="flex items-center gap-3 text-[10px] text-indigo-800 dark:text-indigo-300 font-medium">
-                                    <span className="flex items-center gap-1"><MapIcon size={10} /> 2.1 km</span>
-                                    <span className="flex items-center gap-1"><Timer size={10} /> ETA 18 min</span>
-                                  </div>
                                 </div>
                               </div>
 
                               <Pill variant={variant}>
                                 {o.status === "Delivered" ? <PackageCheck size={14} /> : o.status === "Accepted" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                                {o.status === "Status" ? t("status", { defaultValue: "Status" }) : o.status}
+                                {o.status === "Status" ? t("pending", { defaultValue: "Pending" }) : o.status}
                               </Pill>
                             </div>
 
@@ -1119,15 +1043,16 @@ export default function SupplierDashboard() {
                                   </button>
                                 </div>
                               ) : (
-                                <div className="w-full py-3 text-left px-4 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
-                                  {localizeDigits(t("eta", { defaultValue: "ETA 10 Mins" }), lang)}
+                                <div className="w-full py-3 text-center px-4 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
+                                  ✓ Delivered
                                 </div>
                               )}
                             </div>
                           </div>
                         );
                       })}
-                  </div>
+                    </div>
+                  )}
                 </SoftCard>
 
                 {/* Stock Alerts */}
@@ -1222,15 +1147,6 @@ export default function SupplierDashboard() {
           </div>
         </div>
       </main>
-
-      {/* Floating Add Item Button (Primary Action) */}
-      <button
-        onClick={() => setShowAddModal(true)}
-        className="absolute bottom-20 md:bottom-10 right-6 z-40 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-full shadow-2xl hover:shadow-emerald-500/40 transition-all transform hover:scale-105 flex items-center gap-3 font-bold text-lg"
-      >
-        <Plus size={24} strokeWidth={3} />
-        {t("add_item", { defaultValue: "Add Item" })}
-      </button>
 
       {/* Export Reports Modal */}
       {showExport && (
@@ -1442,151 +1358,7 @@ export default function SupplierDashboard() {
         </div>
       )}
 
-      {/* Analytics Modal */}
-      {showAnalytics && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-6">
-          <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-6 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <BarChart3 size={28} />
-                <div>
-                  <h2 className="text-2xl font-black">Analytics Dashboard</h2>
-                  <p className="text-sm text-purple-100 mt-1">Last 7 days performance metrics</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAnalytics(false)}
-                className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition"
-                type="button"
-              >
-                <X size={20} />
-              </button>
-            </div>
 
-            <div className="p-8 overflow-y-auto max-h-[calc(90vh-100px)] space-y-6">
-              {/* Key Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-5">
-                  <div className="text-xs text-emerald-700 font-semibold uppercase mb-2">Total Orders</div>
-                  <div className="text-3xl font-black text-emerald-900">{formatNumber(orders.length || 28, lang)}</div>
-                  <div className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
-                    <span className="text-emerald-500">↗</span> +12% from last week
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-5">
-                  <div className="text-xs text-blue-700 font-semibold uppercase mb-2">Inventory Items</div>
-                  <div className="text-3xl font-black text-blue-900">{formatNumber(inventory.length || 145, lang)}</div>
-                  <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
-                    <span className="text-blue-500">↗</span> +5 items added
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-5">
-                  <div className="text-xs text-amber-700 font-semibold uppercase mb-2">Spoilage Rate</div>
-                  <div className="text-3xl font-black text-amber-900">2.3%</div>
-                  <div className="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                    <span className="text-emerald-500">↘</span> -1.2% improvement
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-5">
-                  <div className="text-xs text-purple-700 font-semibold uppercase mb-2">Efficiency</div>
-                  <div className="text-3xl font-black text-purple-900">94%</div>
-                  <div className="text-xs text-purple-600 mt-2 flex items-center gap-1">
-                    <span className="text-emerald-500">↗</span> +3% this week
-                  </div>
-                </div>
-              </div>
-
-              {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Order Trend Chart */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Truck size={20} className="text-blue-600" />
-                    Order Fulfillment Trend
-                  </h3>
-                  <div className="h-48 flex items-end justify-between gap-2">
-                    {analyticsData.orderTrend.map((val, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg hover:from-blue-600 hover:to-blue-500 transition-all cursor-pointer relative group" style={{ height: `${(val / 30) * 100}%` }}>
-                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                            {formatNumber(val, lang)} orders
-                          </div>
-                        </div>
-                        <div className="text-xs text-slate-500 font-semibold">{analyticsData.last7Days[idx]}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Inventory Trend Chart */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Package size={20} className="text-emerald-600" />
-                    Inventory Level Trend
-                  </h3>
-                  <div className="h-48 flex items-end justify-between gap-2">
-                    {analyticsData.inventoryTrend.map((val, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-lg hover:from-emerald-600 hover:to-emerald-500 transition-all cursor-pointer relative group" style={{ height: `${(val / 150) * 100}%` }}>
-                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                            {formatNumber(val, lang)} items
-                          </div>
-                        </div>
-                        <div className="text-xs text-slate-500 font-semibold">{analyticsData.last7Days[idx]}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Spoilage Rate Chart */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Thermometer size={20} className="text-rose-600" />
-                    Spoilage Risk Trend
-                  </h3>
-                  <div className="h-48 flex items-end justify-between gap-2">
-                    {analyticsData.spoilageRate.map((val, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full bg-gradient-to-t from-rose-500 to-rose-400 rounded-t-lg hover:from-rose-600 hover:to-rose-500 transition-all cursor-pointer relative group" style={{ height: `${(val / 5) * 100}%` }}>
-                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                            {formatNumber(val, lang)} at risk
-                          </div>
-                        </div>
-                        <div className="text-xs text-slate-500 font-semibold">{analyticsData.last7Days[idx]}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Category Distribution */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <PackageCheck size={20} className="text-purple-600" />
-                    Category Distribution
-                  </h3>
-                  <div className="space-y-3">
-                    {['Cooked Food', 'Vegetables', 'Grains', 'Beverages', 'Oil'].map((cat, idx) => {
-                      const percent = [30, 25, 20, 15, 10][idx];
-                      const colors = ['bg-purple-500', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500', 'bg-slate-500'][idx];
-                      return (
-                        <div key={cat}>
-                          <div className="flex items-center justify-between text-sm mb-1">
-                            <span className="font-semibold text-slate-700">{cat}</span>
-                            <span className="text-slate-500">{percent}%</span>
-                          </div>
-                          <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full ${colors} rounded-full transition-all duration-500`} style={{ width: `${percent}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Notifications Panel */}
       <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-50 flex flex-col ${notificationsOpen ? 'w-full md:w-[350px]' : 'w-0'}`}>
@@ -1666,9 +1438,9 @@ export default function SupplierDashboard() {
                   <MessageSquare size={20} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm tracking-tight">{chatMode === "ai" ? "Assistant" : "Consumer Chat"}</div>
+                  <div className="font-bold text-sm tracking-tight">Nexus Assistant</div>
                   <div className="text-[10px] text-emerald-100 font-medium uppercase tracking-widest opacity-80">
-                    {chatMode === "ai" ? "Nexus Intelligence" : "Live Messages"}
+                    AI Intelligence
                   </div>
                 </div>
               </div>
@@ -1681,85 +1453,40 @@ export default function SupplierDashboard() {
               </button>
             </div>
 
-            {/* Mode Selector */}
-            <div className="p-4 bg-slate-50/50">
-              <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
-                <button
-                  onClick={() => setChatMode("consumer")}
-                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all inline-flex items-center justify-center gap-2 ${chatMode === "consumer" ? "bg-emerald-600 text-white shadow-md font-extrabold" : "text-slate-500 hover:bg-slate-50"}`}
-                  type="button"
-                >
-                  <MessageSquare size={14} /> Consumer
-                </button>
-                <button
-                  onClick={() => setChatMode("ai")}
-                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all inline-flex items-center justify-center gap-2 ${chatMode === "ai" ? "bg-emerald-600 text-white shadow-md font-extrabold" : "text-slate-500 hover:bg-slate-50"}`}
-                  type="button"
-                >
-                  <Bot size={14} /> Nexus AI
-                </button>
-              </div>
-            </div>
-
             {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide bg-slate-50/30">
-              {chatMode === "consumer" ? (
-                <>
-                  {messages.length === 0 && (
-                    <div className="text-center text-sm text-slate-400 italic py-8">
-                      No messages from consumers yet.
+              {aiMessages.map((m, idx) => (
+                <div key={idx} className={`flex flex-col ${m.type === "sent" ? "items-end" : "items-start"}`}>
+                  <div className={`max-w-[85%] p-4 rounded-2xl text-sm shadow-sm ring-1 ring-black/5 ${m.type === "sent"
+                      ? "bg-emerald-600 text-white rounded-tr-none"
+                      : "bg-white text-slate-800 rounded-tl-none border-l-4 border-emerald-500 border border-slate-200"
+                    }`}>
+                    {m.content || (
+                      <div className="flex gap-1 py-1">
+                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"></span>
+                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce delay-75"></span>
+                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce delay-150"></span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-1 text-[10px] font-bold text-slate-400 px-1 uppercase tracking-tighter">
+                    {m.sender} • {m.type === "sent" ? "User" : "Nexus Assistant"}
+                  </div>
+                </div>
+              ))}
+              {isAiTyping && (
+                <div className="flex flex-col items-start translate-y-2 opacity-100 transition-all duration-300">
+                  <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border-l-4 border-emerald-500 border border-slate-200">
+                    <div className="flex gap-1.5 items-center">
+                      <span className="text-emerald-500 italic text-xs font-semibold">Nexus is analyzing system state...</span>
+                      <span className="flex gap-0.5">
+                        <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse"></span>
+                        <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse delay-75"></span>
+                        <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse delay-150"></span>
+                      </span>
                     </div>
-                  )}
-                  {messages.map((m, idx) => (
-                    <div key={idx} className={`flex flex-col ${m.sender === "Supplier" ? "items-end" : "items-start"}`}>
-                      <div className={`max-w-[85%] p-4 rounded-2xl text-sm shadow-sm ring-1 ring-black/5 ${m.sender === "Supplier"
-                          ? "bg-emerald-600 text-white rounded-tr-none"
-                          : "bg-white text-slate-800 rounded-tl-none border border-slate-200"
-                        }`}>
-                        {m.content}
-                      </div>
-                      <div className="mt-1 text-[10px] font-bold text-slate-400 px-1 uppercase tracking-tighter">
-                        {m.sender} • {t("just_now", { defaultValue: "Just now" })}
-                      </div>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <>
-                  {aiMessages.map((m, idx) => (
-                    <div key={idx} className={`flex flex-col ${m.type === "sent" ? "items-end" : "items-start"}`}>
-                      <div className={`max-w-[85%] p-4 rounded-2xl text-sm shadow-sm ring-1 ring-black/5 ${m.type === "sent"
-                          ? "bg-emerald-600 text-white rounded-tr-none"
-                          : "bg-white text-slate-800 rounded-tl-none border-l-4 border-emerald-500 border border-slate-200"
-                        }`}>
-                        {m.content || (
-                          <div className="flex gap-1 py-1">
-                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"></span>
-                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce delay-75"></span>
-                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce delay-150"></span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-1 text-[10px] font-bold text-slate-400 px-1 uppercase tracking-tighter">
-                        {m.sender} • {m.type === "sent" ? "User" : "Nexus Assistant"}
-                      </div>
-                    </div>
-                  ))}
-                  {isAiTyping && (
-                    <div className="flex flex-col items-start translate-y-2 opacity-100 transition-all duration-300">
-                      <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border-l-4 border-emerald-500 border border-slate-200">
-                        <div className="flex gap-1.5 items-center">
-                          <span className="text-emerald-500 italic text-xs font-semibold">Nexus is analyzing system state...</span>
-                          <span className="flex gap-0.5">
-                            <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse"></span>
-                            <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse delay-75"></span>
-                            <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse delay-150"></span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
+                  </div>
+                </div>
               )}
               <div ref={chatEndRef} />
             </div>
@@ -1769,15 +1496,15 @@ export default function SupplierDashboard() {
               <form onSubmit={handleSendChat} className="flex flex-col gap-3">
                 <div className="relative group">
                   <input
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder={chatMode === "ai" ? "Ask Nexus AI about inventory..." : "Type message..."}
+                    value={aiInput}
+                    onChange={(e) => setAiInput(e.target.value)}
+                    placeholder="Ask Nexus AI about inventory..."
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder-slate-400 group-hover:bg-slate-100/50 pr-14"
                   />
                   <button
                     type="submit"
-                    disabled={!replyText.trim() || isAiTyping}
-                    className={`absolute right-2 top-2 p-2.5 rounded-xl transition-all ${replyText.trim() && !isAiTyping
+                    disabled={!aiInput.trim() || isAiTyping}
+                    className={`absolute right-2 top-2 p-2.5 rounded-xl transition-all ${aiInput.trim() && !isAiTyping
                         ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:scale-105 active:scale-95"
                         : "bg-slate-200 text-slate-400 cursor-not-allowed"
                       }`}
@@ -1785,11 +1512,9 @@ export default function SupplierDashboard() {
                     <Send size={18} />
                   </button>
                 </div>
-                {chatMode === "ai" && (
-                  <div className="text-[10px] text-slate-400 text-center font-bold tracking-tight uppercase opacity-70">
-                    AI aggregates data across Nexus Platform
-                  </div>
-                )}
+                <div className="text-[10px] text-slate-400 text-center font-bold tracking-tight uppercase opacity-70">
+                  AI aggregates data across Nexus Platform
+                </div>
               </form>
             </div>
           </>
