@@ -318,7 +318,8 @@ const Login = () => {
   const theme = getThemeConfig();
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center overflow-hidden transition-all duration-700">
+    <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden p-4 md:p-0">
+      <div className="flex-1 flex flex-col relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white w-full h-full border border-slate-200 md:border-none items-center justify-center transition-all duration-700">
       
       {/* Dynamic Animated Background */}
       <AnimatePresence mode='wait'>
@@ -593,6 +594,7 @@ const Login = () => {
             </motion.div>
         </div>
       )}
+      </div>
     </div>
   );
 };

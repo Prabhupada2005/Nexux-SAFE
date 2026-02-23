@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -122,6 +122,7 @@ const LandingPage = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [scrolled, setScrolled] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
+  const scrollContainerRef = useRef(null);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -131,12 +132,21 @@ const LandingPage = () => {
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    
+    const handleScroll = () => {
+        if (scrollContainerRef.current) {
+            setScrolled(scrollContainerRef.current.scrollTop > 50);
+        }
+    };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    window.addEventListener('scroll', handleScroll);
+    
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+        scrollContainer.addEventListener('scroll', handleScroll);
+    }
 
     // Register Service Worker for PWA
     if ('serviceWorker' in navigator) {
@@ -147,7 +157,9 @@ const LandingPage = () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('scroll', handleScroll);
+      if (scrollContainer) {
+          scrollContainer.removeEventListener('scroll', handleScroll);
+      }
     };
   }, []);
 
@@ -383,11 +395,13 @@ const LandingPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-emerald-100 selection:text-emerald-900 overflow-x-hidden relative">
+    <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden p-4 md:p-0">
+      <div ref={scrollContainerRef} className="flex-1 flex flex-col relative overflow-y-auto overflow-x-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white w-full h-full border border-slate-200 md:border-none text-slate-900 font-sans selection:bg-emerald-100 selection:text-emerald-900">
+      
       {/* Premium Gradient Background with Mixed Colors & Grid */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
+      <div className="absolute inset-0 z-0 pointer-events-none h-full w-full">
         {/* Base Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 h-full"></div>
         
         {/* Grid Pattern Overlay - Visible in beginning/hero area */}
         <div className="absolute inset-0 opacity-[0.03]" 
@@ -408,7 +422,7 @@ const LandingPage = () => {
 
       {/* Offline Indicator */}
       {!isOnline && (
-        <div className="fixed top-0 w-full bg-amber-600/80 backdrop-blur-md text-white py-2 px-4 text-center text-sm font-semibold z-50 flex items-center justify-center gap-2 border-b border-amber-500/50">
+        <div className="sticky top-0 w-full bg-amber-600/80 backdrop-blur-md text-white py-2 px-4 text-center text-sm font-semibold z-50 flex items-center justify-center gap-2 border-b border-amber-500/50">
           <WifiOff size={16} />
           {t('offline_msg', "You're offline - Some features may be limited")}
         </div>
@@ -416,7 +430,7 @@ const LandingPage = () => {
 
       {/* PWA Install Banner */}
       {deferredPrompt && (
-        <div className="fixed top-0 w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 px-4 z-50 flex items-center justify-between shadow-2xl shadow-emerald-500/30" style={{top: isOnline ? '0' : '36px'}}>
+        <div className="sticky top-0 w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 px-4 z-50 flex items-center justify-between shadow-2xl shadow-emerald-500/30" style={{top: isOnline ? '0' : '36px'}}>
           <div className="flex items-center gap-3">
             <Download size={20} />
             <span className="text-sm font-semibold">{t('install_msg', 'Install SAFE website for offline access & faster performance')}</span>
@@ -433,7 +447,7 @@ const LandingPage = () => {
       )}
 
       {/* Premium Header */}
-      <header className={`fixed w-full z-40 transition-all duration-500 ${scrolled ? 'bg-white/85 backdrop-blur-2xl border-b border-emerald-100/50 py-3 shadow-2xl shadow-slate-900/5' : 'bg-transparent py-3 md:py-6'}`} style={{top: deferredPrompt ? (isOnline ? '48px' : '84px') : (isOnline ? '0' : '36px')}}>
+      <header className={`sticky w-full z-40 transition-all duration-500 ${scrolled ? 'bg-white/85 backdrop-blur-2xl border-b border-emerald-100/50 py-3 shadow-2xl shadow-slate-900/5' : 'bg-transparent py-3 md:py-6'}`} style={{top: deferredPrompt ? (isOnline ? '48px' : '0px') : (isOnline ? '0' : '0px')}}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 via-teal-400 to-cyan-400 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-400/50 transform hover:scale-110 transition-all duration-300 hover:shadow-emerald-400/70 hover:-translate-y-1">
@@ -492,7 +506,7 @@ const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="pb-6 md:pb-12 px-4 md:px-6 relative overflow-hidden pt-20 md:pt-24 lg:pt-32 z-10 min-h-[60vh] flex items-center" style={{paddingTop: deferredPrompt ? (isOnline ? '120px' : '156px') : (isOnline ? '100px' : '136px')}}>
+      <section className="pb-6 md:pb-12 px-4 md:px-6 relative overflow-hidden pt-10 md:pt-24 lg:pt-32 z-10 min-h-[60vh] flex items-center">
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="animate-fade-in-up relative">
@@ -1330,6 +1344,7 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 };

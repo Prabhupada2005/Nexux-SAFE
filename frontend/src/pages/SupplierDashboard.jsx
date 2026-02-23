@@ -670,11 +670,12 @@ export default function SupplierDashboard() {
   }
 
   return (
-    <div className={`min-h-screen flex ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'}`}>
+    <div className={`h-screen flex flex-col ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'} p-4 md:p-0 overflow-hidden`}>
       <ToastStack toasts={toasts} remove={removeToast} />
 
+      <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white/95 backdrop-blur-xl w-full h-full border border-slate-200 md:border-none">
       {/* Modern Gradient Sidebar - Responsive Bottom/Side Bar */}
-      <aside className={`fixed bottom-0 left-0 w-full h-16 md:static md:h-auto md:w-20 ${darkMode ? 'bg-slate-900/95 backdrop-blur-xl' : 'bg-white/95 backdrop-blur-xl'} border-t md:border-t-0 md:border-r ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex md:flex-col flex-row items-center justify-around md:justify-start py-2 md:py-6 gap-1 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] md:shadow-2xl z-40`}>
+      <aside className={`order-2 md:order-1 w-full h-16 md:h-auto md:w-20 ${darkMode ? 'bg-slate-900/95' : 'bg-white/95'} border-t md:border-t-0 md:border-r ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex md:flex-col flex-row items-center justify-around md:justify-start py-2 md:py-6 gap-1 z-40`}>
         <button
           onClick={() => scrollToSection("inventory")}
           title="Inventory"
@@ -755,7 +756,7 @@ export default function SupplierDashboard() {
       </aside>
 
       {/* Main Content - 65-95% */}
-      <main className={`transition-all duration-300 flex-1 ${chatOpen ? 'mr-0 md:mr-80' : ''} overflow-y-auto mb-16 md:mb-0`}>
+      <main className={`order-1 md:order-2 transition-all duration-300 flex-1 ${chatOpen ? 'mr-0 md:mr-80' : ''} overflow-y-auto`}>
         <div className={`${darkMode ? 'bg-slate-900' : 'bg-white/70 backdrop-blur'} border-r ${darkMode ? 'border-slate-800' : 'border-slate-200'} h-auto min-h-[160px]`}>
 
           {/* FIXED ALERT BAR */}
@@ -1225,7 +1226,7 @@ export default function SupplierDashboard() {
       {/* Floating Add Item Button (Primary Action) */}
       <button
         onClick={() => setShowAddModal(true)}
-        className="fixed bottom-32 right-6 z-40 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-full shadow-2xl hover:shadow-emerald-500/40 transition-all transform hover:scale-105 flex items-center gap-3 font-bold text-lg"
+        className="absolute bottom-20 md:bottom-10 right-6 z-40 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-full shadow-2xl hover:shadow-emerald-500/40 transition-all transform hover:scale-105 flex items-center gap-3 font-bold text-lg"
       >
         <Plus size={24} strokeWidth={3} />
         {t("add_item", { defaultValue: "Add Item" })}
@@ -1796,15 +1797,16 @@ export default function SupplierDashboard() {
       </aside>
 
       {/* Chat Toggle Button */}
-      {!chatOpen && (
+      {!chatOpen && !showAddModal && (
         <button
           onClick={() => setChatOpen(true)}
-          className="fixed right-6 bottom-6 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all z-50 flex items-center gap-2"
+          className="absolute right-6 bottom-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all z-50 flex items-center gap-2"
           type="button"
         >
           <MessageSquare size={24} />
         </button>
       )}
+      </div>
 
       {/* DELETE MODAL */}
       {deleteId && (

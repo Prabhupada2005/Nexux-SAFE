@@ -102,6 +102,19 @@ const ConsumerDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+    // Helper for distance calculation
+    const calculateDistance = (origin, target) => {
+        if (!origin) return "N/A";
+        const R = 6371;
+        const dLat = (target.lat - origin.lat) * Math.PI / 180;
+        const dLng = (target.lng - origin.lng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(origin.lat * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return (R * c).toFixed(1);
+    };
+
     const toggleLanguage = () => {
         const langs = ['en', 'hi', 'mni', 'or'];
         const current = langs.indexOf(i18n.language) > -1 ? langs.indexOf(i18n.language) : 0;
@@ -426,6 +439,56 @@ const ConsumerDashboard = () => {
         }
     }, [reqItem.name]);
 
+    // --- AI CHIP HANDLER ---
+    const handleAIChip = (prompt) => {
+        const userMsg = { sender: 'You', content: prompt, self: true };
+        setAiMessages(prev => [...prev, userMsg]);
+        setIsTyping(true);
+
+        setTimeout(() => {
+            let responseContent = "";
+            let cards = [];
+            const lowerPrompt = prompt.toLowerCase();
+
+            if (lowerPrompt.includes('nearest')) {
+                responseContent = "Here are the nearest open centers:";
+                cards = centers
+                    .filter(c => c.status === 'open')
+                    .map(c => ({ ...c, distance: calculateDistance(userLoc, c) }))
+                    .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
+                    .slice(0, 3);
+            } else if (lowerPrompt.includes('meals')) {
+                responseContent = "These centers have meals available:";
+                cards = centers
+                    .filter(c => c.status === 'open' && c.menu && c.menu.length > 0)
+                    .map(c => ({ ...c, distance: calculateDistance(userLoc, c) }))
+                    .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
+                    .slice(0, 3);
+            } else if (lowerPrompt.includes('low crowd')) {
+                responseContent = "Found these centers with low crowd:";
+                cards = centers
+                    .filter(c => c.status === 'open' && c.crowd === 'Low')
+                    .map(c => ({ ...c, distance: calculateDistance(userLoc, c) }))
+                    .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
+                    .slice(0, 3);
+            } else if (lowerPrompt.includes('delivery')) {
+                responseContent = "To request delivery, select a center on the map and click 'Request Delivery'. Or use the 'Navigate' button on a center card.";
+            } else if (lowerPrompt.includes('emergency')) {
+                responseContent = "For immediate help, please press the red SOS button on the bottom right of your screen.";
+            } else {
+                responseContent = "I can help you find food. Try one of the suggestions above.";
+            }
+
+            setAiMessages(prev => [...prev, {
+                sender: 'SAFE Assistant',
+                content: responseContent,
+                self: false,
+                cards: cards
+            }]);
+            setIsTyping(false);
+        }, 800);
+    };
+
     const sendChatMessage = async (e) => {
         e.preventDefault();
         if (!msgText) return;
@@ -621,7 +684,8 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
     }
 
     return (
-        <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden">
+        <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden p-4 md:p-0">
+            <div className="flex-1 flex flex-col relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white w-full h-full border border-slate-200 md:border-none">
             {/* Offline Indicator */}
             {!isOnline && (
                 <div className="absolute top-0 w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-amber-500/50">
@@ -1087,12 +1151,12 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         ))}
                     </MapContainer>
 
-                    {/* FLOATING AI BUTTON (Above SOS) */}
+                    {/* FLOATING AI BUTTON (Bottom Left) */}
                     <button
                         onClick={() => setActiveChat('ai')}
-                        className="absolute bottom-24 right-4 z-[400] bg-emerald-600 hover:bg-emerald-700 text-white w-12 h-12 rounded-full shadow-lg shadow-emerald-500/40 flex items-center justify-center transition-transform hover:scale-110 active:scale-95 border-2 border-white"
+                        className="absolute bottom-6 left-4 z-[400] bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-lg shadow-emerald-500/40 flex items-center justify-center transition-transform hover:scale-110 active:scale-95 border-2 border-white"
                     >
-                        <Bot size={24} />
+                        <span className="text-2xl">🤖</span>
                     </button>
 
                     {/* FLOATING SOS BUTTON (Bottom Right) */}
@@ -1108,12 +1172,12 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
 
             {/* Chat Widget & Modals (Preserved) */}
             {activeChat && (
-                <div className="fixed bottom-0 left-0 right-0 w-full md:w-96 md:bottom-6 md:right-6 md:left-auto bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[50vh] md:h-auto">
+                <div className={`absolute bottom-0 w-full md:w-96 md:bottom-20 ${activeChat === 'ai' ? 'md:left-4' : 'md:right-6'} bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[60vh] md:h-[500px]`}>
                     <div className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white p-4 flex justify-between items-center`}>
                         <div>
                             <span className="font-black flex gap-2 text-base items-center">
                                 {activeChat === 'ai' ? <Bot size={20} /> : <MessageCircle size={20} />}
-                                {activeChat === 'ai' ? t('ai_assistant', 'AI Assistant') : (activeChatCenter ? t(`center_names.${activeChatCenter.id}`, activeChatCenter.name) : t('supplier_support', 'Supplier Support'))}
+                                {activeChat === 'ai' ? 'SAFE Assistant' : (activeChatCenter ? t(`center_names.${activeChatCenter.id}`, activeChatCenter.name) : t('supplier_support', 'Supplier Support'))}
                             </span>
                             {activeChat === 'supplier' && activeChatCenter && (
                                 <p className="text-xs text-green-100 mt-1">📍 {activeChatCenter.address}</p>
@@ -1121,7 +1185,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         </div>
                         <button onClick={() => { setActiveChat(null); setActiveChatCenter(null); }} className="hover:bg-white/20 rounded-lg p-2 transition-all"><span className="text-xl">×</span></button>
                     </div>
-                    <div className="h-80 p-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white space-y-3">
+                    <div className="flex-1 p-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white space-y-3">
                         {activeChat === 'supplier' ? (
                             activeChatCenter && centerMessages[activeChatCenter.id] ? (
                                 centerMessages[activeChatCenter.id].map((m, i) => (
@@ -1135,7 +1199,45 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                             )
                         ) : (
                             <>
-                                {aiMessages.map((m, i) => <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.self ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>{m.sender === 'You' ? t('you', 'You') : t('ai_assistant', 'AI Bot')}: {m.content}</div>)}
+                                {/* Quick Prompts Chips */}
+                                {aiMessages.length === 1 && (
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        {["Nearest center open now?", "What meals available near me?", "Low crowd centers?", "How to request delivery?", "Emergency help"].map((prompt, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleAIChip(prompt)}
+                                                className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors font-medium"
+                                            >
+                                                {prompt}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {aiMessages.map((m, i) => (
+                                    <div key={i} className={`flex flex-col ${m.self ? 'items-end' : 'items-start'}`}>
+                                        <div className={`p-3 rounded-2xl text-sm max-w-[85%] shadow-sm ${m.self ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white' : 'bg-white border border-slate-200'}`}>
+                                            {m.content}
+                                        </div>
+                                        {/* Render Mini Cards if available */}
+                                        {m.cards && m.cards.length > 0 && (
+                                            <div className="flex gap-2 overflow-x-auto w-full mt-2 pb-2 px-1">
+                                                {m.cards.map(c => (
+                                                    <div key={c.id} className="min-w-[180px] bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
+                                                        <div className="font-bold text-slate-800 text-xs truncate">{c.name}</div>
+                                                        <div className="text-[10px] text-slate-500 mb-2">{c.distance} km • {c.crowd} Crowd</div>
+                                                        <button 
+                                                            onClick={() => { getRoadRoute(userLoc, c, false); setActiveChat(null); }}
+                                                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg text-[10px] font-bold transition-colors"
+                                                        >
+                                                            Navigate
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                                 {isTyping && (
                                     <div className="p-3 rounded-2xl text-sm max-w-[80%] shadow-sm bg-white border border-slate-200 mr-auto w-16">
                                         <div className="flex gap-1 items-center h-full pl-1">
@@ -1165,6 +1267,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     </form>
                 </div>
             )}
+            </div>
 
             {showRequestModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">

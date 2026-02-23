@@ -84,7 +84,8 @@ const EmergencyDashboard = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 font-sans text-gray-100">
+        <div className="h-screen flex flex-col bg-gray-900 font-sans text-gray-100 p-4 md:p-0 overflow-hidden">
+            <div className="flex-1 flex flex-col relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-gray-800 w-full h-full border border-gray-700 md:border-none">
             <nav className="bg-red-900 text-white px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row justify-between items-center shadow-lg border-b border-red-700 gap-3 md:gap-0">
                 <div className="flex items-center gap-4 w-full md:w-auto">
                     <h1 className="text-xl font-bold flex items-center gap-2 tracking-wider"><Siren className="animate-pulse"/> EMERGENCY COMMAND</h1>
@@ -100,7 +101,7 @@ const EmergencyDashboard = () => {
                 </div>
             </nav>
 
-            <div className="flex flex-col md:flex-row h-[calc(100vh-70px)]">
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
                 {/* Sidebar */}
                 <div className="w-full md:w-96 h-[40%] md:h-full bg-gray-800 border-r border-gray-700 p-4 space-y-4 overflow-y-auto order-2 md:order-1">
                     <div className="p-4 bg-red-900/30 border border-red-500/30 rounded-lg">
@@ -182,6 +183,7 @@ const EmergencyDashboard = () => {
                         Live Strategic Map - {riskZones.length} Danger Zones
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );
