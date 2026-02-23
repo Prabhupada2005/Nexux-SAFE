@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { 
   Lock, Mail, ChevronRight, AlertCircle, User, Phone,
-  ShoppingBag, Truck, Siren, Globe, KeyRound, X 
+  ShoppingBag, Truck, Siren, Globe, KeyRound, X, Download 
 } from 'lucide-react';
 
 // --- 1. FULL ANIMATED CONSUMER BACKGROUND (Organic Flow) ---
@@ -148,11 +148,6 @@ const Login = () => {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
-    // Register Service Worker for PWA
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -349,6 +344,17 @@ const Login = () => {
          i18n.language === 'hi' ? 'हिंदी' : 
          i18n.language === 'mni' ? 'ꯃꯤꯇꯩꯂꯣꯟ' : 'ଓଡ଼ିଆ'}
       </button>
+
+      {/* PWA Install Button (Top Left) */}
+      {deferredPrompt && (
+        <button 
+          onClick={handleInstallClick}
+          className="absolute top-6 left-6 z-50 bg-white/20 backdrop-blur-md border border-white/30 text-white px-4 py-2 rounded-full flex items-center gap-2 hover:bg-white/30 transition shadow-lg font-bold"
+        >
+          <Download size={18} />
+          {t('install', { defaultValue: 'Install' })}
+        </button>
+      )}
 
       {/* Main Card */}
       <motion.div 

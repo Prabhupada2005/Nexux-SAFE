@@ -27,6 +27,7 @@ import {
   Radio,
   FileText,
   Printer,
+  WifiOff,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -199,6 +200,7 @@ export default function SupplierDashboard() {
   const [riskZones, setRiskZones] = useState([]);
   const [lastSync, setLastSync] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Center registration
   const [showCenterSetup, setShowCenterSetup] = useState(false);
@@ -418,6 +420,17 @@ export default function SupplierDashboard() {
     i18n.changeLanguage(langs[next]);
     toast("info", "Language changed", `Now using: ${langs[next].toUpperCase()}`);
   };
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -789,6 +802,14 @@ export default function SupplierDashboard() {
   return (
     <div className={`h-screen flex flex-col ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'} p-4 md:p-0 overflow-hidden`}>
       <ToastStack toasts={toasts} remove={removeToast} />
+
+      {/* Offline Indicator */}
+      {!isOnline && (
+        <div className="absolute top-0 left-0 w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[100] flex items-center justify-center gap-2 border-b border-amber-500/50">
+          <WifiOff size={14} />
+          {t('offline_msg', "You're offline - Sync paused")}
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white/95 backdrop-blur-xl w-full h-full border border-slate-200 md:border-none">
       {/* Modern Gradient Sidebar - Responsive Bottom/Side Bar */}
