@@ -7,6 +7,7 @@ import {
   Globe,
   ShieldAlert,
   Map as MapIcon,
+  MapPin,
   Pencil,
   Trash,
   AlertTriangle,
@@ -28,6 +29,19 @@ import {
   FileText,
   Printer,
   WifiOff,
+  Building2,
+  Camera,
+  ChevronDown,
+  Loader2,
+  LayoutDashboard,
+  User,
+  MoreHorizontal,
+  Navigation,
+  Activity,
+  ChevronRight,
+  XCircle,
+  Clock,
+  Phone
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -117,67 +131,38 @@ function MapClickHandler({ onMapClick }) {
   return null;
 }
 
-function SoftCard({ title, right, children, className = "", ...props }) {
+// --- REDESIGN HELPER COMPONENTS ---
+
+function MetricCard({ title, value, icon, color, bgColor }) {
   return (
-    <section
-      {...props}
-      className={[
-        "bg-white rounded-2xl border border-slate-200/70",
-        "shadow-[0_8px_24px_rgba(15,23,42,0.06)]",
-        "dark:bg-slate-800 dark:border-slate-600",
-        "min-h-[260px]",
-        className,
-      ].join(" ")}
-    >
-      <div className="px-6 py-4 border-b border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
-        {right}
+    <div className={`${bgColor} ${color} p-4 rounded-2xl shadow-sm`}>
+      <div className="flex justify-between items-start">
+        <div className="w-8 h-8 rounded-lg bg-white/50 flex items-center justify-center">
+          {icon}
+        </div>
+        <MoreHorizontal size={20} className="opacity-50 cursor-pointer" />
       </div>
-      <div className="p-6 dark:text-slate-300">{children}</div>
-    </section>
-  );
-}
-
-function Pill({ variant = "gray", children }) {
-  const map = {
-    gray: "bg-slate-100 text-slate-700 border-slate-200",
-    red: "bg-rose-50 text-rose-700 border-rose-200",
-    green: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    blue: "bg-sky-50 text-sky-700 border-sky-200",
-    amber: "bg-amber-50 text-amber-800 border-amber-200",
-    purple: "bg-purple-50 text-purple-700 border-purple-200",
-  };
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${map[variant] || map.gray}`}>
-      {children}
-    </span>
-  );
-}
-
-function SmallStat({ label, value }) {
-  return (
-    <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white border border-slate-200 dark:bg-slate-800 dark:border-slate-700 shadow-sm">
-      <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
-      <div className="text-[18px] font-extrabold text-slate-900 dark:text-white leading-none">{value}</div>
+      <div className="mt-4">
+        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-xs font-semibold opacity-80">{title}</p>
+      </div>
     </div>
   );
 }
 
-function IconBtn({ title, onClick, variant = "slate", children }) {
+function Pill({ variant = "gray", children, className = "" }) {
   const map = {
-    slate: "border-slate-200 text-slate-700 hover:bg-slate-50",
-    blue: "border-sky-200 text-sky-700 hover:bg-sky-50",
-    red: "border-rose-200 text-rose-700 hover:bg-rose-50",
+    gray: "bg-slate-100 text-slate-700",
+    red: "bg-red-100 text-red-700",
+    green: "bg-green-100 text-green-700",
+    blue: "bg-blue-100 text-blue-700",
+    amber: "bg-amber-100 text-amber-800",
+    purple: "bg-purple-100 text-purple-700",
   };
   return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      className={`inline-flex items-center justify-center w-9 h-9 rounded-xl border transition ${map[variant] || map.slate}`}
-    >
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${map[variant] || map.gray} ${className}`}>
       {children}
-    </button>
+    </span>
   );
 }
 
@@ -189,12 +174,16 @@ export default function SupplierDashboard() {
 
   // Data
   const [inventory, setInventory] = useState(() => {
-    const saved = localStorage.getItem('supplier_inventory');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('supplier_inventory');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
   });
   const [requests, setRequests] = useState(() => {
-    const saved = localStorage.getItem('supplier_requests');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('supplier_requests');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
   });
   const [iotData, setIotData] = useState([]);
   const [riskZones, setRiskZones] = useState([]);
@@ -209,13 +198,16 @@ export default function SupplierDashboard() {
     address: '',
     lat: 24.8170,
     lng: 93.9368,
-    phone: ''
+    phone: '',
+    type: 'Distribution Center'
   });
   const [mapClickEnabled, setMapClickEnabled] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [centerInfo, setCenterInfo] = useState(null);
   const [supplierEmail, setSupplierEmail] = useState(() => {
-    return localStorage.getItem('supplier_email') || '';
+    try {
+      return localStorage.getItem('supplier_email') || '';
+    } catch (e) { return ''; }
   });
 
   // Modals
@@ -228,14 +220,18 @@ export default function SupplierDashboard() {
 
   // Center status
   const [centerStatus, setCenterStatus] = useState(() => {
-    const saved = localStorage.getItem('center_status');
-    return saved ? JSON.parse(saved) : { isOpen: true, lastUpdated: new Date().toISOString() };
+    try {
+      const saved = localStorage.getItem('center_status');
+      return saved ? JSON.parse(saved) : { isOpen: true, lastUpdated: new Date().toISOString() };
+    } catch (e) { return { isOpen: true, lastUpdated: new Date().toISOString() }; }
   });
 
   // Crowd indicator
   const [crowdLevel, setCrowdLevel] = useState(() => {
-    const saved = localStorage.getItem('crowd_level');
-    return saved || 'Low';
+    try {
+      const saved = localStorage.getItem('crowd_level');
+      return saved || 'Low';
+    } catch (e) { return 'Low'; }
   });
 
   // Add item form
@@ -250,7 +246,7 @@ export default function SupplierDashboard() {
   const [aiMessages, setAiMessages] = useState([
     { sender: "AI", content: "Hi Supplier 👋 I'm your Nexus Smart Assistant. Ask me about low stock, incoming orders from the **Consumer Dashboard**, or spoilage risks.", type: "received" },
   ]);
-  const [isAiTyping, setIsAiAiTyping] = useState(false);
+  const [isAiTyping, setIsAiTyping] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -403,13 +399,13 @@ export default function SupplierDashboard() {
       lastUpdated: new Date().toISOString()
     };
     setCenterStatus(newStatus);
-    localStorage.setItem('center_status', JSON.stringify(newStatus));
+    try { localStorage.setItem('center_status', JSON.stringify(newStatus)); } catch (e) {}
     toast('success', 'Center Status Updated', `Center is now ${newStatus.isOpen ? 'OPEN' : 'CLOSED'}`);
   };
 
   const updateCrowdLevel = (level) => {
     setCrowdLevel(level);
-    localStorage.setItem('crowd_level', level);
+    try { localStorage.setItem('crowd_level', level); } catch (e) {}
     toast('success', 'Crowd Level Updated', `Crowd level set to ${level}`);
   };
 
@@ -435,7 +431,10 @@ export default function SupplierDashboard() {
   const fetchData = async () => {
     try {
       // Check if supplier has registered center
-      const email = localStorage.getItem('supplier_email');
+      let email = '';
+      try {
+        email = localStorage.getItem('supplier_email');
+      } catch (e) {}
       if (email) {
         setSupplierEmail(email);
         try {
@@ -469,12 +468,12 @@ export default function SupplierDashboard() {
 
       if (invRes.data) {
         setInventory(invRes.data);
-        localStorage.setItem('supplier_inventory', JSON.stringify(invRes.data));
+        try { localStorage.setItem('supplier_inventory', JSON.stringify(invRes.data)); } catch (e) {}
       }
 
       if (reqRes.data) {
         setRequests(reqRes.data);
-        localStorage.setItem('supplier_requests', JSON.stringify(reqRes.data));
+        try { localStorage.setItem('supplier_requests', JSON.stringify(reqRes.data)); } catch (e) {}
       }
 
       setIotData(iotRes.data || []);
@@ -494,7 +493,10 @@ export default function SupplierDashboard() {
 
   useEffect(() => {
     // Get supplier email from login
-    const email = localStorage.getItem('supplier_email');
+    let email = '';
+    try {
+      email = localStorage.getItem('supplier_email');
+    } catch (e) {}
     if (!email) {
       // Redirect to login if no email found
       navigate('/login');
@@ -511,7 +513,7 @@ export default function SupplierDashboard() {
 
   // Orders - filter out rejected requests
   const orders = useMemo(() => {
-    return (requests || []).filter(r => r.status !== 'rejected').map((r) => {
+    return (requests || []).filter(r => r && r.status !== 'rejected').map((r) => {
       const mod = (r.id ?? 0) % 3;
       const status = mod === 0 ? "Status" : mod === 1 ? "Accepted" : "Delivered";
       return { ...r, status };
@@ -537,7 +539,7 @@ export default function SupplierDashboard() {
       // Optimistic update for offline feel
       const updated = [...inventory, { ...newItem, id: Date.now(), quantity: parseFloat(newItem.quantity) }];
       setInventory(updated);
-      localStorage.setItem('supplier_inventory', JSON.stringify(updated));
+      try { localStorage.setItem('supplier_inventory', JSON.stringify(updated)); } catch (e) {}
 
       setShowAddModal(false);
       setNewItem({ name: "", quantity: "", unit: "kg", category: "Vegetables" });
@@ -654,6 +656,20 @@ export default function SupplierDashboard() {
     }
   };
 
+  const openCenterSetup = () => {
+    if (centerInfo) {
+      setCenterForm({
+        name: centerInfo.name || '',
+        address: centerInfo.address || '',
+        lat: centerInfo.lat || 24.8170,
+        lng: centerInfo.lng || 93.9368,
+        phone: centerInfo.phone || '',
+        type: centerInfo.type || 'Distribution Center'
+      });
+    }
+    setShowCenterSetup(true);
+  };
+
   const handleCenterSetup = async (e) => {
     e.preventDefault();
     if (!centerForm.name || !centerForm.address || !centerForm.phone) {
@@ -666,7 +682,7 @@ export default function SupplierDashboard() {
         ...centerForm,
         supplier_email: supplierEmail
       });
-      toast('success', 'Center Registered', 'Your distribution center is now live!');
+      toast('success', centerInfo ? 'Center Updated' : 'Center Registered', 'Your distribution center details have been saved.');
       setShowCenterSetup(false);
       fetchData();
     } catch (err) {
@@ -731,7 +747,7 @@ export default function SupplierDashboard() {
     const userText = aiInput.trim();
     setAiInput("");
     setAiMessages((p) => [...p, { sender: "You", content: userText, type: "sent" }]);
-    setIsAiAiTyping(true);
+    setIsAiTyping(true);
 
     // Simulate AI thinking and streaming
     setTimeout(async () => {
@@ -755,7 +771,7 @@ export default function SupplierDashboard() {
 
       // Create empty message to stream into
       setAiMessages((p) => [...p, { sender: "AI", content: "", type: "received" }]);
-      setIsAiAiTyping(false);
+      setIsAiTyping(false);
 
       // Streaming effect
       let currentContent = "";
@@ -781,17 +797,17 @@ export default function SupplierDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/20 via-slate-900 to-slate-900"></div>
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-50 via-white to-white"></div>
         <div className="relative z-10 flex flex-col items-center">
           <div className="w-16 h-16 mb-6 relative">
-            <div className="absolute inset-0 border-4 border-slate-800 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-            <Package className="absolute inset-0 m-auto text-emerald-400" size={24} />
+            <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <Package className="absolute inset-0 m-auto text-blue-600" size={24} />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2 tracking-wide">Loading supplier data...</h2>
-          <div className="flex items-center gap-2 text-emerald-400/60 text-xs font-mono uppercase tracking-widest">
-            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+          <h2 className="text-xl font-bold text-gray-900 mb-2 tracking-wide">Loading supplier data...</h2>
+          <div className="flex items-center gap-2 text-gray-400 text-xs font-mono uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
             Syncing IoT Nodes
           </div>
         </div>
@@ -799,594 +815,453 @@ export default function SupplierDashboard() {
     );
   }
 
+  if (showCenterSetup) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-emerald-700 to-emerald-500 rounded-b-[3rem] shadow-lg z-0" />
+        
+        {/* Floating Orbs for premium feel */}
+        <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-3xl z-0" />
+        <div className="absolute top-20 right-10 w-48 h-48 bg-emerald-300/20 rounded-full blur-3xl z-0" />
+
+        <div className="w-full max-w-lg bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl z-10 overflow-hidden border border-white/50 animate-in fade-in zoom-in duration-500">
+          {/* Header */}
+          <div className="bg-white/50 p-8 pb-6 text-center border-b border-slate-100">
+             <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner border border-emerald-100 group">
+               <Package className="text-emerald-600 w-10 h-10 group-hover:scale-110 transition-transform duration-300" />
+             </div>
+             <h1 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">Set Up Your Center</h1>
+             <p className="text-slate-500 text-sm font-medium leading-relaxed px-4">Enter your distribution center information before accessing the Supplier Dashboard</p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleCenterSetup} className="p-8 space-y-6">
+             {/* Name */}
+             <div className="space-y-2">
+               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1 flex items-center gap-1">
+                 Center Name <span className="text-red-500">*</span>
+               </label>
+               <div className="relative group">
+                 <Building2 className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
+                 <input 
+                   required
+                   value={centerForm.name}
+                   onChange={e => setCenterForm({...centerForm, name: e.target.value})}
+                   className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400"
+                   placeholder="Sendra Food Center"
+                 />
+               </div>
+             </div>
+
+             {/* Location */}
+             <div className="space-y-2">
+               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1 flex items-center gap-1">
+                 Center Location <span className="text-red-500">*</span>
+               </label>
+               <div className="relative group">
+                 <MapPin className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
+                 <input 
+                   required
+                   value={centerForm.address}
+                   onChange={e => setCenterForm({...centerForm, address: e.target.value})}
+                   className="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400"
+                   placeholder="Ukhrul District, Manipur"
+                 />
+                 <button 
+                   type="button" 
+                   onClick={geocodeAddress} 
+                   disabled={geocoding || !centerForm.address}
+                   className="absolute right-2 top-2 p-1.5 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-emerald-600 hover:border-emerald-200 hover:shadow-sm transition-all disabled:opacity-50" 
+                   title="Locate on Map"
+                 >
+                   {geocoding ? <Loader2 size={18} className="animate-spin" /> : <MapIcon size={18} />}
+                 </button>
+               </div>
+             </div>
+
+             {/* Type Dropdown */}
+             <div className="space-y-2">
+               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1">Center Type</label>
+               <div className="relative group">
+                 <div className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors pointer-events-none">
+                   <Package size={20} />
+                 </div>
+                 <select 
+                   className="w-full pl-12 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold text-slate-900 appearance-none cursor-pointer"
+                   value={centerForm.type || 'Distribution Center'}
+                   onChange={e => setCenterForm({...centerForm, type: e.target.value})}
+                 >
+                   <option>Distribution Center</option>
+                   <option>Community Kitchen</option>
+                   <option>NGO Storage</option>
+                   <option>Relief Camp</option>
+                 </select>
+                 <ChevronDown className="absolute right-4 top-4 text-slate-400 pointer-events-none" size={16} />
+               </div>
+             </div>
+
+             {/* Phone */}
+             <div className="space-y-2">
+               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1 flex items-center gap-1">
+                 Contact Phone <span className="text-red-500">*</span>
+               </label>
+               <div className="relative group">
+                 <Phone className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
+                 <input 
+                   required
+                   type="tel"
+                   value={centerForm.phone}
+                   onChange={e => setCenterForm({...centerForm, phone: e.target.value})}
+                   className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400"
+                   placeholder="+91 98765 43210"
+                 />
+               </div>
+             </div>
+
+             {/* Photo Upload */}
+             <div className="pt-2">
+               <button type="button" className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 text-sm font-bold hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/30 transition-all flex items-center justify-center gap-2 group">
+                 <div className="p-2 bg-slate-100 rounded-full group-hover:bg-emerald-100 transition-colors">
+                    <Camera size={18} className="group-hover:scale-110 transition-transform" />
+                 </div>
+                 Upload Center Photo (Optional)
+               </button>
+             </div>
+
+             {/* Submit */}
+             <div className="pt-4 space-y-4">
+               <button 
+                 type="submit" 
+                 disabled={!centerForm.name || !centerForm.address || !centerForm.phone}
+                 className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold text-lg shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
+               >
+                 {loading ? <Loader2 className="animate-spin" /> : 'Register Center'}
+               </button>
+               
+               <button 
+                 type="button"
+                 onClick={() => navigate('/')}
+                 className="w-full text-slate-400 hover:text-slate-600 text-sm font-bold transition-colors flex items-center justify-center gap-1 py-2"
+               >
+                 Cancel and return home
+               </button>
+             </div>
+          </form>
+        </div>
+        
+        {/* Footer */}
+        <div className="mt-8 text-slate-400/80 text-[10px] font-bold uppercase tracking-widest">
+          SAFE Platform • Official Government Portal
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`h-screen flex flex-col ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'} p-4 md:p-0 overflow-hidden`}>
+    <div className="min-h-screen bg-[#f6f7fb] pb-24 md:pb-8 font-sans text-gray-800">
       <ToastStack toasts={toasts} remove={removeToast} />
+
+      {/* 1) TOP HEADER */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-blue-200 shadow-lg">
+              <Package size={24} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 leading-tight">Supplier Dashboard</h1>
+              <p className="text-xs text-gray-500 font-medium tracking-wide">Smart Aid For Food Emergency</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setNotificationsOpen(true)} className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
+              <Bell size={24} />
+              {unreadCount > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
+            </button>
+            <div onClick={() => setShowSettingsModal(true)} className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer flex items-center justify-center text-gray-500">
+              <User size={20} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2) METRIC TILES */}
+      <div id="summary" className="px-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Active Requests */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Activity size={60} className="text-orange-500" />
+            </div>
+            <div className="flex justify-between items-start">
+              <div className="p-2 bg-orange-50 rounded-xl text-orange-600">
+                <Activity size={20} />
+              </div>
+              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold text-gray-900">{formatNumber(16, lang)}</h3>
+              <p className="text-sm text-gray-500 font-medium">Active Requests</p>
+            </div>
+          </div>
+
+          {/* Pending Requests */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Timer size={60} className="text-blue-500" />
+            </div>
+            <div className="flex justify-between items-start">
+              <div className="p-2 bg-blue-50 rounded-xl text-blue-600">
+                <Timer size={20} />
+              </div>
+              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold text-gray-900">{formatNumber(orders.length, lang)}</h3>
+              <p className="text-sm text-gray-500 font-medium">Pending</p>
+            </div>
+          </div>
+
+          {/* Meals Delivered */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <PackageCheck size={60} className="text-green-500" />
+            </div>
+            <div className="flex justify-between items-start">
+              <div className="p-2 bg-green-50 rounded-xl text-green-600">
+                <PackageCheck size={20} />
+              </div>
+              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold text-gray-900">{formatNumber(320, lang)}</h3>
+              <p className="text-sm text-gray-500 font-medium">Delivered</p>
+            </div>
+          </div>
+
+          {/* Total Items */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Package size={60} className="text-purple-500" />
+            </div>
+            <div className="flex justify-between items-start">
+              <div className="p-2 bg-purple-50 rounded-xl text-purple-600">
+                <Package size={20} />
+              </div>
+              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold text-gray-900">{totalItems}</h3>
+              <p className="text-sm text-gray-500 font-medium">Total Items</p>
+            </div>
+          </div>
+
+           {/* Alerts */}
+           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <AlertTriangle size={60} className="text-red-500" />
+            </div>
+            <div className="flex justify-between items-start">
+              <div className="p-2 bg-red-50 rounded-xl text-red-600">
+                <AlertTriangle size={20} />
+              </div>
+              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold text-gray-900">{formatNumber(lowStockItems.length, lang)}</h3>
+              <p className="text-sm text-gray-500 font-medium">Alerts</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3) RECENT REQUESTS */}
+      <div id="orders" className="px-4 mb-6">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-bold text-gray-900">Recent Requests</h2>
+            <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">View All</button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead>
+                <tr className="text-left border-b border-gray-100">
+                  <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Center</th>
+                  <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Request Type</th>
+                  <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">ETA</th>
+                  <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {orders.slice(0, 5).map((req) => (
+                  <tr key={req.id} className="group hover:bg-gray-50 transition-colors">
+                    <td className="py-4">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-800">{req.consumer_name}</span>
+                        <span className="text-xs text-gray-400">ID: #{req.id}</span>
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
+                        <Truck size={12} className="mr-1.5"/>
+                        Delivery
+                      </span>
+                    </td>
+                    <td className="py-4">
+                      <div className="flex items-center text-gray-600 font-medium text-sm">
+                        <Clock size={14} className="mr-2 text-gray-400" />
+                        20 min
+                      </div>
+                    </td>
+                    <td className="py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => handleReject(req.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                        >
+                          <XCircle size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleFulfill(req.id)}
+                          className="px-4 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-full shadow-md hover:bg-gray-800 transition-transform active:scale-95"
+                        >
+                          Process
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* 4) NEAREST FOOD (Inventory) */}
+      <div id="inventory" className="px-4 mb-6">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-600">
+                <Navigation size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Nearest Food</h2>
+                <p className="text-xs text-green-600 font-bold">1.9 km away</p>
+              </div>
+            </div>
+            <button onClick={() => setShowAddModal(true)} className="text-blue-600 text-sm font-bold hover:underline">
+              + Add Item
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {inventory.slice(0, 3).map((item) => (
+              <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-gray-400 shadow-sm border border-gray-100 shrink-0">
+                    <Package size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-gray-900">{item.name}</h3>
+                      <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase tracking-wide rounded-full">
+                        High
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">Delivery Center • {item.quantity} {item.unit}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button 
+                    onClick={() => setDeleteId(item.id)}
+                    className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-100 transition-colors"
+                  >
+                    Remove
+                  </button>
+                  <button 
+                    onClick={() => handleUpdate(item)}
+                    className="flex-1 sm:flex-none py-2 px-6 rounded-xl bg-green-600 text-white text-sm font-bold shadow-lg shadow-green-200 hover:bg-green-700 transition-transform active:scale-95"
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 5) SPOILAGE MONITOR */}
+      <div id="spoilage" className="px-4 mb-6">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 opacity-90">
+           <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-600">
+                <Thermometer size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Spoilage Monitor</h2>
+                <p className="text-xs text-red-600 font-bold">Live IoT Data</p>
+              </div>
+            </div>
+            <button onClick={() => setShowRiskMap(true)} className="text-gray-400 hover:text-gray-600">
+              <MapIcon size={20} />
+            </button>
+          </div>
+          <div className="space-y-3">
+            {spoilageRows.slice(0, 2).map((s) => (
+              <div key={s.id} className="p-4 rounded-2xl bg-red-50/50 border border-red-100 flex items-center justify-between">
+                 <div>
+                    <h3 className="font-bold text-gray-900">{s.location}</h3>
+                    <p className="text-xs text-gray-500">Temp: {s.temp}°C • Hum: {s.humidity}%</p>
+                 </div>
+                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${s.risk ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    {s.risk ? 'Risk' : 'Safe'}
+                 </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Offline Indicator */}
       {!isOnline && (
-        <div className="absolute top-0 left-0 w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[100] flex items-center justify-center gap-2 border-b border-amber-500/50">
-          <WifiOff size={14} />
+        <div className="fixed bottom-24 left-0 right-0 mx-auto w-max bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[100] rounded-full shadow-lg">
+          <WifiOff size={14} className="inline mr-2" />
           {t('offline_msg', "You're offline - Sync paused")}
         </div>
       )}
 
-      <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-white/95 backdrop-blur-xl w-full h-full border border-slate-200 md:border-none">
-      {/* Modern Gradient Sidebar - Responsive Bottom/Side Bar */}
-      <aside className={`order-2 md:order-1 w-full h-16 md:h-auto md:w-20 ${darkMode ? 'bg-slate-900/95' : 'bg-white/95'} border-t md:border-t-0 md:border-r ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex md:flex-col flex-row items-center justify-around md:justify-start py-2 md:py-6 gap-1 z-40`}>
-        <button
-          onClick={() => scrollToSection("inventory")}
-          title="Inventory"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-emerald-400' : 'text-slate-700 hover:text-emerald-600'} hover:bg-emerald-500/10 hover:shadow-lg hover:shadow-emerald-500/20`}
-        >
-          <Package size={22} className="group-hover:scale-110 transition-transform" />
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-r-full group-hover:h-8 transition-all"></div>
+      {/* 6) BOTTOM NAVBAR (Mobile) */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-4 flex justify-between items-center z-50 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-3xl">
+        <button onClick={() => scrollToSection('summary')} className="flex flex-col items-center gap-1 text-blue-600">
+          <LayoutDashboard size={24} strokeWidth={2.5} />
+          <span className="text-[10px] font-bold">Home</span>
         </button>
-        <button
-          onClick={() => scrollToSection("orders")}
-          title="Orders"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-700 hover:text-blue-600'} hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20`}
-        >
-          <Truck size={22} className="group-hover:scale-110 transition-transform" />
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-blue-400 to-blue-600 rounded-r-full group-hover:h-8 transition-all"></div>
+        <button onClick={() => scrollToSection('orders')} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
+          <FileText size={24} />
+          <span className="text-[10px] font-medium">Requests</span>
         </button>
-        <button
-          onClick={() => scrollToSection("alerts")}
-          title="Alerts"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-amber-400' : 'text-slate-700 hover:text-amber-600'} hover:bg-amber-500/10 hover:shadow-lg hover:shadow-amber-500/20`}
-        >
-          <AlertTriangle size={22} className="group-hover:scale-110 transition-transform" />
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-amber-400 to-amber-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </button>
-        <button
-          onClick={() => scrollToSection("spoilage")}
-          title="Spoilage Monitor"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-rose-400' : 'text-slate-700 hover:text-rose-600'} hover:bg-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20`}
-        >
-          <Thermometer size={22} className="group-hover:scale-110 transition-transform" />
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-rose-400 to-rose-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </button>
-        <button
-          onClick={() => setShowRiskMap(true)}
-          title="Risk Zones"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-red-400' : 'text-slate-700 hover:text-red-600'} hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/20`}
-        >
-          <MapIcon size={22} className="group-hover:scale-110 transition-transform" />
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-red-400 to-red-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </button>
-
-        <button
-          onClick={() => setNotificationsOpen(!notificationsOpen)}
-          title="Notifications"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-cyan-400' : 'text-slate-700 hover:text-cyan-600'} hover:bg-cyan-500/10 hover:shadow-lg hover:shadow-cyan-500/20`}
-        >
-          <Bell size={22} className="group-hover:scale-110 transition-transform" />
-          {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-              {unreadCount}
-            </span>
-          )}
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </button>
-        <button
-          onClick={() => setShowTeamModal(true)}
-          title="Team"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-700 hover:text-indigo-600'} hover:bg-indigo-500/10 hover:shadow-lg hover:shadow-indigo-500/20`}
-        >
-          <Users size={22} className="group-hover:scale-110 transition-transform" />
-          <div className="absolute left-0 w-1 h-0 bg-gradient-to-b from-indigo-400 to-indigo-600 rounded-r-full group-hover:h-8 transition-all"></div>
-        </button>
-        <div className="flex-1" />
-        <button
-          onClick={() => setShowSettingsModal(true)}
-          title="Settings"
-          className={`group relative w-12 h-12 flex items-center justify-center rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-slate-300' : 'text-slate-700 hover:text-slate-800'} ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-100'} hover:shadow-lg`}
-        >
-          <Settings size={22} className="group-hover:rotate-90 transition-transform duration-300" />
-        </button>
-      </aside>
-
-      {/* Main Content - 65-95% */}
-      <main className={`order-1 md:order-2 transition-all duration-300 flex-1 ${chatOpen ? 'mr-0 md:mr-80' : ''} overflow-y-auto`}>
-        <div className={`${darkMode ? 'bg-slate-900' : 'bg-white/70 backdrop-blur'} border-r ${darkMode ? 'border-slate-800' : 'border-slate-200'} h-auto min-h-[160px]`}>
-
-          {/* FIXED ALERT BAR */}
-          {crisisAlerts.length > 0 && (
-            <div className="bg-red-600 text-white px-6 py-3 flex items-center justify-between shadow-md sticky top-0 z-30">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-white/20 rounded-full animate-pulse">
-                  <ShieldAlert size={20} className="text-white" />
-                </div>
-                <div>
-                  <div className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
-                    CRISIS ALERT: {crisisAlerts[0].type}
-                    <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">{crisisAlerts[0].severity}</span>
-                  </div>
-                  <div className="text-xs text-red-100 flex items-center gap-3">
-                    <span className="flex items-center gap-1"><MapIcon size={10} /> {crisisAlerts[0].location}</span>
-                    <span>•</span>
-                    <span>{crisisAlerts[0].time}</span>
-                    <span>•</span>
-                    <span>{formatNumber(crisisAlerts[0].affected, lang)} affected</span>
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => setShowRiskMap(true)} className="bg-white text-red-600 px-4 py-1.5 rounded-full text-xs font-bold hover:bg-red-50 transition-colors shadow-sm">
-                View on Map
-              </button>
-            </div>
-          )}
-
-          {/* Premium Header */}
-          <header className="px-4 py-3 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white shadow-md">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-sm">
-                  <Package size={18} />
-                </div>
-                <div>
-                  <div className="text-lg font-black drop-shadow-sm leading-tight">
-                    {centerInfo ? centerInfo.name : 'Supplier Control Panel'}
-                  </div>
-                  <div className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider opacity-90">
-                    {centerInfo ? 'Distribution Center' : 'Live Monitoring System'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* LIVE STATUS INDICATOR */}
-                <div className="hidden lg:block text-right mr-3">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-                    </span>
-                    <span className="text-xs font-bold text-white drop-shadow-sm">System Active</span>
-                  </div>
-                  <div className="text-[10px] text-emerald-100 font-bold opacity-90 mt-0.5">
-                    Last updated 1 min ago
-                  </div>
-                </div>
-
-                <button
-                  onClick={toggleLanguage}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-2 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-all"
-                  type="button"
-                >
-                  <Globe size={14} />
-                  {lang === "en" ? "EN" : lang === "hi" ? "HI" : lang === "mni" ? "MNI" : "OR"}
-                </button>
-
-                <button
-                  onClick={() => setShowSOSModal(true)}
-                  className="bg-red-600 hover:bg-red-700 backdrop-blur-sm border border-red-500 px-2 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-all animate-pulse"
-                  type="button"
-                  title="Emergency SOS"
-                >
-                  <ShieldAlert size={14} /> SOS
-                </button>
-
-                <button
-                  onClick={() => setShowExport(true)}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-lg transition-all"
-                  type="button"
-                  title="Export Reports"
-                >
-                  <Download size={16} />
-                </button>
-
-                <button
-                  onClick={() => setShowBroadcast(true)}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-lg transition-all"
-                  type="button"
-                  title="Emergency Broadcast"
-                >
-                  <Radio size={16} />
-                </button>
-
-                <button
-                  onClick={() => navigate("/login")}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-lg transition-all"
-                  type="button"
-                  title={t("logout", { defaultValue: "Logout" })}
-                >
-                  <LogOut size={16} />
-                </button>
-              </div>
-            </div>
-          </header>
-
-
-
-          {/* Content */}
-          <div className={`p-4 md:p-8 space-y-6 md:space-y-8 ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-b from-blue-50/50 to-indigo-50/50'}`}>
-
-            {/* Quick KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <SmallStat label="Total Items" value={totalItems} />
-              <SmallStat label="Pending Requests" value={formatNumber(orders.length, lang)} />
-              <SmallStat label="Risk Alerts" value={formatNumber(spoilageRows.filter(s => s.risk).length, lang)} />
-            </div>
-
-            {/* Center Status & Crowd Control */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Center Status Toggle */}
-              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_8px_24px_rgba(15,23,42,0.06)] p-6">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${centerStatus.isOpen ? 'bg-emerald-100' : 'bg-rose-100'}`}>
-                      <Package size={24} className={centerStatus.isOpen ? 'text-emerald-600' : 'text-rose-600'} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-bold text-slate-900">{t('center_status', { defaultValue: 'Center Status' })}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {centerStatus.isOpen ? 'Visible to consumers' : 'Hidden from consumers'}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={toggleCenterStatus}
-                    className={`relative inline-flex h-10 w-20 items-center rounded-full transition-colors ${centerStatus.isOpen ? 'bg-emerald-600' : 'bg-slate-300'}`}
-                    type="button"
-                  >
-                    <span className={`inline-block h-8 w-8 transform rounded-full bg-white shadow-lg transition-transform ${centerStatus.isOpen ? 'translate-x-10' : 'translate-x-1'}`} />
-                    <span className={`absolute text-[10px] font-bold ${centerStatus.isOpen ? 'left-1.5 text-white' : 'right-1.5 text-slate-600'}`}>
-                      {centerStatus.isOpen ? 'OPEN' : 'CLOSED'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Crowd Indicator */}
-              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_8px_24px_rgba(15,23,42,0.06)] p-6">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      crowdLevel === 'Low' ? 'bg-green-100' : crowdLevel === 'Medium' ? 'bg-amber-100' : 'bg-red-100'
-                    }`}>
-                      <Users size={24} className={crowdLevel === 'Low' ? 'text-green-600' : crowdLevel === 'Medium' ? 'text-amber-600' : 'text-red-600'} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-bold text-slate-900">{t('crowd_level', { defaultValue: 'Crowd Level' })}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">Shown to consumers on map</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => updateCrowdLevel('Low')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                        crowdLevel === 'Low'
-                          ? 'bg-green-600 text-white shadow-md'
-                          : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                      }`}
-                      type="button"
-                    >
-                      Low
-                    </button>
-                    <button
-                      onClick={() => updateCrowdLevel('Medium')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                        crowdLevel === 'Medium'
-                          ? 'bg-amber-600 text-white shadow-md'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-                      }`}
-                      type="button"
-                    >
-                      Medium
-                    </button>
-                    <button
-                      onClick={() => updateCrowdLevel('High')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                        crowdLevel === 'High'
-                          ? 'bg-red-600 text-white shadow-md'
-                          : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
-                      }`}
-                      type="button"
-                    >
-                      High
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-lg font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></span>
-                {t("quick_actions", { defaultValue: "⚡ Quick Actions" })}
-              </div>
-              <div className="mt-1 text-sm text-slate-500 dark:text-slate-300">{t("quick_desc", { defaultValue: "Monitor inventory, orders, spoilage and chat in real time." })}</div>
-            </div>
-
-            {/* MAIN DASHBOARD GRID */}
-            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 items-start">
-
-              {/* LEFT COLUMN: Inventory + Monitoring */}
-              <div className="space-y-4">
-                {/* Inventory */}
-                <div id="inventory" className="scroll-mt-24">
-                  <SoftCard
-                    title={t("inventory_mgmt", { defaultValue: "📦 Inventory Management" })}
-                    right={
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={addDefaults}
-                          className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
-                          type="button"
-                        >
-                          + {t("add_defaults", { defaultValue: "Add Defaults" })}
-                        </button>
-
-                        <button
-                          onClick={() => setShowAddModal(true)}
-                          className="text-sm font-semibold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2"
-                          type="button"
-                        >
-                          <Plus size={16} />
-                          {t("add_item", { defaultValue: "Add Item" })}
-                        </button>
-                      </div>
-                    }
-                  >
-                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-50 dark:bg-slate-700/50">
-                          <tr className="text-slate-500 dark:text-slate-400">
-                            <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
-                            <th className="text-left px-4 py-3 font-semibold">{t("col_qty", { defaultValue: "Quantity" })}</th>
-                            <th className="text-left px-4 py-3 font-semibold">{t("col_action", { defaultValue: "Action" })}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {loading ? (
-                            <tr>
-                              <td colSpan={3} className="px-4 py-10 text-left text-slate-400">
-                                Loading…
-                              </td>
-                            </tr>
-                          ) : inventory.length ? (
-                            inventory.map((it) => (
-                              <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50/70 dark:border-slate-700 dark:hover:bg-slate-700/50 transition">
-                                <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-200">{it.name}</td>
-                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
-                                  {formatNumber(it.quantity, lang)} {it.unit}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex items-center gap-2">
-                                    <IconBtn title="Edit" onClick={() => handleUpdate(it)} variant="slate">
-                                      <Pencil size={16} />
-                                    </IconBtn>
-
-                                    <button
-                                      onClick={() => setDeleteId(it.id)}
-                                      className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
-                                      type="button"
-                                    >
-                                      <Trash size={14} />
-                                      {t("delete", { defaultValue: "Delete" })}
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={3} className="px-4 py-10 text-left text-slate-400">
-                                {t("inventory_empty", { defaultValue: "Inventory Empty" })}
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </SoftCard>
-                </div>
-
-                {/* Live Spoilage Monitor */}
-                <SoftCard id="spoilage" title={t("live_spoilage", { defaultValue: "🥗 Live Spoilage Monitor" })} right={<Thermometer className="text-indigo-500" />}>
-                  <div className="space-y-4">
-                    {spoilageRows.slice(0, 3).map((s, idx) => (
-                      <div key={s.id ?? idx} className="rounded-2xl border border-slate-200/70 bg-white dark:bg-slate-700/50 dark:border-slate-600 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="font-semibold text-slate-900 dark:text-slate-200">{s.location || "Warehouse"}</div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                              {s.risk
-                                ? localizeDigits(`Spoil in ${s.hours} hours`, lang)
-                                : localizeDigits("Safe for 2 days", lang)}
-                            </div>
-
-                            <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-                              <span className="inline-flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${s.risk ? "bg-rose-500" : "bg-emerald-500"}`} />
-                                Temp: <span className="font-semibold">{localizeDigits(`${s.temp}°C`, lang)}</span> • Hum:{" "}
-                                <span className="font-semibold">{localizeDigits(`${s.humidity}%`, lang)}</span>
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="text-left">
-                            <div className="text-xs text-slate-500 dark:text-slate-400">{localizeDigits(`${s.percent}%`, lang)}</div>
-                            <Pill variant={s.risk ? "red" : "green"}>{s.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}</Pill>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </SoftCard>
-              </div>
-
-              {/* RIGHT COLUMN: Requests + Alerts */}
-              <div className="space-y-4">
-
-                {/* Supplier Orders */}
-                <SoftCard
-                  id="orders"
-                  title={t("supplier_orders", { defaultValue: "📋 Food Requests" })}
-                  right={<div className="text-[11px] font-semibold text-slate-400 uppercase">{formatNumber(orders.length, lang)} {t("pending_requests", { defaultValue: "REQUESTS" })}</div>}
-                >
-                  {orders.length === 0 ? (
-                    <div className="text-center py-12">
-                      <PackageCheck className="mx-auto text-slate-300 mb-3" size={48} />
-                      <div className="text-sm font-semibold text-slate-600">No pending requests</div>
-                      <div className="text-xs text-slate-400 mt-1">Food requests from consumers will appear here</div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {orders.map((o) => {
-                        const variant = o.status === "Status" ? "red" : o.status === "Accepted" ? "green" : "blue";
-
-                        return (
-                          <div key={o.id} className="rounded-2xl border border-slate-200/70 bg-white dark:bg-slate-700/50 dark:border-slate-600 shadow-sm p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="font-semibold text-slate-900 dark:text-slate-200">{o.consumer_name || "Consumer"}</div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                  Requested: <span className="font-semibold">{formatNumber(o.quantity, lang)}</span>{" "}
-                                  {t("units", { defaultValue: "units" })} • <span className="text-slate-700 dark:text-slate-300">{o.item_name}</span>
-                                </div>
-
-                                <div className="mt-2 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
-                                  <span className="inline-flex items-center gap-1">
-                                    <Timer size={14} className="text-amber-600" />
-                                    {localizeDigits("Just now", lang)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <Pill variant={variant}>
-                                {o.status === "Delivered" ? <PackageCheck size={14} /> : o.status === "Accepted" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                                {o.status === "Status" ? t("pending", { defaultValue: "Pending" }) : o.status}
-                              </Pill>
-                            </div>
-
-                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-600">
-                              {o.status !== "Delivered" ? (
-                                <div className="flex gap-3">
-                                  <button
-                                    onClick={() => handleReject(o.id)}
-                                    className="flex-1 h-[42px] px-4 rounded-xl border-2 border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:border-rose-200 transition-all uppercase tracking-wider flex items-center justify-center"
-                                    type="button"
-                                  >
-                                    Reject
-                                  </button>
-                                  <button
-                                    onClick={() => handleFulfill(o.id)}
-                                    className="flex-1 h-[42px] px-4 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
-                                    type="button"
-                                  >
-                                    <CheckCircle2 size={16} />
-                                    Approve
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="w-full py-3 text-center px-4 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
-                                  ✓ Delivered
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </SoftCard>
-
-                {/* Stock Alerts */}
-                <div id="alerts" className="scroll-mt-24">
-                  <SoftCard title={t("stock_alerts", { defaultValue: "⚠ Stock Alerts" })}>
-                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-50 dark:bg-slate-700/50">
-                          <tr className="text-slate-500 dark:text-slate-400">
-                            <th className="text-left px-4 py-3 font-semibold">{t("col_item", { defaultValue: "Item" })}</th>
-                            <th className="text-left px-4 py-3 font-semibold">{t("col_temp", { defaultValue: "Temperature" })}</th>
-                            <th className="text-left px-4 py-3 font-semibold">{t("col_spoil", { defaultValue: "Spoilage" })}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {stockRows.map((row) => (
-                            <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50/70 dark:border-slate-700 dark:hover:bg-slate-700/50 transition">
-                              <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-200">{row.name}</td>
-                              <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{localizeDigits(row.temp, lang)}</td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  <Pill variant={row.risk ? "red" : "green"}>
-                                    {row.risk ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
-                                    {row.risk ? t("risk", { defaultValue: "Risk" }) : t("safe", { defaultValue: "Safe" })}
-                                  </Pill>
-                                  <span className="text-xs text-slate-500">
-                                    {row.risk
-                                      ? localizeDigits(t("spoil_in", { defaultValue: "Spoil in 8 hrs" }), lang)
-                                      : localizeDigits(t("safe_for", { defaultValue: "Safe for 2 days" }), lang)}
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {lowStockItems.length === 0 && (
-                      <div className="mt-4 text-xs text-slate-500 inline-flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-emerald-600" />
-                        {t("stock_healthy", { defaultValue: "Stock levels healthy." })}
-                      </div>
-                    )}
-                  </SoftCard>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Section 3: Quick Stats Summary */}
-            <div id="summary" className="space-y-6 scroll-mt-24">
-              <div className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                {t("quick_summary", { defaultValue: "📊 Quick Summary" })}
-              </div>
-
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
-                <div className="bg-[#dcfce7] border border-[#86efac] rounded-2xl p-5 dark:bg-slate-800 dark:border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-emerald-800 font-bold uppercase dark:text-emerald-200">{t("total_inventory", { defaultValue: "Total Inventory" })}</div>
-                      <div className="text-2xl font-extrabold text-emerald-950 mt-1 dark:text-white">{formatNumber(inventory.length, lang)}</div>
-                      <div className="text-xs text-emerald-700 mt-1 dark:text-emerald-300">{t("items_in_stock", { defaultValue: "items in stock" })}</div>
-                    </div>
-                    <Package className="text-emerald-700 dark:text-emerald-400" size={32} />
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-5 dark:from-slate-800 dark:to-slate-800 dark:border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-amber-700 font-semibold uppercase dark:text-amber-200">{t("low_stock_items", { defaultValue: "Low Stock Items" })}</div>
-                      <div className="text-2xl font-extrabold text-amber-900 mt-1 dark:text-white">{formatNumber(lowStockItems.length, lang)}</div>
-                      <div className="text-xs text-amber-600 mt-1 dark:text-amber-300">{t("need_attention", { defaultValue: "need attention" })}</div>
-                    </div>
-                    <AlertTriangle className="text-amber-600 dark:text-amber-400" size={32} />
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-2xl p-5 dark:from-slate-800 dark:to-slate-800 dark:border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-rose-700 font-semibold uppercase dark:text-rose-200">{t("spoilage_risk", { defaultValue: "Spoilage Risk" })}</div>
-                      <div className="text-2xl font-extrabold text-rose-900 mt-1 dark:text-white">{formatNumber(spoilageRows.filter(s => s.risk).length, lang)}</div>
-                      <div className="text-xs text-rose-600 mt-1 dark:text-rose-300">{t("items_at_risk", { defaultValue: "items at risk" })}</div>
-                    </div>
-                    <Thermometer className="text-rose-600 dark:text-rose-400" size={32} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="relative -top-8">
+           <button onClick={() => setShowAddModal(true)} className="w-14 h-14 bg-gray-900 rounded-full flex items-center justify-center text-white shadow-xl shadow-gray-300 border-4 border-[#f6f7fb]">
+             <Plus size={24} />
+           </button>
         </div>
-      </main>
+        <button onClick={() => setChatOpen(true)} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
+          <MessageSquare size={24} />
+          <span className="text-[10px] font-bold">Chat</span>
+        </button>
+        <button onClick={() => setShowSettingsModal(true)} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
+          <User size={24} />
+          <span className="text-[10px] font-bold">Profile</span>
+        </button>
+      </div>
 
-      {/* Export Reports Modal */}
+      {/* Modals & Sidebars */}
       {showExport && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden">
@@ -1469,7 +1344,7 @@ export default function SupplierDashboard() {
         </div>
       )}
 
-      {/* Emergency Broadcast Modal */}
+      {/* Re-implementing other modals briefly to ensure they exist */}
       {showBroadcast && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden">
@@ -1535,7 +1410,6 @@ export default function SupplierDashboard() {
         </div>
       )}
 
-      {/* SOS Alert Modal */}
       {showSOSModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60]">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-red-500">
@@ -1595,8 +1469,6 @@ export default function SupplierDashboard() {
           </div>
         </div>
       )}
-
-
 
       {/* Notifications Panel */}
       <aside className={`fixed right-0 top-0 h-screen bg-white border-l border-slate-200 shadow-2xl transition-all duration-300 z-50 flex flex-col ${notificationsOpen ? 'w-full md:w-[350px]' : 'w-0'}`}>
@@ -1759,19 +1631,7 @@ export default function SupplierDashboard() {
         )}
       </aside>
 
-      {/* Chat Toggle Button */}
-      {!chatOpen && !showAddModal && (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="absolute right-6 bottom-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all z-50 flex items-center gap-2"
-          type="button"
-        >
-          <MessageSquare size={24} />
-        </button>
-      )}
-      </div>
-
-      {/* DELETE MODAL */}
+      {/* Other Modals */}
       {deleteId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-[92%] max-w-md shadow-2xl border border-slate-200">
@@ -1789,7 +1649,6 @@ export default function SupplierDashboard() {
         </div>
       )}
 
-      {/* ADD ITEM MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
@@ -1837,7 +1696,6 @@ export default function SupplierDashboard() {
         </div>
       )}
 
-      {/* RISK MAP MODAL */}
       {showRiskMap && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl w-[92%] h-[92%] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
@@ -1891,7 +1749,6 @@ export default function SupplierDashboard() {
         </div>
       )}
 
-      {/* TEAM MODAL */}
       {showTeamModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
@@ -1922,7 +1779,6 @@ export default function SupplierDashboard() {
         </div>
       )}
 
-      {/* SETTINGS MODAL */}
       {showSettingsModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white p-6 rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
@@ -1961,128 +1817,17 @@ export default function SupplierDashboard() {
                   <option value="or">Odia</option>
                 </select>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* CENTER SETUP MODAL */}
-      {showCenterSetup && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[70]">
-          <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-6">
-              <div className="flex items-center gap-4">
-                <Package size={32} />
-                <div>
-                  <h2 className="text-2xl font-black">Register Your Distribution Center</h2>
-                  <p className="text-sm text-emerald-100 mt-1">Complete your profile to start serving consumers</p>
+              <div className="p-3 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Building2 size={18} /></div>
+                  <span className="font-medium text-slate-700">Center Info</span>
                 </div>
-              </div>
-            </div>
-
-            <form onSubmit={handleCenterSetup} className="flex-1 overflow-y-auto">
-              <div className="p-8 space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Center Name *</label>
-                  <input
-                    type="text"
-                    value={centerForm.name}
-                    onChange={(e) => setCenterForm({...centerForm, name: e.target.value})}
-                    placeholder="e.g., Imphal Community Kitchen"
-                    className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Full Address *</label>
-                  <div className="flex gap-2">
-                    <textarea
-                      value={centerForm.address}
-                      onChange={(e) => setCenterForm({...centerForm, address: e.target.value})}
-                      placeholder="e.g., Thangal Bazar, Imphal West, Manipur"
-                      className="flex-1 border-2 border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 resize-none"
-                      rows={2}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={geocodeAddress}
-                      disabled={geocoding || !centerForm.address.trim()}
-                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all flex items-center gap-2 whitespace-nowrap"
-                    >
-                      <MapIcon size={16} />
-                      {geocoding ? 'Finding...' : 'Find on Map'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">Enter your address and click "Find on Map" to auto-locate</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Contact Phone *</label>
-                  <input
-                    type="tel"
-                    value={centerForm.phone}
-                    onChange={(e) => setCenterForm({...centerForm, phone: e.target.value})}
-                    placeholder="e.g., +91 9876543210"
-                    className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Center Location *</label>
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3">
-                    <div className="flex items-start gap-2 text-xs text-blue-800">
-                      <MapIcon size={16} className="mt-0.5 flex-shrink-0" />
-                      <div>
-                        <span className="font-bold">Two ways to set location:</span> 1) Click "Find on Map" button above to auto-locate from address, or 2) Enable map click and click directly on the map.
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setMapClickEnabled(!mapClickEnabled)}
-                    className={`w-full mb-3 py-2 px-4 rounded-xl font-semibold text-sm transition-all ${
-                      mapClickEnabled
-                        ? 'bg-emerald-600 text-white shadow-md'
-                        : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
-                    }`}
-                  >
-                    {mapClickEnabled ? '✓ Map Click Enabled - Click on map to set location' : 'Enable Map Click to Set Location'}
-                  </button>
-
-                  <div className="h-64 rounded-xl overflow-hidden border-2 border-slate-200">
-                    <MapContainer center={[centerForm.lat, centerForm.lng]} zoom={12} style={{ height: "100%", width: "100%" }}>
-                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      <MapClickHandler onMapClick={handleSetupMapClick} />
-                      <Marker position={[centerForm.lat, centerForm.lng]}>
-                        <Popup>
-                          <div className="text-center">
-                            <b className="text-emerald-600">Your Center Location</b><br/>
-                            <span className="text-xs text-slate-600">{centerForm.lat.toFixed(4)}, {centerForm.lng.toFixed(4)}</span>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    </MapContainer>
-                  </div>
-                  <div className="text-xs text-slate-500 mt-2 text-center">
-                    Current: {centerForm.lat.toFixed(4)}, {centerForm.lng.toFixed(4)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                <button
-                  type="submit"
-                  className="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Package size={18} />
-                  Register Center
+                <button onClick={() => { setShowSettingsModal(false); openCenterSetup(); }} className="w-full py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold hover:bg-slate-50 text-slate-700">
+                  Edit Center Details
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

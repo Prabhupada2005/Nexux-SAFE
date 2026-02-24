@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { 
   Lock, Mail, ChevronRight, AlertCircle, User, Phone,
-  ShoppingBag, Truck, Siren, Globe, KeyRound, X, Download 
+  ShoppingBag, Truck, Siren, Globe, KeyRound, X, Download, WifiOff 
 } from 'lucide-react';
 
 // --- 1. FULL ANIMATED CONSUMER BACKGROUND (Organic Flow) ---
@@ -130,12 +130,26 @@ const EmergencyBackground = () => (
 const Login = () => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isRegistering, setIsRegistering] = useState(false);
   const [activeTab, setActiveTab] = useState(location.state?.role || 'consumer'); 
   
   // PWA & Online State
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Auto-redirect if already logged in (Allows offline access)
+  useEffect(() => {
+    const storedUser = localStorage.getItem('foodtech_user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.role === 'consumer') navigate('/consumer');
+        else if (user.role === 'supplier') navigate('/supplier');
+        else if (user.role === 'emergency') navigate('/emergency');
+      } catch (e) { localStorage.removeItem('foodtech_user'); }
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -181,7 +195,6 @@ const Login = () => {
 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -527,10 +540,17 @@ const Login = () => {
                   </div>
               )}
 
+              {!isOnline && (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg flex items-center gap-2 text-xs font-bold">
+                  <WifiOff size={14} />
+                  {t('offline_login_msg', 'Internet connection required to log in.')}
+                </div>
+              )}
+
               <button 
-                disabled={isLoading}
+                disabled={isLoading || !isOnline}
                 className={`w-full text-white py-3.5 rounded-xl font-bold text-sm uppercase tracking-wide shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 mt-6
-                  ${theme.btn} ${theme.shadow}`}
+                  ${theme.btn} ${theme.shadow} ${(!isOnline || isLoading) ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
                 {isLoading ? t('processing') : (isRegistering ? t('create_account') : t('signin'))}
                 {!isLoading && <ChevronRight size={18} />}

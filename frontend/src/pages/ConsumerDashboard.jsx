@@ -1,23 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import {
-<<<<<<< HEAD
-    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search, WifiOff, Shield, Crosshair, LogOut, SlidersHorizontal, List, Package
-=======
-    MapPin, MessageCircle, Send, Bot, Utensils, ThumbsUp, Globe, Mic, MicOff, AlertTriangle, Navigation, Truck, Search, WifiOff, Shield, Crosshair, LogOut, SlidersHorizontal, List, Download
->>>>>>> 8ff7144 (Update frontend)
+import { 
+    MapPin, Search, SlidersHorizontal, List, Shield, Crosshair, Download, LogOut, AlertTriangle, Bot, Package, Navigation, MessageCircle, Send, Utensils, Mic, MicOff, ThumbsUp, WifiOff 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import L from 'leaflet';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import { useTranslation } from 'react-i18next';
-
-// --- Icon Config ---
-let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
-L.Marker.prototype.options.icon = DefaultIcon;
 
 const FOOD_CENTERS = [
     { id: 1, name: "Moirang Bazar Food Center", address: "Moirang Bazar, Bishnupur", lat: 24.5167, lng: 93.7667, status: "open", crowd: "High", items: 45, cookedFood: true, menu: ["Rice Meals", "Dal Chawal", "Khichdi", "Vegetable Curry", "Chapati Pack"] },
@@ -820,14 +810,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
 
     // --- 1️⃣ HEADER BAR (FIXED TOP) ---
     const renderHeader = () => (
-        <header className="absolute top-0 left-0 right-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center h-16 border-b border-slate-100 z-[100]">
-            {/* Offline Indicator (Overlay) */}
-            {!isOnline && (
-                <div className="absolute top-16 left-0 w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-amber-500/50">
-                    <WifiOff size={14} />
-                    {t('offline_msg', "You're offline - Some features may be limited")}
-                </div>
-            )}
+        <header className="relative shrink-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center h-16 border-b border-slate-100">
             <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center shadow-sm">
                     <Shield size={18} className="text-white" />
@@ -875,7 +858,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
 
     // --- 2️⃣ SEARCH BAR SECTION ---
     const renderSearchBar = () => (
-        <div className="px-4 py-3 bg-white z-40 mt-16">
+        <div className="px-4 py-3 bg-white z-40">
             <div className="flex gap-2">
                 <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
@@ -955,6 +938,13 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
     return (
         <div className="h-screen flex flex-col bg-slate-50 font-sans relative overflow-hidden p-0 md:p-0">
             <div className="flex-1 flex flex-col relative overflow-hidden rounded-none md:rounded-none shadow-none md:shadow-none bg-white w-full h-full border-none md:border-none">
+                {/* Offline Indicator */}
+                {!isOnline && (
+                    <div className="w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-amber-500/50 shrink-0">
+                        <WifiOff size={14} />
+                        {t('offline_msg', "You're offline - Some features may be limited")}
+                    </div>
+                )}
                 {renderHeader()}
                 
                 <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
@@ -976,7 +966,6 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         </div>
                         
                         {/* List */}
-<<<<<<< HEAD
                         <div id="centers-list-container" className="flex-1 overflow-y-auto p-4 pb-32 md:pb-4 bg-slate-50">
                             
                             {/* My Requests Section */}
@@ -1018,9 +1007,6 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                                 </div>
                             )}
 
-=======
-                        <div id="centers-list-container" className="flex-1 overflow-y-auto p-4 pb-24 md:pb-4 bg-slate-50">
->>>>>>> 8ff7144 (Update frontend)
                             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2 sticky top-0 bg-slate-50 py-2 z-10">
                                 <Navigation size={12} /> {filteredCenters.length} Centers Found
                             </h3>
