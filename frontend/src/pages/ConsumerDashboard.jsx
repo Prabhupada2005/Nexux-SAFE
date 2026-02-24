@@ -206,6 +206,13 @@ const ConsumerDashboard = () => {
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+    const handleLogout = () => {
+        if (window.confirm("Are you sure you want to logout?")) {
+            localStorage.removeItem('foodtech_user');
+            navigate('/login');
+        }
+    };
+
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener('resize', handleResize);
@@ -810,13 +817,13 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
 
     // --- 1️⃣ HEADER BAR (FIXED TOP) ---
     const renderHeader = () => (
-        <header className="relative shrink-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center h-16 border-b border-slate-100">
+        <header className="relative shrink-0 z-50 bg-white/90 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center h-16 border-b border-slate-100">
             <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
                     <Shield size={18} className="text-white" />
                 </div>
                 <div>
-                    <h1 className="text-sm font-bold text-slate-900 leading-none">Consumer App</h1>
+                    <h1 className="text-base font-black text-slate-900 leading-none tracking-tight">Consumer App</h1>
                     <p className="text-[10px] text-slate-500 font-medium">Emergency Response · SAFE</p>
                 </div>
             </div>
@@ -849,7 +856,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         <Download size={20} />
                     </button>
                 )}
-                <button onClick={() => { localStorage.removeItem('foodtech_user'); navigate('/login'); }} className="p-2 rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100">
+                <button onClick={handleLogout} className="p-2 rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100">
                     <LogOut size={20} />
                 </button>
             </div>
@@ -858,27 +865,27 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
 
     // --- 2️⃣ SEARCH BAR SECTION ---
     const renderSearchBar = () => (
-        <div className="px-4 py-3 bg-white z-40">
+        <div className="px-4 py-3 z-40">
             <div className="flex gap-2">
-                <div className="flex-1 relative">
+                <div className="flex-1 relative shadow-sm">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
                     <input
                         type="text"
                         placeholder="Search centers, area, food..."
-                        className="w-full bg-slate-100 border-none rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-700 placeholder-slate-400"
+                        className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-700 placeholder-slate-400 shadow-sm"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${showFilters ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-colors shadow-sm border border-slate-200 ${showFilters ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                 >
                     <SlidersHorizontal size={20} />
                 </button>
                 <button
                     onClick={() => setIsListExpanded(!isListExpanded)}
-                    className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${isListExpanded ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-colors shadow-sm border border-slate-200 ${isListExpanded ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                 >
                     {isListExpanded ? <MapPin size={20} /> : <List size={20} />}
                 </button>
@@ -890,7 +897,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
     const renderFilterChips = () => {
         if (!showFilters) return null;
         return (
-        <div className="bg-white pb-3 px-4 z-40 overflow-x-auto scrollbar-hide border-b border-slate-100">
+        <div className="pb-2 px-4 z-40 overflow-x-auto scrollbar-hide">
             <div className="flex gap-2 min-w-max">
                 {[
                     { label: 'All', value: null },
@@ -904,7 +911,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         <button
                             key={chip.label}
                             onClick={() => setActiveChip(isActive ? null : chip.value)}
-                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors border ${isActive ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                            className={`px-4 py-2 rounded-full text-xs font-bold transition-colors border shadow-sm ${isActive ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                         >
                             {chip.label}
                         </button>
@@ -919,7 +926,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
     const renderSOSButton = () => (
         <button
             onClick={handleSOS}
-            className="absolute bottom-6 md:bottom-24 right-4 z-[500] bg-red-600 hover:bg-red-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(220,38,38,0.4)] flex items-center justify-center animate-pulse border-2 border-white transition-transform hover:scale-110 active:scale-95"
+            className="absolute bottom-28 right-4 z-[50] bg-red-600 hover:bg-red-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(220,38,38,0.4)] flex items-center justify-center animate-pulse border-4 border-white transition-transform hover:scale-110 active:scale-95"
         >
             <AlertTriangle size={24} fill="currentColor" />
         </button>
@@ -929,11 +936,86 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
     const renderAIButton = () => (
         <button
             onClick={() => setActiveChat('ai')}
-            className="absolute bottom-6 md:bottom-24 left-4 z-[500] bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(16,185,129,0.4)] flex items-center justify-center border-2 border-white transition-transform hover:scale-110 active:scale-95"
+            className="absolute bottom-28 left-4 z-[50] bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(16,185,129,0.4)] flex items-center justify-center border-4 border-white transition-transform hover:scale-110 active:scale-95"
         >
             <Bot size={24} />
         </button>
     );
+
+    // --- 5️⃣ FLOATING BOTTOM INFO CARD ---
+    const renderBottomCard = () => {
+        const center = selectedCenter || nearestCenter;
+        if (!center) return null;
+
+        return (
+            <div className="absolute bottom-6 left-4 right-4 z-40 bg-white rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.12)] p-5 border border-slate-100 animate-in slide-in-from-bottom-10 duration-500">
+                {/* Top Row */}
+                <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                        <Navigation size={14} fill="currentColor" />
+                        <span className="text-xs font-bold">
+                            Nearest Food: {center.distance ? `${center.distance} km` : 'Nearby'}
+                        </span>
+                    </div>
+                    <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
+                        center.crowd === 'High' ? 'bg-red-50 text-red-700 border-red-100' : 
+                        center.crowd === 'Medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' : 
+                        'bg-green-50 text-green-700 border-green-100'
+                    }`}>
+                        {center.crowd} Crowd
+                    </span>
+                </div>
+
+                {/* Center Info */}
+                <div className="mb-4">
+                    <h3 className="text-xl font-black text-slate-900 leading-tight mb-1">
+                        {t(`center_names.${center.id}`, center.name)}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1">
+                        <MapPin size={12} /> {center.address}
+                    </p>
+                </div>
+
+                {/* Badges & Tags */}
+                <div className="flex flex-wrap gap-2 mb-5">
+                    {center.cookedFood && (
+                        <span className="px-2.5 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg border border-red-100 flex items-center gap-1">
+                            <Utensils size={10} /> Hot Meals
+                        </span>
+                    )}
+                    {(center.menu || ['Rice', 'Water', 'Dal', 'Khichdi']).slice(0, 4).map((item, i) => (
+                        <span key={i} className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200">
+                            {item}
+                        </span>
+                    ))}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => {
+                            setSelectedCenter(center);
+                            setReqItem(prev => ({ ...prev, deliveryType: 'delivery' }));
+                            setShowRequestModal(true);
+                        }}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-xl text-sm font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95"
+                    >
+                        Request Delivery
+                    </button>
+                    <button 
+                        onClick={() => {
+                            setSelectedCenter(center);
+                            setReqItem(prev => ({ ...prev, deliveryType: 'pickup' }));
+                            setShowRequestModal(true);
+                        }}
+                        className="flex-1 border-2 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 text-slate-600 py-3.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+                    >
+                        Request Pickup
+                    </button>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="h-screen flex flex-col bg-slate-50 font-sans relative overflow-hidden p-0 md:p-0">
@@ -945,139 +1027,60 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         {t('offline_msg', "You're offline - Some features may be limited")}
                     </div>
                 )}
+                
+                {/* 1️⃣ HEADER */}
                 {renderHeader()}
                 
-                <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+                <div className="flex-1 relative w-full h-full overflow-hidden">
                     
-                    {/* Sidebar (Desktop) / Main Content (Mobile) */}
-                    <div className="w-full md:w-[420px] flex flex-col h-full bg-white md:border-r border-slate-200 z-20 order-2 md:order-1 shadow-xl md:shadow-none">
-                        
-                        {/* Search & Filters */}
-                        <div className="shrink-0 bg-white z-30">
-                            {renderSearchBar()}
-                            {renderFilterChips()}
-                        </div>
+                    {/* 2️⃣ & 3️⃣ SEARCH & FILTERS (OVERLAY) */}
+                    <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-white/95 via-white/80 to-transparent pb-6 pt-2">
+                        {renderSearchBar()}
+                        {renderFilterChips()}
+                    </div>
 
-                        {/* Mobile Map (Visible only on mobile) */}
-                        <div className={`md:hidden w-full shrink-0 relative z-10 bg-slate-100 border-b border-slate-200 overflow-hidden transition-all duration-300 ${isListExpanded ? 'h-0' : 'h-[40vh]'}`}>
-                            {isMobile && (
-                                <MapComponent userLoc={userLoc} centers={filteredCenters} routePath={routePath} truckPosition={truckPosition} truckProgress={truckProgress} riskZones={riskZones} t={t} recenterTrigger={recenterTrigger} />
-                            )}
-                        </div>
-                        
-                        {/* List */}
-                        <div id="centers-list-container" className="flex-1 overflow-y-auto p-4 pb-32 md:pb-4 bg-slate-50">
-                            
-                            {/* My Requests Section */}
-                            {myRequests.length > 0 && (
-                                <div className="mb-6">
-                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                        <Package size={12} /> My Requests ({myRequests.length})
-                                    </h3>
-                                    <div className="space-y-2">
-                                        {myRequests.map(req => (
-                                            <div key={req.id} className={`bg-white p-3 rounded-xl border shadow-sm ${
-                                                req.status === 'rejected' ? 'border-red-200 bg-red-50' : 
-                                                req.status === 'pending' ? 'border-amber-200 bg-amber-50' : 
-                                                'border-green-200 bg-green-50'
-                                            }`}>
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <div className="font-semibold text-sm text-slate-900">{req.item_name}</div>
-                                                        <div className="text-xs text-slate-600">Qty: {req.quantity}</div>
-                                                    </div>
-                                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                                                        req.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                        req.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                                                        'bg-green-100 text-green-700'
-                                                    }`}>
-                                                        {req.status === 'rejected' ? '❌ Rejected' : 
-                                                         req.status === 'pending' ? '⏳ Pending' : '✓ Approved'}
-                                                    </span>
-                                                </div>
-                                                {req.status === 'rejected' && req.rejection_reason && (
-                                                    <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded-lg">
-                                                        <div className="text-[10px] font-bold text-red-700 uppercase mb-1">Rejection Reason:</div>
-                                                        <div className="text-xs text-red-800">{req.rejection_reason}</div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                    {/* 4️⃣ MAIN MAP (BACKGROUND) */}
+                    <div className="absolute inset-0 z-0">
+                        <MapComponent userLoc={userLoc} centers={filteredCenters} routePath={routePath} truckPosition={truckPosition} truckProgress={truckProgress} riskZones={riskZones} t={t} recenterTrigger={recenterTrigger} />
+                    </div>
 
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2 sticky top-0 bg-slate-50 py-2 z-10">
-                                <Navigation size={12} /> {filteredCenters.length} Centers Found
+                    {/* 5️⃣ FLOATING BOTTOM INFO CARD */}
+                    {renderBottomCard()}
+
+                    {/* 6️⃣ FLOATING SOS & AI BUTTONS */}
+                    {renderSOSButton()}
+                    {renderAIButton()}
+
+                    {/* LIST VIEW OVERLAY (If toggled) */}
+                    {isListExpanded && (
+                        <div className="absolute inset-0 z-30 bg-white/95 backdrop-blur-sm overflow-y-auto pt-32 pb-32 px-4 animate-in fade-in duration-200">
+                            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                <List size={20} /> All Centers ({filteredCenters.length})
                             </h3>
                             <div className="space-y-3">
                                 {filteredCenters.map(center => (
                                     <div 
                                         key={center.id}
-                                        onClick={() => setSelectedCenter(center)}
-                                        className={`bg-white p-4 rounded-xl border transition-all shadow-sm hover:shadow-md cursor-pointer ${selectedCenter?.id === center.id ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-100'}`}
+                                        onClick={() => { setSelectedCenter(center); setIsListExpanded(false); }}
+                                        className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center hover:border-emerald-500 transition-all cursor-pointer"
                                     >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div>
-                                                <h4 className="font-bold text-slate-900">{t(`center_names.${center.id}`, center.name)}</h4>
-                                                <p className="text-xs text-slate-500">{center.address}</p>
-                                            </div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-900">{center.name}</h4>
+                                            <p className="text-xs text-slate-500">{center.address}</p>
+                                        </div>
+                                        <div className="text-right">
                                             <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${center.crowd === 'High' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                                                 {center.crowd}
                                             </span>
+                                            <p className="text-xs font-bold text-emerald-600 mt-1">{center.distance || calculateDistance(userLoc, center)} km</p>
                                         </div>
-                                        <div className="flex items-center gap-4 text-xs text-slate-600 mb-3">
-                                            <span className="flex items-center gap-1"><Navigation size={12}/> {center.distance || calculateDistance(userLoc, center)} km</span>
-                                            {center.cookedFood && <span className="text-orange-600 font-bold">🍛 Hot Meals</span>}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                setSelectedCenter(center);
-                                                setReqItem({ ...reqItem, deliveryType: 'delivery' });
-                                                setShowRequestModal(true);
-                                            }}
-                                            className="flex-1 bg-emerald-50 text-emerald-700 py-2 rounded-lg text-xs font-bold hover:bg-emerald-100"
-                                        >
-                                            Delivery
-                                        </button>
-                                        <button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedCenter(center);
-                                                setReqItem({ ...reqItem, deliveryType: 'pickup' });
-                                                setShowRequestModal(true);
-                                            }}
-                                            className="flex-1 border border-slate-200 text-slate-600 py-2 rounded-lg text-xs font-bold hover:bg-slate-50"
-                                        >
-                                            Pickup
-                                        </button>
                                     </div>
-                                </div>
                                 ))}
-                                {filteredCenters.length === 0 && (
-                                    <div className="text-center py-10 text-slate-400 text-sm">
-                                        No centers found matching your criteria.
-                                    </div>
-                                )}
                             </div>
                         </div>
-                    </div>
-
-                    {/* Desktop Map (Visible only on desktop) */}
-                    <div className="hidden md:block flex-1 h-full relative z-0 order-1 md:order-2">
-                        {!isMobile && (
-                            <MapComponent userLoc={userLoc} centers={filteredCenters} routePath={routePath} truckPosition={truckPosition} truckProgress={truckProgress} riskZones={riskZones} t={t} recenterTrigger={recenterTrigger} />
-                        )}
-                    </div>
-
+                    )}
                 </div>
                 
-                {/* Fixed Buttons */}
-                {renderSOSButton()}
-                {renderAIButton()}
-
             {/* Chat Widget & Modals (Preserved) */}
             {activeChat && (
                 <div className={`absolute bottom-0 w-full md:w-96 md:bottom-20 ${activeChat === 'ai' ? 'md:left-4' : 'md:right-6'} bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[60vh] md:h-[500px]`}>

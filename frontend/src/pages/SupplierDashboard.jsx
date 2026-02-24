@@ -2,14 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import {
   Package,
-  LogOut,
   Plus,
   Globe,
   ShieldAlert,
   Map as MapIcon,
   MapPin,
-  Pencil,
-  Trash,
   AlertTriangle,
   CheckCircle2,
   Thermometer,
@@ -17,17 +14,13 @@ import {
   PackageCheck,
   Truck,
   MessageSquare,
-  Bot,
   Send,
   X,
-  BarChart3,
-  Settings,
   Bell,
   Users,
   Download,
   Radio,
   FileText,
-  Printer,
   WifiOff,
   Building2,
   Camera,
@@ -41,12 +34,18 @@ import {
   ChevronRight,
   XCircle,
   Clock,
-  Phone
+  Phone,
+  LogOut,
+  TrendingUp,
+  Droplets,
+  Wind,
+  Flame
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { MapContainer, TileLayer, Circle, Popup, useMapEvents, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import RiskMap from "./RiskMap";
 
 const API = "http://localhost:8000";
 
@@ -152,17 +151,105 @@ function MetricCard({ title, value, icon, color, bgColor }) {
 
 function Pill({ variant = "gray", children, className = "" }) {
   const map = {
-    gray: "bg-slate-100 text-slate-700",
-    red: "bg-red-100 text-red-700",
-    green: "bg-green-100 text-green-700",
-    blue: "bg-blue-100 text-blue-700",
-    amber: "bg-amber-100 text-amber-800",
-    purple: "bg-purple-100 text-purple-700",
+    gray: "bg-slate-100 text-slate-700 border-slate-200",
+    red: "bg-rose-50 text-rose-700 border-rose-200",
+    green: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    blue: "bg-sky-50 text-sky-700 border-sky-200",
+    amber: "bg-amber-50 text-amber-800 border-amber-200",
+    purple: "bg-purple-50 text-purple-700 border-purple-200",
   };
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${map[variant] || map.gray} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${map[variant] || map.gray} ${className}`}>
       {children}
     </span>
+  );
+}
+
+export function LiveStorageMonitoring() {
+  // Mock data as requested
+  const [sensorData, setSensorData] = useState({ 
+    temp: 29, 
+    humidity: 65, 
+    gas: "Medium", 
+    smoke: "Normal" 
+  });
+
+  const riskLevel = useMemo(() => {
+    const { temp, humidity, gas, smoke } = sensorData;
+    if (temp > 30 || humidity > 70 || gas === "High" || smoke === "High") return "CRITICAL";
+    if (temp > 27 || humidity > 60 || gas === "Medium") return "WARNING";
+    return "SAFE";
+  }, [sensorData]);
+
+  return (
+    <div className="px-4 mb-6 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-bold text-slate-900">Live Storage Monitoring</h3>
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Live</span>
+        </div>
+        <button className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
+          View Sensor History
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+        {/* Summary Banner */}
+        <div className={`mb-6 p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+          riskLevel === 'CRITICAL' ? 'bg-red-50 border-red-100 text-red-800' :
+          riskLevel === 'WARNING' ? 'bg-amber-50 border-amber-100 text-amber-800' :
+          'bg-emerald-50 border-emerald-100 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-xl ${
+               riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-600' :
+               riskLevel === 'WARNING' ? 'bg-amber-100 text-amber-600' :
+               'bg-emerald-100 text-emerald-600'
+            }`}>
+              <Activity size={28} />
+            </div>
+            <div>
+              <h4 className="font-black text-xl tracking-tight">Spoilage Risk: {riskLevel}</h4>
+              <p className="text-sm opacity-80 font-medium">Based on real-time sensor analysis</p>
+            </div>
+          </div>
+          <div className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider border ${
+             riskLevel === 'CRITICAL' ? 'bg-red-100 border-red-200 text-red-700' :
+             riskLevel === 'WARNING' ? 'bg-amber-100 border-amber-200 text-amber-700' :
+             'bg-emerald-100 border-emerald-200 text-emerald-700'
+          }`}>
+            Status: {riskLevel}
+          </div>
+        </div>
+
+        {/* Sensor Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SensorCard icon={<Thermometer size={20} />} label="Temperature" value={`${sensorData.temp}°C`} status="Elevated" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-orange-100 text-orange-600" />
+          <SensorCard icon={<Droplets size={20} />} label="Humidity" value={`${sensorData.humidity}%`} status="Elevated" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-blue-100 text-blue-600" />
+          <SensorCard icon={<Wind size={20} />} label="Gas Level" value={sensorData.gas} status="Air quality risk" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-slate-100 text-slate-600" />
+          <SensorCard icon={<Flame size={20} />} label="Smoke Level" value={sensorData.smoke} status="No smoke detected" statusColor="text-emerald-700 bg-emerald-50 border-emerald-200" iconBg="bg-red-100 text-red-600" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SensorCard({ icon, label, value, status, statusColor, iconBg }) {
+  return (
+    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between h-full">
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`p-2 rounded-lg ${iconBg}`}>{icon}</div>
+        <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">{label}</span>
+      </div>
+      <div>
+        <div className="text-2xl font-black text-slate-900">{value}</div>
+        <div className={`inline-block mt-2 px-2 py-1 rounded-lg text-[10px] font-bold border ${statusColor}`}>{status}</div>
+      </div>
+    </div>
   );
 }
 
@@ -213,6 +300,7 @@ export default function SupplierDashboard() {
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRiskMap, setShowRiskMap] = useState(false);
+  const [showCrisisMap, setShowCrisisMap] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -260,13 +348,36 @@ export default function SupplierDashboard() {
     { id: 2, type: 'success', title: 'Order Fulfilled', message: 'Order #123 delivered successfully', time: '5 min ago', read: false },
     { id: 3, type: 'error', title: 'Spoilage Risk', message: 'Milk temperature rising', time: '10 min ago', read: true },
   ]);
-  const darkMode = false;
   const chatEndRef = useRef(null);
 
   // Crisis Alerts State - Show only recent/active alerts
-  const [crisisAlerts] = useState([
-    { id: 1, source: 'News API', location: 'Ukhrul', type: 'Communal Crisis', severity: 'critical', time: '18 min ago', affected: 3200 },
+  const [crisisAlerts, setCrisisAlerts] = useState([
+    { id: 1, source: 'News API', location: 'Ukhrul', type: 'Communal Crisis', severity: 'critical', time: '18 min ago', affected: 3200, confidence: 'High' },
   ]);
+
+  // Orders - filter out rejected requests
+  const orders = useMemo(() => {
+    return (requests || []).filter(r => r && r.status !== 'rejected').map((r) => {
+      const mod = (r.id ?? 0) % 3;
+      const status = mod === 0 ? "Status" : mod === 1 ? "Accepted" : "Delivered";
+      return { ...r, status };
+    });
+  }, [requests]);
+
+  const lowStockItems = useMemo(() => (inventory || []).filter((i) => Number(i.quantity) < 30), [inventory]);
+
+  // Sync local status/crowd with fetched centerInfo
+  useEffect(() => {
+    if (centerInfo) {
+      setCenterStatus(prev => ({
+        ...prev,
+        isOpen: centerInfo.status === 'open'
+      }));
+      if (centerInfo.crowd) {
+        setCrowdLevel(centerInfo.crowd);
+      }
+    }
+  }, [centerInfo]);
 
   const markAsRead = (id) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -276,6 +387,26 @@ export default function SupplierDashboard() {
     setNotifications([]);
     toast('success', 'Notifications Cleared', 'All notifications removed');
   };
+
+  // Generate notifications from low stock
+  useEffect(() => {
+    if (lowStockItems.length > 0) {
+      const newNotifs = lowStockItems.map(item => ({
+        id: `low-${item.id}`,
+        type: 'warning',
+        title: 'Low Stock Alert',
+        message: `${item.name} is running low (${item.quantity} ${item.unit})`,
+        time: 'Just now',
+        read: false
+      }));
+      
+      setNotifications(prev => {
+        const existingIds = new Set(prev.map(n => n.id));
+        const uniqueNew = newNotifs.filter(n => !existingIds.has(n.id));
+        return [...uniqueNew, ...prev];
+      });
+    }
+  }, [lowStockItems]);
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
@@ -335,27 +466,30 @@ export default function SupplierDashboard() {
     toast('success', 'Report Exported', `${filename} downloaded successfully`);
   };
 
-  const sendBroadcast = () => {
+  const sendBroadcast = async () => {
     if (!broadcastMessage.trim()) {
       toast('error', 'Empty Message', 'Please enter a broadcast message');
       return;
     }
 
-    // Simulate broadcast
-    toast('success', 'Broadcast Sent', `Message sent to all ${formatNumber(1247, lang)} consumers`);
-    setBroadcastMessage('');
-    setShowBroadcast(false);
+    if (!centerInfo?.id) {
+      toast('error', 'No Center', 'Register center to send broadcasts');
+      return;
+    }
 
-    // Add to notifications
-    const newNotif = {
-      id: Date.now(),
-      type: 'success',
-      title: 'Broadcast Sent',
-      message: broadcastMessage.substring(0, 50) + '...',
-      time: 'Just now',
-      read: false
-    };
-    setNotifications(prev => [newNotif, ...prev]);
+    try {
+      await axios.post(`${API}/messages/${centerInfo.id}`, {
+        sender: centerInfo.name || 'Supplier',
+        content: `📢 BROADCAST: ${broadcastMessage}`,
+        sender_type: 'supplier'
+      });
+      
+      toast('success', 'Broadcast Sent', `Message sent to consumers`);
+      setBroadcastMessage('');
+      setShowBroadcast(false);
+    } catch (err) {
+      toast('error', 'Broadcast Failed', 'Check connection');
+    }
   };
 
   const sendSOSAlert = async () => {
@@ -393,20 +527,42 @@ export default function SupplierDashboard() {
   };
   const removeToast = (id) => setToasts((p) => p.filter((x) => x.id !== id));
 
-  const toggleCenterStatus = () => {
+  const toggleCenterStatus = async () => {
+    if (!centerInfo?.id) return toast("error", "No Center", "Please register your center first.");
+
+    const newIsOpen = !centerStatus.isOpen;
     const newStatus = {
-      isOpen: !centerStatus.isOpen,
+      isOpen: newIsOpen,
       lastUpdated: new Date().toISOString()
     };
+    
+    // Optimistic update
     setCenterStatus(newStatus);
-    try { localStorage.setItem('center_status', JSON.stringify(newStatus)); } catch (e) {}
-    toast('success', 'Center Status Updated', `Center is now ${newStatus.isOpen ? 'OPEN' : 'CLOSED'}`);
+
+    try {
+      const statusStr = newIsOpen ? 'open' : 'closed';
+      // Use POST /centers to update (upsert behavior)
+      await axios.post(`${API}/centers`, { ...centerInfo, status: statusStr, supplier_email: supplierEmail });
+      setCenterInfo(prev => ({ ...prev, status: statusStr }));
+      toast('success', 'Center Status Updated', `Center is now ${newIsOpen ? 'OPEN' : 'CLOSED'}`);
+    } catch (err) {
+      console.warn("Backend update failed", err);
+      // Keep local state but warn
+      toast('warning', 'Status Updated Locally', 'Could not sync with server');
+    }
   };
 
-  const updateCrowdLevel = (level) => {
+  const updateCrowdLevel = async (level) => {
+    if (!centerInfo?.id) return toast("error", "No Center", "Please register your center first.");
+    
     setCrowdLevel(level);
-    try { localStorage.setItem('crowd_level', level); } catch (e) {}
-    toast('success', 'Crowd Level Updated', `Crowd level set to ${level}`);
+    try {
+      await axios.post(`${API}/centers`, { ...centerInfo, crowd: level, supplier_email: supplierEmail });
+      setCenterInfo(prev => ({ ...prev, crowd: level }));
+      toast('success', 'Crowd Level Updated', `Crowd level set to ${level}`);
+    } catch (err) {
+      toast('warning', 'Crowd Updated Locally', 'Could not sync with server');
+    }
   };
 
   const toggleLanguage = () => {
@@ -415,6 +571,16 @@ export default function SupplierDashboard() {
     const next = (current + 1) % langs.length;
     i18n.changeLanguage(langs[next]);
     toast("info", "Language changed", `Now using: ${langs[next].toUpperCase()}`);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      localStorage.removeItem("foodtech_user");
+      localStorage.removeItem("supplier_email");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/login");
+    }
   };
 
   useEffect(() => {
@@ -459,11 +625,12 @@ export default function SupplierDashboard() {
       // Fake loading delay for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const [invRes, reqRes, iotRes, riskRes] = await Promise.all([
+      const [invRes, reqRes, iotRes, riskRes, alertsRes] = await Promise.all([
         axios.get(`${API}/inventory`),
         axios.get(`${API}/food-requests`),
         axios.get(`${API}/iot/spoilage`),
         axios.get(`${API}/risk-zones`),
+        axios.get(`${API}/alerts`),
       ]);
 
       if (invRes.data) {
@@ -474,6 +641,10 @@ export default function SupplierDashboard() {
       if (reqRes.data) {
         setRequests(reqRes.data);
         try { localStorage.setItem('supplier_requests', JSON.stringify(reqRes.data)); } catch (e) {}
+      }
+
+      if (alertsRes.data && Array.isArray(alertsRes.data) && alertsRes.data.length > 0) {
+        setCrisisAlerts(alertsRes.data);
       }
 
       setIotData(iotRes.data || []);
@@ -497,6 +668,18 @@ export default function SupplierDashboard() {
     try {
       email = localStorage.getItem('supplier_email');
     } catch (e) {}
+
+    // Fallback: Try to recover email from foodtech_user if missing
+    if (!email) {
+      try {
+        const user = JSON.parse(localStorage.getItem('foodtech_user'));
+        if (user && user.role === 'supplier' && user.email) {
+          email = user.email;
+          localStorage.setItem('supplier_email', email);
+        }
+      } catch (e) {}
+    }
+
     if (!email) {
       // Redirect to login if no email found
       navigate('/login');
@@ -511,18 +694,6 @@ export default function SupplierDashboard() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [aiMessages.length]);
 
-  // Orders - filter out rejected requests
-  const orders = useMemo(() => {
-    return (requests || []).filter(r => r && r.status !== 'rejected').map((r) => {
-      const mod = (r.id ?? 0) % 3;
-      const status = mod === 0 ? "Status" : mod === 1 ? "Accepted" : "Delivered";
-      return { ...r, status };
-    });
-  }, [requests]);
-
-  const lowStockItems = useMemo(() => (inventory || []).filter((i) => Number(i.quantity) < 30), [inventory]);
-
-  // Stats (localized digits)
   const todaysSalesAmount = 5400;
   const todaysSales = formatCurrencyINR(todaysSalesAmount, lang);
   const ordersCompleted = formatNumber(orders.filter((o) => o.status === "Delivered").length || 12, lang);
@@ -749,6 +920,23 @@ export default function SupplierDashboard() {
     setAiMessages((p) => [...p, { sender: "You", content: userText, type: "sent" }]);
     setIsAiTyping(true);
 
+    try {
+      // Attempt real AI chat
+      const res = await axios.post(`${API}/ai-chat`, {
+        query: userText,
+        context: {
+          inventory: inventory,
+          orders: orders,
+          center: centerInfo
+        }
+      });
+      setAiMessages((p) => [...p, { sender: "AI", content: res.data.response, type: "received" }]);
+      setIsAiTyping(false);
+      return;
+    } catch (err) {
+      console.log("AI Backend unavailable, using simulation");
+    }
+
     // Simulate AI thinking and streaming
     setTimeout(async () => {
       const q = userText.toLowerCase();
@@ -795,19 +983,21 @@ export default function SupplierDashboard() {
     }
   };
 
+  const currentCrisis = crisisAlerts[0];
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-50 via-white to-white"></div>
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/20 via-slate-900 to-slate-900"></div>
         <div className="relative z-10 flex flex-col items-center">
           <div className="w-16 h-16 mb-6 relative">
-            <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <Package className="absolute inset-0 m-auto text-blue-600" size={24} />
+            <div className="absolute inset-0 border-4 border-slate-800 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <Package className="absolute inset-0 m-auto text-emerald-400" size={24} />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2 tracking-wide">Loading supplier data...</h2>
-          <div className="flex items-center gap-2 text-gray-400 text-xs font-mono uppercase tracking-widest">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
+          <h2 className="text-xl font-bold text-white mb-2 tracking-wide">Loading supplier data...</h2>
+          <div className="flex items-center gap-2 text-emerald-400/60 text-xs font-mono uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
             Syncing IoT Nodes
           </div>
         </div>
@@ -959,173 +1149,324 @@ export default function SupplierDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f7fb] pb-24 md:pb-8 font-sans text-gray-800">
+    <div className="min-h-screen bg-slate-50 pb-24 md:pb-8 font-sans text-slate-800">
       <ToastStack toasts={toasts} remove={removeToast} />
+      
+      <div className="max-w-md mx-auto md:max-w-full">
 
       {/* 1) TOP HEADER */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 flex justify-between items-center">
+      <header className="px-4 py-2 md:pt-4 md:pb-2 sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm md:static md:bg-transparent">
+        <div className="bg-white rounded-xl md:rounded-3xl shadow-sm border border-slate-100 p-3 md:p-5 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-blue-200 shadow-lg">
-              <Package size={24} strokeWidth={2.5} />
+            <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-600 rounded-lg md:rounded-2xl flex items-center justify-center text-white shadow-blue-200 shadow-lg">
+              <Package className="w-5 h-5 md:w-6 md:h-6" strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 leading-tight">Supplier Dashboard</h1>
-              <p className="text-xs text-gray-500 font-medium tracking-wide">Smart Aid For Food Emergency</p>
+              <h1 className="text-lg md:text-xl font-bold text-slate-900 leading-tight">Supplier Dashboard</h1>
+              <p className="text-xs text-slate-500 font-medium tracking-wide">Smart Aid For Food Emergency</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setNotificationsOpen(true)} className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <Bell size={24} />
+            <button onClick={() => setNotificationsOpen(true)} className="relative p-1.5 md:p-2 text-slate-400 hover:text-slate-600 transition-colors">
+              <Bell className="w-5 h-5 md:w-6 md:h-6" />
               {unreadCount > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
             </button>
-            <div onClick={() => setShowSettingsModal(true)} className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer flex items-center justify-center text-gray-500">
-              <User size={20} />
+            <div onClick={() => setShowSettingsModal(true)} className="w-8 h-8 md:w-10 md:h-10 bg-slate-200 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer flex items-center justify-center text-slate-500">
+              <User className="w-4 h-4 md:w-5 md:h-5" />
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="p-1.5 md:p-2 text-slate-400 hover:text-red-600 transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5 md:w-6 md:h-6" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* 2) CRISIS ALERT CARD */}
+      {currentCrisis && (
+        <div className="px-4 mb-6 max-w-6xl mx-auto">
+          <div className="bg-white rounded-xl border border-red-100 shadow-sm overflow-hidden flex flex-col md:flex-row items-center md:max-h-[110px]">
+            <div className="bg-red-50 px-5 py-3 md:w-64 border-r border-red-100 flex flex-col justify-center h-full">
+              <div className="flex items-center gap-2 text-red-600">
+                <ShieldAlert size={18} className="animate-pulse" />
+                <span className="font-bold text-sm uppercase tracking-wider">Crisis Alert</span>
+              </div>
+              <div className="font-black text-slate-900 text-lg leading-none mt-1 truncate">{currentCrisis.type}</div>
+            </div>
+            <div className="flex-1 px-5 py-3 flex flex-col md:flex-row items-center justify-between gap-4 w-full">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm w-full">
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Location</div>
+                  <div className="font-semibold text-slate-700 truncate">{currentCrisis.location}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Severity</div>
+                  <div className="font-bold text-red-600">{currentCrisis.severity.toUpperCase()}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Affected</div>
+                  <div className="font-semibold text-slate-700">{currentCrisis.affected}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Time</div>
+                  <div className="font-semibold text-slate-700">{currentCrisis.time}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Source</div>
+                  <div className="font-semibold text-slate-700 truncate">{currentCrisis.source}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Confidence</div>
+                  <div className={`font-bold ${currentCrisis.confidence === 'High' ? 'text-emerald-600' : 'text-amber-600'}`}>{currentCrisis.confidence}</div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowCrisisMap(true)} 
+                className="w-full md:w-auto px-4 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors whitespace-nowrap"
+              >
+                View Map
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 2) METRIC TILES */}
-      <div id="summary" className="px-4 mb-6">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div id="summary" className="px-4 mb-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
           {/* Active Requests */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
-            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Activity size={60} className="text-orange-500" />
+          <div className="bg-orange-50 rounded-xl p-3 shadow-sm border border-orange-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+            <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Activity className="text-orange-500 w-16 h-16 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-2 bg-orange-50 rounded-xl text-orange-600">
-                <Activity size={20} />
+              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-orange-600 shadow-sm">
+                <Activity className="w-4 h-4 md:w-6 md:h-6" />
               </div>
-              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
             </div>
             <div>
-              <h3 className="text-3xl font-bold text-gray-900">{formatNumber(16, lang)}</h3>
-              <p className="text-sm text-gray-500 font-medium">Active Requests</p>
+              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{formatNumber(16, lang)}</h3>
+              <p className="text-[10px] md:text-sm text-orange-700 font-bold uppercase tracking-wide mt-1">Active Requests</p>
             </div>
           </div>
 
           {/* Pending Requests */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
-            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Timer size={60} className="text-blue-500" />
+          <div className="bg-blue-50 rounded-xl p-3 shadow-sm border border-blue-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+            <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Timer className="text-blue-500 w-16 h-16 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-2 bg-blue-50 rounded-xl text-blue-600">
-                <Timer size={20} />
+              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-blue-600 shadow-sm">
+                <Timer className="w-4 h-4 md:w-6 md:h-6" />
               </div>
-              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
             </div>
             <div>
-              <h3 className="text-3xl font-bold text-gray-900">{formatNumber(orders.length, lang)}</h3>
-              <p className="text-sm text-gray-500 font-medium">Pending</p>
+              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{formatNumber(5, lang)}</h3>
+              <p className="text-[10px] md:text-sm text-blue-700 font-bold uppercase tracking-wide mt-1">Pending</p>
             </div>
           </div>
 
           {/* Meals Delivered */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
-            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-              <PackageCheck size={60} className="text-green-500" />
+          <div className="bg-green-50 rounded-xl p-3 shadow-sm border border-green-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+            <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <PackageCheck className="text-green-500 w-16 h-16 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-2 bg-green-50 rounded-xl text-green-600">
-                <PackageCheck size={20} />
+              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-green-600 shadow-sm">
+                <PackageCheck className="w-4 h-4 md:w-6 md:h-6" />
               </div>
-              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
             </div>
             <div>
-              <h3 className="text-3xl font-bold text-gray-900">{formatNumber(320, lang)}</h3>
-              <p className="text-sm text-gray-500 font-medium">Delivered</p>
+              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{ordersCompleted}</h3>
+              <p className="text-[10px] md:text-sm text-green-700 font-bold uppercase tracking-wide mt-1">Delivered</p>
             </div>
           </div>
 
           {/* Total Items */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
-            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Package size={60} className="text-purple-500" />
+          <div className="bg-teal-50 rounded-xl p-3 shadow-sm border border-teal-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+            <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Package className="text-teal-500 w-16 h-16 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-2 bg-purple-50 rounded-xl text-purple-600">
-                <Package size={20} />
+              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-teal-600 shadow-sm">
+                <Package className="w-4 h-4 md:w-6 md:h-6" />
               </div>
-              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
             </div>
             <div>
-              <h3 className="text-3xl font-bold text-gray-900">{totalItems}</h3>
-              <p className="text-sm text-gray-500 font-medium">Total Items</p>
+              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{totalItems}</h3>
+              <p className="text-[10px] md:text-sm text-teal-700 font-bold uppercase tracking-wide mt-1">Total Items</p>
             </div>
           </div>
 
            {/* Alerts */}
-           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between h-36 relative overflow-hidden group">
-            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-              <AlertTriangle size={60} className="text-red-500" />
+           <div className="bg-red-50 rounded-xl p-3 shadow-sm border border-red-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+            <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <AlertTriangle className="text-red-500 w-16 h-16 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-2 bg-red-50 rounded-xl text-red-600">
-                <AlertTriangle size={20} />
+              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-red-600 shadow-sm">
+                <AlertTriangle className="w-4 h-4 md:w-6 md:h-6" />
               </div>
-              <button className="text-gray-300 hover:text-gray-500"><ChevronRight size={16} /></button>
             </div>
             <div>
-              <h3 className="text-3xl font-bold text-gray-900">{formatNumber(lowStockItems.length, lang)}</h3>
-              <p className="text-sm text-gray-500 font-medium">Alerts</p>
+              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{formatNumber(3, lang)}</h3>
+              <p className="text-[10px] md:text-sm text-red-700 font-bold uppercase tracking-wide mt-1">Alerts</p>
+            </div>
+          </div>
+
+          {/* Revenue */}
+          <div className="bg-purple-50 rounded-xl p-3 shadow-sm border border-purple-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+            <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <TrendingUp className="text-purple-500 w-16 h-16 md:w-20 md:h-20" />
+            </div>
+            <div className="flex justify-between items-start">
+              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-purple-600 shadow-sm">
+                <TrendingUp className="w-4 h-4 md:w-6 md:h-6" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg md:text-4xl font-black text-slate-900 truncate">{todaysSales}</h3>
+              <p className="text-[10px] md:text-sm text-purple-700 font-bold uppercase tracking-wide mt-1">Revenue</p>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Live Storage Monitoring */}
+      <LiveStorageMonitoring />
+
+      {/* 4) CENTER CONTROLS */}
+      <div className="px-4 mb-6 max-w-6xl mx-auto">
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-50 pb-2">Operations Control</h3>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
+          <div className="flex items-center justify-between w-full md:w-auto gap-4">
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm md:text-base">Center Status</h3>
+              <p className="text-[10px] md:text-xs text-slate-500 mt-0.5 md:mt-1">Currently {centerStatus.isOpen ? 'accepting' : 'not accepting'} requests</p>
+            </div>
+            <button
+              onClick={toggleCenterStatus}
+              className={`relative w-10 h-6 md:w-16 md:h-9 rounded-full transition-colors duration-300 ${centerStatus.isOpen ? 'bg-green-500' : 'bg-slate-300'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 md:w-7 md:h-7 bg-white rounded-full shadow-md transition-transform duration-300 ${centerStatus.isOpen ? 'left-5 md:left-8' : 'left-1'}`}></div>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+            <h3 className="font-bold text-slate-900 text-sm">Crowd Level</h3>
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              {['Low', 'Medium', 'High'].map((level) => (
+                <button
+                  key={level}
+                  onClick={() => updateCrowdLevel(level)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    crowdLevel === level
+                      ? level === 'Low' ? 'bg-green-500 text-white shadow-md' 
+                      : level === 'Medium' ? 'bg-yellow-500 text-white shadow-md' 
+                      : 'bg-red-500 text-white shadow-md'
+                      : 'text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      {/* 5) QUICK ACTIONS */}
+      <div className="px-4 mb-6 max-w-6xl mx-auto">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 ml-1">Quick Actions</h3>
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <button onClick={() => scrollToSection('inventory')} className="flex flex-col items-center gap-2 min-w-[80px]">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-blue-600 hover:bg-blue-50 transition-colors">
+              <Package className="w-5 h-5 md:w-6 md:h-6" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-600">Inventory</span>
+          </button>
+          <button onClick={() => scrollToSection('orders')} className="flex flex-col items-center gap-2 min-w-[80px]">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-orange-600 hover:bg-orange-50 transition-colors">
+              <FileText className="w-5 h-5 md:w-6 md:h-6" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-600">Requests</span>
+          </button>
+          <button onClick={() => setShowRiskMap(true)} className="flex flex-col items-center gap-2 min-w-[80px]">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors">
+              <ShieldAlert className="w-5 h-5 md:w-6 md:h-6" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-600">Risk Map</span>
+          </button>
+          <button onClick={() => setChatOpen(true)} className="flex flex-col items-center gap-2 min-w-[80px]">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 transition-colors">
+              <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-600">Chat</span>
+          </button>
+          <button onClick={() => setShowBroadcast(true)} className="flex flex-col items-center gap-2 min-w-[80px]">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-purple-600 hover:bg-purple-50 transition-colors">
+              <Radio className="w-5 h-5 md:w-6 md:h-6" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-600">Broadcast</span>
+          </button>
+        </div>
+      </div>
+
       {/* 3) RECENT REQUESTS */}
-      <div id="orders" className="px-4 mb-6">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Recent Requests</h2>
+      <div id="orders" className="px-4 mb-6 max-w-6xl mx-auto">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <div className="flex justify-between items-center mb-3 border-b border-slate-50 pb-2">
+            <h2 className="text-lg font-semibold text-slate-900">Recent Requests</h2>
             <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">View All</button>
           </div>
           
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px]">
               <thead>
-                <tr className="text-left border-b border-gray-100">
-                  <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Center</th>
-                  <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Request Type</th>
-                  <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">ETA</th>
-                  <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+                <tr className="text-left border-b border-slate-100">
+                  <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Center</th>
+                  <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Request Type</th>
+                  <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">ETA</th>
+                  <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-slate-50">
                 {orders.slice(0, 5).map((req) => (
-                  <tr key={req.id} className="group hover:bg-gray-50 transition-colors">
-                    <td className="py-4">
+                  <tr key={req.id} className="group hover:bg-slate-50 transition-colors">
+                    <td className="py-2">
                       <div className="flex flex-col">
-                        <span className="font-bold text-gray-800">{req.consumer_name}</span>
-                        <span className="text-xs text-gray-400">ID: #{req.id}</span>
+                        <span className="font-bold text-slate-800">{req.consumer_name}</span>
+                        <span className="text-xs text-slate-400">ID: #{req.id}</span>
                       </div>
                     </td>
-                    <td className="py-4">
+                    <td className="py-2">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
                         <Truck size={12} className="mr-1.5"/>
                         Delivery
                       </span>
                     </td>
-                    <td className="py-4">
-                      <div className="flex items-center text-gray-600 font-medium text-sm">
-                        <Clock size={14} className="mr-2 text-gray-400" />
+                    <td className="py-2">
+                      <div className="flex items-center text-slate-600 font-medium text-sm">
+                        <Clock size={14} className="mr-2 text-slate-400" />
                         20 min
                       </div>
                     </td>
-                    <td className="py-4 text-right">
+                    <td className="py-2 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => handleReject(req.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                         >
                           <XCircle size={18} />
                         </button>
                         <button 
                           onClick={() => handleFulfill(req.id)}
-                          className="px-4 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-full shadow-md hover:bg-gray-800 transition-transform active:scale-95"
+                          className="px-4 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-full shadow-md hover:bg-slate-800 transition-transform active:scale-95"
                         >
                           Process
                         </button>
@@ -1140,16 +1481,16 @@ export default function SupplierDashboard() {
       </div>
 
       {/* 4) NEAREST FOOD (Inventory) */}
-      <div id="inventory" className="px-4 mb-6">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-          <div className="flex justify-between items-center mb-6">
+      <div id="inventory" className="px-4 mb-6 max-w-6xl mx-auto">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <div className="flex justify-between items-center mb-3 border-b border-slate-50 pb-2">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-600">
                 <Navigation size={20} />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Nearest Food</h2>
-                <p className="text-xs text-green-600 font-bold">1.9 km away</p>
+                <h2 className="text-lg font-semibold text-slate-900">Inventory</h2>
+                <p className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Manage Stock</p>
               </div>
             </div>
             <button onClick={() => setShowAddModal(true)} className="text-blue-600 text-sm font-bold hover:underline">
@@ -1159,26 +1500,26 @@ export default function SupplierDashboard() {
 
           <div className="space-y-4">
             {inventory.slice(0, 3).map((item) => (
-              <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 gap-4">
+              <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 gap-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-gray-400 shadow-sm border border-gray-100 shrink-0">
+                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 shrink-0">
                     <Package size={20} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-bold text-gray-900">{item.name}</h3>
+                      <h3 className="font-bold text-slate-900">{item.name}</h3>
                       <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase tracking-wide rounded-full">
                         High
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500">Delivery Center • {item.quantity} {item.unit}</p>
+                    <p className="text-xs text-slate-500">Delivery Center • {item.quantity} {item.unit}</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex gap-2">
                   <button 
                     onClick={() => setDeleteId(item.id)}
-                    className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-100 transition-colors"
+                    className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-100 transition-colors"
                   >
                     Remove
                   </button>
@@ -1194,38 +1535,6 @@ export default function SupplierDashboard() {
           </div>
         </div>
       </div>
-
-      {/* 5) SPOILAGE MONITOR */}
-      <div id="spoilage" className="px-4 mb-6">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 opacity-90">
-           <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-600">
-                <Thermometer size={20} />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Spoilage Monitor</h2>
-                <p className="text-xs text-red-600 font-bold">Live IoT Data</p>
-              </div>
-            </div>
-            <button onClick={() => setShowRiskMap(true)} className="text-gray-400 hover:text-gray-600">
-              <MapIcon size={20} />
-            </button>
-          </div>
-          <div className="space-y-3">
-            {spoilageRows.slice(0, 2).map((s) => (
-              <div key={s.id} className="p-4 rounded-2xl bg-red-50/50 border border-red-100 flex items-center justify-between">
-                 <div>
-                    <h3 className="font-bold text-gray-900">{s.location}</h3>
-                    <p className="text-xs text-gray-500">Temp: {s.temp}°C • Hum: {s.humidity}%</p>
-                 </div>
-                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${s.risk ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                    {s.risk ? 'Risk' : 'Safe'}
-                 </span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Offline Indicator */}
@@ -1236,26 +1545,29 @@ export default function SupplierDashboard() {
         </div>
       )}
 
+      {/* 6) FLOATING ACTION BUTTON */}
+      <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 md:hidden">
+        <button onClick={() => setShowAddModal(true)} className="w-12 h-12 bg-slate-900 rounded-full flex items-center justify-center text-white shadow-xl shadow-slate-300 border-2 border-white">
+          <Plus size={24} />
+        </button>
+      </div>
+
       {/* 6) BOTTOM NAVBAR (Mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-4 flex justify-between items-center z-50 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-3xl">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-3 flex justify-between items-center z-50 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <button onClick={() => scrollToSection('summary')} className="flex flex-col items-center gap-1 text-blue-600">
           <LayoutDashboard size={24} strokeWidth={2.5} />
           <span className="text-[10px] font-bold">Home</span>
         </button>
-        <button onClick={() => scrollToSection('orders')} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
+        <button onClick={() => scrollToSection('orders')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600">
           <FileText size={24} />
           <span className="text-[10px] font-medium">Requests</span>
         </button>
-        <div className="relative -top-8">
-           <button onClick={() => setShowAddModal(true)} className="w-14 h-14 bg-gray-900 rounded-full flex items-center justify-center text-white shadow-xl shadow-gray-300 border-4 border-[#f6f7fb]">
-             <Plus size={24} />
-           </button>
-        </div>
-        <button onClick={() => setChatOpen(true)} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
+        <div className="w-8"></div> {/* Spacer for FAB */}
+        <button onClick={() => setChatOpen(true)} className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600">
           <MessageSquare size={24} />
           <span className="text-[10px] font-bold">Chat</span>
         </button>
-        <button onClick={() => setShowSettingsModal(true)} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
+        <button onClick={() => setShowSettingsModal(true)} className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600">
           <User size={24} />
           <span className="text-[10px] font-bold">Profile</span>
         </button>
@@ -1746,6 +2058,12 @@ export default function SupplierDashboard() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {showCrisisMap && (
+        <div className="fixed inset-0 z-[100]">
+          <RiskMap district={currentCrisis?.location} onBack={() => setShowCrisisMap(false)} />
         </div>
       )}
 

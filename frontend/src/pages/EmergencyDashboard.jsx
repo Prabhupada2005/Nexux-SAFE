@@ -95,6 +95,13 @@ const EmergencyDashboard = () => {
         i18n.changeLanguage(langs[next]);
     };
 
+    const handleLogout = () => {
+        if (window.confirm("Are you sure you want to logout?")) {
+            localStorage.removeItem('foodtech_user');
+            navigate('/login');
+        }
+    };
+
     return (
         <div className="h-screen flex flex-col bg-gray-900 font-sans text-gray-100 p-4 md:p-0 overflow-hidden">
             {/* Offline Indicator */}
@@ -115,10 +122,7 @@ const EmergencyDashboard = () => {
                     <button onClick={toggleLanguage} className="bg-red-800 px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-bold hover:bg-red-700">
                         <Globe size={14}/> {i18n.language === 'en' ? 'EN' : i18n.language === 'hi' ? 'HI' : i18n.language === 'mni' ? 'MNI' : 'OR'}
                     </button>
-                    <button onClick={() => {
-                        localStorage.removeItem('foodtech_user');
-                        navigate('/login');
-                    }} className="bg-red-800 hover:bg-red-700 px-4 py-2 rounded-lg flex gap-2 text-sm border border-red-700">
+                    <button onClick={handleLogout} className="bg-red-800 hover:bg-red-700 px-4 py-2 rounded-lg flex gap-2 text-sm border border-red-700">
                         <LogOut size={16}/> {t('logout')}
                     </button>
                 </div>
