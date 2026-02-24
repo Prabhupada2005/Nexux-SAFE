@@ -70,6 +70,23 @@ const EmergencyDashboard = () => {
         };
     }, []);
 
+    // Inject translations for Emergency Dashboard
+    useEffect(() => {
+        if (i18n.addResourceBundle) {
+            i18n.addResourceBundle('hi', 'translation', {
+                'offline_msg': 'ऑफ़लाइन मोड - लाइव अपडेट रुके हुए हैं', 'logout': 'लॉग आउट'
+            }, true, true);
+
+            i18n.addResourceBundle('mni', 'translation', {
+                'offline_msg': 'ꯑꯣꯐꯂꯥꯏꯟ ꯃꯣꯗ - ꯂꯥꯏꯕ ꯑꯞꯗꯦꯠ ꯂꯦꯞꯂꯤ', 'logout': 'ꯂꯣꯒ ꯑꯥꯎꯠ'
+            }, true, true);
+
+            i18n.addResourceBundle('or', 'translation', {
+                'offline_msg': 'ଅଫଲାଇନ୍ ମୋଡ୍ - ଲାଇଭ୍ ଅପଡେଟ୍ ବନ୍ଦ ଅଛି', 'logout': 'ଲଗ୍ ଆଉଟ୍'
+            }, true, true);
+        }
+    }, [i18n]);
+
     const handleVerify = async (alertId) => {
         try {
             await axios.post(`http://localhost:8000/sos-alerts/${alertId}/verify`);

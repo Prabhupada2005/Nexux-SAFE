@@ -594,6 +594,41 @@ export default function SupplierDashboard() {
     };
   }, []);
 
+  // Inject translations for Supplier Dashboard
+  useEffect(() => {
+    if (i18n.addResourceBundle) {
+      i18n.addResourceBundle('hi', 'translation', {
+        'item.onion': 'प्याज़', 'item.ginger': 'अदरक', 'item.dal': 'दाल',
+        'item.rice_meals': 'चावल का भोजन', 'item.dal_chawal': 'दाल चावल', 'item.water': 'पानी',
+        'add_item': 'वस्तु जोड़ें', 'delete_item': 'वस्तु हटाएं?', 'delete_desc': 'यह इन्वेंट्री से वस्तु को हटा देगा।',
+        'cancel': 'रद्द करें', 'delete': 'हटाएं', 'submit': 'जमा करें', 'item_name': 'वस्तु का नाम', 'quantity': 'मात्रा',
+        'risk_manager': 'जोखिम क्षेत्र प्रबंधक', 'close': 'बंद करें', 'risk_zone': 'जोखिम क्षेत्र',
+        'click_delete': 'हटाने के लिए सर्कल पर क्लिक करें', 'tip': 'सुझाव', 'risk_tip': 'जोखिम क्षेत्र जोड़ने के लिए मानचित्र पर क्लिक करें।',
+        'map_help': 'क्षेत्र जोड़ने के लिए मानचित्र पर क्लिक करें', 'offline_msg': 'आप ऑफ़लाइन हैं - सिंक रुका हुआ है'
+      }, true, true);
+
+      i18n.addResourceBundle('mni', 'translation', {
+        'item.onion': 'ꯇꯤꯂꯍꯧ', 'item.ginger': 'ꯁꯤꯡ', 'item.dal': 'ꯍꯋꯥꯏ',
+        'item.rice_meals': 'ꯆꯥꯛ', 'item.dal_chawal': 'ꯗꯥꯜ ꯆꯥꯋꯜ', 'item.water': 'ꯏꯁꯤꯡ',
+        'add_item': 'ꯄꯣꯠ ꯍꯥꯞꯆꯤꯟꯕ', 'delete_item': 'ꯄꯣꯠ ꯂꯧꯊꯣꯛꯄ?', 'delete_desc': 'ꯃꯁꯤꯅ ꯏꯅꯚꯦꯟꯇꯔꯤꯗꯒꯤ ꯄꯣꯠ ꯂꯧꯊꯣꯛꯀꯅꯤ꯫',
+        'cancel': 'ꯇꯣꯛꯄ', 'delete': 'ꯂꯧꯊꯣꯛꯄ', 'submit': 'ꯁꯕꯃꯤꯠ', 'item_name': 'ꯄꯣꯠꯀꯤ ꯃꯤꯡ', 'quantity': 'ꯃꯁꯤꯡ',
+        'risk_manager': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯐꯝ ꯃꯦꯅꯦꯖꯔ', 'close': 'ꯊꯤꯡꯕ', 'risk_zone': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯐꯝ',
+        'click_delete': 'ꯂꯧꯊꯣꯛꯅꯕ ꯁꯔꯀꯜꯗ ꯀ꯭ꯂꯤꯛ ꯇꯧꯕꯤꯌꯨ', 'tip': 'ꯄꯥꯎꯇꯥꯛ', 'risk_tip': 'ꯃꯦꯞꯇ ꯀ꯭ꯂꯤꯛ ꯇꯧꯔꯒ ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯐꯝ ꯍꯥꯞꯆꯤꯟꯕꯤꯌꯨ꯫',
+        'map_help': 'ꯃꯐꯝ ꯍꯥꯞꯆꯤꯟꯅꯕ ꯃꯦꯞꯇ ꯀ꯭ꯂꯤꯛ ꯇꯧꯕꯤꯌꯨ', 'offline_msg': 'ꯅꯍꯥꯛ ꯑꯣꯐꯂꯥꯏꯟꯗ ꯂꯩꯔꯤ - ꯁꯤꯡꯛ ꯇꯧꯕ ꯂꯦꯞꯂꯤ'
+      }, true, true);
+
+      i18n.addResourceBundle('or', 'translation', {
+        'item.onion': 'ପିଆଜ', 'item.ginger': 'ଅଦା', 'item.dal': 'ଡାଲି',
+        'item.rice_meals': 'ଭାତ ଖାଦ୍ୟ', 'item.dal_chawal': 'ଡାଲି ଚାଉଳ', 'item.water': 'ପାଣି',
+        'add_item': 'ଆଇଟମ୍ ଯୋଡନ୍ତୁ', 'delete_item': 'ଆଇଟମ୍ ହଟାଇବେ?', 'delete_desc': 'ଏହା ଇନଭେଣ୍ଟୋରୀରୁ ଆଇଟମ୍ ହଟାଇଦେବ।',
+        'cancel': 'ବାତିଲ୍ କରନ୍ତୁ', 'delete': 'ହଟାନ୍ତୁ', 'submit': 'ଦାଖଲ କରନ୍ତୁ', 'item_name': 'ଆଇଟମ୍ ନାମ', 'quantity': 'ପରିମାଣ',
+        'risk_manager': 'ବିପଦ ଅଞ୍ଚଳ ପରିଚାଳକ', 'close': 'ବନ୍ଦ କରନ୍ତୁ', 'risk_zone': 'ବିପଦ ଅଞ୍ଚଳ',
+        'click_delete': 'ହଟାଇବା ପାଇଁ ସର୍କଲ୍ ରେ କ୍ଲିକ୍ କରନ୍ତୁ', 'tip': 'ପରାମର୍ଶ', 'risk_tip': 'ବିପଦ ଅଞ୍ଚଳ ଯୋଡିବା ପାଇଁ ମାନଚିତ୍ରରେ କ୍ଲିକ୍ କରନ୍ତୁ।',
+        'map_help': 'ଅଞ୍ଚଳ ଯୋଡିବା ପାଇଁ ମାନଚିତ୍ରରେ କ୍ଲିକ୍ କରନ୍ତୁ', 'offline_msg': 'ଆପଣ ଅଫଲାଇନ୍ ଅଛନ୍ତି - ସିଙ୍କ୍ ବନ୍ଦ ଅଛି'
+      }, true, true);
+    }
+  }, [i18n]);
+
   const fetchData = async () => {
     try {
       // Check if supplier has registered center

@@ -179,6 +179,53 @@ const Login = () => {
     }
   };
 
+  // Inject translations for Login page
+  useEffect(() => {
+    if (i18n.addResourceBundle) {
+      i18n.addResourceBundle('hi', 'translation', {
+        'role_consumer': 'उपभोक्ता', 'sub_consumer': 'भोजन और सहायता का अनुरोध करें',
+        'role_supplier': 'आपूर्तिकर्ता', 'sub_supplier': 'इन्वेंटरी प्रबंधित करें',
+        'role_emergency': 'आपातकालीन', 'sub_emergency': 'आधिकारिक प्रतिक्रिया',
+        'create_account': 'खाता बनाएं', 'full_name': 'पूरा नाम', 'phone': 'फ़ोन',
+        'email': 'ईमेल', 'password': 'पासवर्ड', 'forgot_password': 'पासवर्ड भूल गए?',
+        'signin': 'साइन इन', 'back_login': 'लॉगिन पर वापस जाएं', 'new_here': 'यहाँ नए हैं? खाता बनाएं',
+        'official_only': 'केवल आधिकारिक उपयोग', 'reset_password': 'पासवर्ड रीसेट',
+        'enter_email': 'ईमेल दर्ज करें', 'new_password': 'नया पासवर्ड', 'update_pass': 'पासवर्ड अपडेट करें',
+        'offline_login_msg': 'लॉग इन करने के लिए इंटरनेट कनेक्शन आवश्यक है।', 'processing': 'प्रक्रिया चल रही है...',
+        'install': 'इंस्टॉल करें', 'email_not_found': 'ईमेल नहीं मिला', 'pass_updated': 'पासवर्ड अपडेट किया गया',
+        'restricted_reg': 'आपातकालीन पंजीकरण प्रतिबंधित है'
+      }, true, true);
+
+      i18n.addResourceBundle('mni', 'translation', {
+        'role_consumer': 'ꯀꯟꯁꯨꯃꯔ', 'sub_consumer': 'ꯆꯥꯛ ꯑꯃꯁꯨꯡ ꯃꯇꯦꯡ ꯅꯤꯕ',
+        'role_supplier': 'ꯁꯄ꯭ꯂꯥꯏꯌꯔ', 'sub_supplier': 'ꯄꯣꯠ-ꯆꯩ ꯁꯤꯟꯗꯣꯛꯄ',
+        'role_emergency': 'ꯏꯃꯔꯖꯦꯟꯁꯤ', 'sub_emergency': 'ꯑꯣꯐꯤꯁꯤꯑꯦꯜ ꯔꯦꯁꯄꯣꯟꯁ',
+        'create_account': 'ꯑꯦꯀꯥꯎꯟꯇ ꯁꯦꯝꯕ', 'full_name': 'ꯃꯤꯡ', 'phone': 'ꯐꯣꯟ',
+        'email': 'ꯏꯃꯦꯜ', 'password': 'ꯄꯥꯁꯋꯥꯔꯗ', 'forgot_password': 'ꯄꯥꯁꯋꯥꯔꯗ ꯀꯥꯑꯣꯈ꯭ꯔꯕ꯭ꯔꯥ?',
+        'signin': 'ꯁꯥꯏꯟ ꯏꯟ', 'back_login': 'ꯂꯣꯒꯤꯟꯗ ꯍꯟꯕ', 'new_here': 'ꯑꯅꯧꯕꯔꯥ? ꯑꯦꯀꯥꯎꯟꯇ ꯁꯦꯝꯕꯤꯌꯨ',
+        'official_only': 'ꯑꯣꯐꯤꯁꯤꯑꯦꯜꯒꯤꯗꯃꯛꯇ', 'reset_password': 'ꯄꯥꯁꯋꯥꯔꯗ ꯔꯤꯁꯦꯠ',
+        'enter_email': 'ꯏꯃꯦꯜ ꯊꯥꯕꯤꯌꯨ', 'new_password': 'ꯑꯅꯧꯕ ꯄꯥꯁꯋꯥꯔꯗ', 'update_pass': 'ꯄꯥꯁꯋꯥꯔꯗ ꯑꯞꯗꯦꯠ',
+        'offline_login_msg': 'ꯂꯣꯒ ꯏꯟ ꯇꯧꯅꯕ ꯏꯟꯇꯔꯅꯦꯠ ꯆꯪꯏ', 'processing': 'ꯄ꯭ꯔꯣꯁꯦꯁ ꯇꯧꯔꯤ...',
+        'install': 'ꯏꯟꯁꯇꯣꯜ', 'email_not_found': 'ꯏꯃꯦꯜ ꯐꯪꯗꯦ', 'pass_updated': 'ꯄꯥꯁꯋꯥꯔꯗ ꯑꯞꯗꯦꯠ ꯇꯧꯔꯦ',
+        'restricted_reg': 'ꯏꯃꯔꯖꯦꯟꯁꯤ ꯔꯦꯖꯤꯁꯇ꯭ꯔꯦꯁꯟ ꯇꯧꯕ ꯌꯥꯗꯦ'
+      }, true, true);
+
+      i18n.addResourceBundle('or', 'translation', {
+        'role_consumer': 'ଉପଭୋକ୍ତା', 'sub_consumer': 'ଖାଦ୍ୟ ଏବଂ ସହାୟତା ଅନୁରୋଧ କରନ୍ତୁ',
+        'role_supplier': 'ଯୋଗାଣକାରୀ', 'sub_supplier': 'ଇନଭେଣ୍ଟୋରୀ ପରିଚାଳନା କରନ୍ତୁ',
+        'role_emergency': 'ଜରୁରୀକାଳୀନ', 'sub_emergency': 'ସରକାରୀ ପ୍ରତିକ୍ରିୟା',
+        'create_account': 'ଆକାଉଣ୍ଟ୍ ତିଆରି କରନ୍ତୁ', 'full_name': 'ପୂରା ନାମ', 'phone': 'ଫୋନ୍',
+        'email': 'ଇମେଲ୍', 'password': 'ପାସୱାର୍ଡ', 'forgot_password': 'ପାସୱାର୍ଡ ଭୁଲିଗଲେ କି?',
+        'signin': 'ସାଇନ୍ ଇନ୍', 'back_login': 'ଲଗଇନ୍ କୁ ଫେରନ୍ତୁ', 'new_here': 'ଏଠାରେ ନୂଆ କି? ଆକାଉଣ୍ଟ୍ ତିଆରି କରନ୍ତୁ',
+        'official_only': 'କେବଳ ସରକାରୀ ବ୍ୟବହାର', 'reset_password': 'ପାସୱାର୍ଡ ରିସେଟ୍',
+        'enter_email': 'ଇମେଲ୍ ଦିଅନ୍ତୁ', 'new_password': 'ନୂଆ ପାସୱାର୍ଡ', 'update_pass': 'ପାସୱାର୍ଡ ଅପଡେଟ୍ କରନ୍ତୁ',
+        'offline_login_msg': 'ଲଗ୍ ଇନ୍ କରିବାକୁ ଇଣ୍ଟରନେଟ୍ ଆବଶ୍ୟକ', 'processing': 'ପ୍ରକ୍ରିୟା ଚାଲିଛି...',
+        'install': 'ଇନଷ୍ଟଲ୍ କରନ୍ତୁ', 'email_not_found': 'ଇମେଲ୍ ମିଳିଲା ନାହିଁ', 'pass_updated': 'ପାସୱାର୍ଡ ଅପଡେଟ୍ ହୋଇଛି',
+        'restricted_reg': 'ଜରୁରୀକାଳୀନ ପଞ୍ଜୀକରଣ ନିଷେଧ'
+      }, true, true);
+    }
+  }, [i18n]);
+
   // Login/Register Form Data
   const [formData, setFormData] = useState({
     email: '',
