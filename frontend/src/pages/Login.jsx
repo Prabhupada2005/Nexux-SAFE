@@ -213,6 +213,23 @@ const Login = () => {
     setIsLoading(true);
     setError('');
 
+    if (activeTab === 'emergency') {
+      if (formData.email === 'admin@safe.gov' && formData.password === 'admin123') {
+        localStorage.setItem('foodtech_user', JSON.stringify({
+          email: 'admin@safe.gov',
+          role: 'emergency',
+          name: 'Emergency Admin'
+        }));
+        navigate('/emergency');
+        setIsLoading(false);
+        return;
+      } else {
+        setError('Invalid emergency credentials');
+        setIsLoading(false);
+        return;
+      }
+    }
+
     try {
       if (isRegistering) {
         if (activeTab === 'emergency') {
@@ -283,6 +300,15 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGuestLogin = () => {
+    localStorage.setItem('foodtech_user', JSON.stringify({
+      role: 'consumer',
+      name: 'Guest User',
+      isGuest: true
+    }));
+    navigate('/consumer');
   };
 
   // Real Password Reset Handler
@@ -555,6 +581,16 @@ const Login = () => {
                 {isLoading ? t('processing') : (isRegistering ? t('create_account') : t('signin'))}
                 {!isLoading && <ChevronRight size={18} />}
               </button>
+
+              {activeTab === 'consumer' && !isRegistering && (
+                <button 
+                  type="button"
+                  onClick={handleGuestLogin}
+                  className="w-full bg-gray-100 text-gray-600 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wide shadow-sm hover:bg-gray-200 transition-all flex items-center justify-center gap-2 mt-3"
+                >
+                  Continue as Guest
+                </button>
+              )}
             </form>
 
             {activeTab !== 'emergency' ? (
@@ -571,6 +607,10 @@ const Login = () => {
                     <p className="text-[10px] text-red-500 bg-red-50 p-2 rounded border border-red-100 font-medium">
                         {t('official_only')}
                     </p>
+                    <div className="mt-3 text-xs text-gray-500">
+                        <p className="font-bold">Demo credentials:</p>
+                        <p>admin@safe.gov / admin123</p>
+                    </div>
                 </div>
             )}
           </div>

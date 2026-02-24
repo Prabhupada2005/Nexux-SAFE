@@ -120,7 +120,11 @@ const ConsumerDashboard = () => {
             const saved = localStorage.getItem('consumer_centers'); 
             const parsed = saved ? JSON.parse(saved) : null;
             const validated = validateCenters(parsed);
-            return validated.length > 0 ? validated : FOOD_CENTERS; 
+            if (validated.length > 0) {
+                // Ensure uniqueness on initial load to prevent key errors from bad storage data
+                return Array.from(new Map(validated.map(item => [String(item.id), item])).values());
+            }
+            return FOOD_CENTERS; 
         } catch(e) { return FOOD_CENTERS; }
     });
     const navigate = useNavigate();
@@ -303,6 +307,12 @@ const ConsumerDashboard = () => {
                         const merged = [...FOOD_CENTERS, ...newCenters];
                         setCenters(merged);
                         localStorage.setItem('consumer_centers', JSON.stringify(merged));
+                        // Merge with hardcoded centers and deduplicate by ID
+                        const allCenters = [...FOOD_CENTERS, ...newCenters];
+                        const uniqueCenters = Array.from(new Map(allCenters.map(item => [String(item.id), item])).values());
+                        
+                        setCenters(uniqueCenters);
+                        localStorage.setItem('consumer_centers', JSON.stringify(uniqueCenters));
                     }
                 } catch (e) { console.log('No registered centers yet'); }
 
@@ -865,7 +875,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
 
     // --- 2️⃣ SEARCH BAR SECTION ---
     const renderSearchBar = () => (
-        <div className="px-4 py-3 z-40">
+        <div className="px-1 py-3 z-40">
             <div className="flex gap-2">
                 <div className="flex-1 relative shadow-sm">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
@@ -897,7 +907,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
     const renderFilterChips = () => {
         if (!showFilters) return null;
         return (
-        <div className="pb-2 px-4 z-40 overflow-x-auto scrollbar-hide">
+        <div className="pb-2 px-1 z-40 overflow-x-auto scrollbar-hide">
             <div className="flex gap-2 min-w-max">
                 {[
                     { label: 'All', value: null },
@@ -922,104 +932,8 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
         );
     };
 
-    // --- 6️⃣ FLOATING SOS BUTTON ---
-    const renderSOSButton = () => (
-        <button
-            onClick={handleSOS}
-            className="absolute bottom-28 right-4 z-[50] bg-red-600 hover:bg-red-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(220,38,38,0.4)] flex items-center justify-center animate-pulse border-4 border-white transition-transform hover:scale-110 active:scale-95"
-        >
-            <AlertTriangle size={24} fill="currentColor" />
-        </button>
-    );
-
-    // --- 7️⃣ FLOATING AI BUTTON ---
-    const renderAIButton = () => (
-        <button
-            onClick={() => setActiveChat('ai')}
-            className="absolute bottom-28 left-4 z-[50] bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-[0_4px_15px_rgba(16,185,129,0.4)] flex items-center justify-center border-4 border-white transition-transform hover:scale-110 active:scale-95"
-        >
-            <Bot size={24} />
-        </button>
-    );
-
-    // --- 5️⃣ FLOATING BOTTOM INFO CARD ---
-    const renderBottomCard = () => {
-        const center = selectedCenter || nearestCenter;
-        if (!center) return null;
-
-        return (
-            <div className="absolute bottom-6 left-4 right-4 z-40 bg-white rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.12)] p-5 border border-slate-100 animate-in slide-in-from-bottom-10 duration-500">
-                {/* Top Row */}
-                <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                        <Navigation size={14} fill="currentColor" />
-                        <span className="text-xs font-bold">
-                            Nearest Food: {center.distance ? `${center.distance} km` : 'Nearby'}
-                        </span>
-                    </div>
-                    <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
-                        center.crowd === 'High' ? 'bg-red-50 text-red-700 border-red-100' : 
-                        center.crowd === 'Medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' : 
-                        'bg-green-50 text-green-700 border-green-100'
-                    }`}>
-                        {center.crowd} Crowd
-                    </span>
-                </div>
-
-                {/* Center Info */}
-                <div className="mb-4">
-                    <h3 className="text-xl font-black text-slate-900 leading-tight mb-1">
-                        {t(`center_names.${center.id}`, center.name)}
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1">
-                        <MapPin size={12} /> {center.address}
-                    </p>
-                </div>
-
-                {/* Badges & Tags */}
-                <div className="flex flex-wrap gap-2 mb-5">
-                    {center.cookedFood && (
-                        <span className="px-2.5 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg border border-red-100 flex items-center gap-1">
-                            <Utensils size={10} /> Hot Meals
-                        </span>
-                    )}
-                    {(center.menu || ['Rice', 'Water', 'Dal', 'Khichdi']).slice(0, 4).map((item, i) => (
-                        <span key={i} className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200">
-                            {item}
-                        </span>
-                    ))}
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3">
-                    <button 
-                        onClick={() => {
-                            setSelectedCenter(center);
-                            setReqItem(prev => ({ ...prev, deliveryType: 'delivery' }));
-                            setShowRequestModal(true);
-                        }}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-xl text-sm font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95"
-                    >
-                        Request Delivery
-                    </button>
-                    <button 
-                        onClick={() => {
-                            setSelectedCenter(center);
-                            setReqItem(prev => ({ ...prev, deliveryType: 'pickup' }));
-                            setShowRequestModal(true);
-                        }}
-                        className="flex-1 border-2 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 text-slate-600 py-3.5 rounded-xl text-sm font-bold transition-all active:scale-95"
-                    >
-                        Request Pickup
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
     return (
-        <div className="h-screen flex flex-col bg-slate-50 font-sans relative overflow-hidden p-0 md:p-0">
-            <div className="flex-1 flex flex-col relative overflow-hidden rounded-none md:rounded-none shadow-none md:shadow-none bg-white w-full h-full border-none md:border-none">
+        <div className="fixed inset-0 w-full h-full bg-gray-50 font-sans flex flex-col overflow-hidden">
                 {/* Offline Indicator */}
                 {!isOnline && (
                     <div className="w-full bg-amber-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-amber-500/50 shrink-0">
@@ -1028,57 +942,101 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     </div>
                 )}
                 
-                {/* 1️⃣ HEADER */}
+                {/* Header */}
                 {renderHeader()}
-                
-                <div className="flex-1 relative w-full h-full overflow-hidden">
-                    
-                    {/* 2️⃣ & 3️⃣ SEARCH & FILTERS (OVERLAY) */}
-                    <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-white/95 via-white/80 to-transparent pb-6 pt-2">
-                        {renderSearchBar()}
-                        {renderFilterChips()}
-                    </div>
 
-                    {/* 4️⃣ MAIN MAP (BACKGROUND) */}
-                    <div className="absolute inset-0 z-0">
-                        <MapComponent userLoc={userLoc} centers={filteredCenters} routePath={routePath} truckPosition={truckPosition} truckProgress={truckProgress} riskZones={riskZones} t={t} recenterTrigger={recenterTrigger} />
-                    </div>
+                <div className="flex-1 w-full md:max-w-7xl mx-auto px-3 py-3 overflow-hidden flex flex-col md:flex-row gap-4 relative">
+                    {/* Left Panel (Mobile: Full width, Desktop: 1/3 width) */}
+                    <div className="flex flex-col w-full md:w-1/3 h-full overflow-hidden">
+                        <div className="shrink-0">
+                            {renderSearchBar()}
+                            {renderFilterChips()}
+                        </div>
 
-                    {/* 5️⃣ FLOATING BOTTOM INFO CARD */}
-                    {renderBottomCard()}
+                        {/* Mobile Map Position - Sticky/Fixed height */}
+                        {isMobile && (
+                            <div className="shrink-0 w-full h-[35vh] rounded-2xl overflow-hidden shadow-md border border-slate-200 mb-3 relative z-0">
+                                <MapComponent userLoc={userLoc} centers={filteredCenters} routePath={routePath} truckPosition={truckPosition} truckProgress={truckProgress} riskZones={riskZones} t={t} recenterTrigger={recenterTrigger} />
+                            </div>
+                        )}
 
-                    {/* 6️⃣ FLOATING SOS & AI BUTTONS */}
-                    {renderSOSButton()}
-                    {renderAIButton()}
-
-                    {/* LIST VIEW OVERLAY (If toggled) */}
-                    {isListExpanded && (
-                        <div className="absolute inset-0 z-30 bg-white/95 backdrop-blur-sm overflow-y-auto pt-32 pb-32 px-4 animate-in fade-in duration-200">
-                            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                                <List size={20} /> All Centers ({filteredCenters.length})
-                            </h3>
-                            <div className="space-y-3">
-                                {filteredCenters.map(center => (
-                                    <div 
-                                        key={center.id}
-                                        onClick={() => { setSelectedCenter(center); setIsListExpanded(false); }}
-                                        className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center hover:border-emerald-500 transition-all cursor-pointer"
-                                    >
+                        {/* Scrollable List Section */}
+                        <div className="flex-1 overflow-y-auto scrollbar-hide pb-24 md:pb-0 pr-1">
+                            {filteredCenters.map((c) => (
+                                <div key={c.id} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-3">
+                                    <div className="flex justify-between items-start">
                                         <div>
-                                            <h4 className="font-bold text-slate-900">{center.name}</h4>
-                                            <p className="text-xs text-slate-500">{center.address}</p>
+                                            <h3 className="font-bold text-slate-900">{c.name}</h3>
+                                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                                                <MapPin size={12} /> {c.address}
+                                            </p>
                                         </div>
                                         <div className="text-right">
-                                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${center.crowd === 'High' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                                {center.crowd}
+                                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${c.crowd === 'High' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                {c.crowd}
                                             </span>
-                                            <p className="text-xs font-bold text-emerald-600 mt-1">{center.distance || calculateDistance(userLoc, center)} km</p>
+                                            <p className="text-xs font-bold text-emerald-600 mt-1">
+                                                {c.distance || calculateDistance(userLoc, c)} km
+                                            </p>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+
+                                    <div className="flex flex-wrap gap-2 mt-3 mb-3">
+                                        {c.cookedFood && (
+                                            <span className="px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded border border-red-100">
+                                                Hot Meals
+                                            </span>
+                                        )}
+                                        {(c.menu || []).slice(0, 3).map((item, i) => (
+                                            <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded border border-slate-200">
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button 
+                                            onClick={() => {
+                                                setSelectedCenter(c);
+                                                setReqItem(prev => ({ ...prev, deliveryType: 'delivery' }));
+                                                setShowRequestModal(true);
+                                            }}
+                                            className="py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-sm hover:bg-emerald-700"
+                                        >
+                                            Request Delivery
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                setSelectedCenter(c);
+                                                setReqItem(prev => ({ ...prev, deliveryType: 'pickup' }));
+                                                setShowRequestModal(true);
+                                            }}
+                                            className="py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200"
+                                        >
+                                            Request Pickup
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Map Section */}
+                    {!isMobile && (
+                        <div className="flex-1 h-full rounded-2xl overflow-hidden shadow-md border border-slate-200 relative z-0">
+                            <MapComponent userLoc={userLoc} centers={filteredCenters} routePath={routePath} truckPosition={truckPosition} truckProgress={truckProgress} riskZones={riskZones} t={t} recenterTrigger={recenterTrigger} />
                         </div>
                     )}
+                </div>
+
+                {/* FABs */}
+                <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
+                    <button onClick={handleSOS} className="bg-red-600 text-white p-4 rounded-full shadow-lg shadow-red-300 hover:bg-red-700 transition-transform hover:scale-110">
+                        <AlertTriangle size={24} />
+                    </button>
+                    <button onClick={() => setActiveChat('ai')} className="bg-emerald-600 text-white p-4 rounded-full shadow-lg shadow-emerald-300 hover:bg-emerald-700 transition-transform hover:scale-110">
+                        <Bot size={24} />
+                    </button>
                 </div>
                 
             {/* Chat Widget & Modals (Preserved) */}
@@ -1363,7 +1321,6 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     </div>
                 </div>
             )}
-            </div>
         </div>
     );
 };

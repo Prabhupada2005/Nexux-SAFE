@@ -1259,7 +1259,7 @@ const LandingPage = () => {
             <div className="col-span-1 md:col-span-1 bg-red-50 border-2 border-red-500 rounded-xl p-1.5 md:p-4 text-center flex flex-col justify-center">
                 <h3 className="text-red-700 font-black text-[10px] md:text-lg mb-0.5 md:mb-1">🚨 Need help?</h3>
                 <p className="text-red-600 mb-1 md:mb-2 font-medium text-[8px] md:text-xs leading-tight">Use Emergency Access to locate food.</p>
-                <button onClick={() => navigate('/consumer-login')} className="bg-red-600 text-white px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-500/30 w-full text-[9px] md:text-sm">
+                <button onClick={() => navigate('/login', { state: { role: 'consumer' } })} className="bg-red-600 text-white px-2 py-1.5 md:px-4 md:py-2 rounded-lg font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-500/30 w-full text-[9px] md:text-sm">
                   GET HELP NOW
                 </button>
             </div>
