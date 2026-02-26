@@ -203,27 +203,27 @@ export function LiveStorageMonitoring({ iotData }) {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 md:p-5">
         {/* Summary Banner */}
-        <div className={`mb-6 p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+        <div className={`mb-3 md:mb-6 p-3 md:p-5 rounded-xl md:rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 md:gap-4 ${
           riskLevel === 'CRITICAL' ? 'bg-red-50 border-red-100 text-red-800' :
           riskLevel === 'WARNING' ? 'bg-amber-50 border-amber-100 text-amber-800' :
           'bg-emerald-50 border-emerald-100 text-emerald-800'
         }`}>
-          <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl ${
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${
                riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-600' :
                riskLevel === 'WARNING' ? 'bg-amber-100 text-amber-600' :
                'bg-emerald-100 text-emerald-600'
             }`}>
-              <Activity size={28} />
+              <Activity size={20} className="md:w-7 md:h-7" />
             </div>
             <div>
-              <h4 className="font-black text-xl tracking-tight">Spoilage Risk: {riskLevel}</h4>
-              <p className="text-sm opacity-80 font-medium">Source: {sensorData.location || "IoT Node 1"}</p>
+              <h4 className="font-black text-sm md:text-xl tracking-tight">Spoilage Risk: {riskLevel}</h4>
+              <p className="text-[10px] md:text-sm opacity-80 font-medium">Source: {sensorData.location || "IoT Node 1"}</p>
             </div>
           </div>
-          <div className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider border ${
+          <div className={`px-2 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wider border ${
              riskLevel === 'CRITICAL' ? 'bg-red-100 border-red-200 text-red-700' :
              riskLevel === 'WARNING' ? 'bg-amber-100 border-amber-200 text-amber-700' :
              'bg-emerald-100 border-emerald-200 text-emerald-700'
@@ -233,11 +233,11 @@ export function LiveStorageMonitoring({ iotData }) {
         </div>
 
         {/* Sensor Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <SensorCard icon={<Thermometer size={20} />} label="Temperature" value={`${sensorData.temp}°C`} status="Elevated" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-orange-100 text-orange-600" />
-          <SensorCard icon={<Droplets size={20} />} label="Humidity" value={`${sensorData.humidity}%`} status="Elevated" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-blue-100 text-blue-600" />
-          <SensorCard icon={<Wind size={20} />} label="Gas Level" value={sensorData.gas} status="Air quality risk" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-slate-100 text-slate-600" />
-          <SensorCard icon={<Flame size={20} />} label="Smoke Level" value={sensorData.smoke} status="No smoke detected" statusColor="text-emerald-700 bg-emerald-50 border-emerald-200" iconBg="bg-red-100 text-red-600" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4">
+          <SensorCard icon={<Thermometer size={14} className="md:w-5 md:h-5" />} label="Temperature" value={`${sensorData.temp}°C`} status="Elevated" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-orange-100 text-orange-600" />
+          <SensorCard icon={<Droplets size={14} className="md:w-5 md:h-5" />} label="Humidity" value={`${sensorData.humidity}%`} status="Elevated" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-blue-100 text-blue-600" />
+          <SensorCard icon={<Wind size={14} className="md:w-5 md:h-5" />} label="Gas Level" value={sensorData.gas} status="Air quality risk" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-slate-100 text-slate-600" />
+          <SensorCard icon={<Flame size={14} className="md:w-5 md:h-5" />} label="Smoke Level" value={sensorData.smoke} status="No smoke detected" statusColor="text-emerald-700 bg-emerald-50 border-emerald-200" iconBg="bg-red-100 text-red-600" />
         </div>
       </div>
     </div>
@@ -246,14 +246,14 @@ export function LiveStorageMonitoring({ iotData }) {
 
 function SensorCard({ icon, label, value, status, statusColor, iconBg }) {
   return (
-    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between h-full">
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`p-2 rounded-lg ${iconBg}`}>{icon}</div>
-        <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">{label}</span>
+    <div className="p-2 md:p-4 rounded-lg md:rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between h-full">
+      <div className="flex items-center gap-1.5 md:gap-3 mb-1 md:mb-3">
+        <div className={`p-1 md:p-2 rounded-md md:rounded-lg ${iconBg}`}>{icon}</div>
+        <span className="text-[8px] md:text-xs font-bold uppercase text-slate-500 tracking-wider truncate">{label}</span>
       </div>
       <div>
-        <div className="text-2xl font-black text-slate-900">{value}</div>
-        <div className={`inline-block mt-2 px-2 py-1 rounded-lg text-[10px] font-bold border ${statusColor}`}>{status}</div>
+        <div className="text-sm md:text-2xl font-black text-slate-900">{value}</div>
+        <div className={`inline-block mt-0.5 md:mt-2 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg text-[7px] md:text-[10px] font-bold border ${statusColor}`}>{status}</div>
       </div>
     </div>
   );
@@ -1249,100 +1249,100 @@ export default function SupplierDashboard() {
 
       {/* 2) METRIC TILES */}
       <div id="summary" className="px-4 mb-6 max-w-6xl mx-auto">
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 md:gap-4">
           {/* Active Requests */}
-          <div className="bg-orange-50 rounded-xl p-3 shadow-sm border border-orange-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+          <div className="bg-orange-50 rounded-xl p-2 md:p-3 shadow-sm border border-orange-100 flex flex-col justify-between h-20 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
             <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Activity className="text-orange-500 w-16 h-16 md:w-20 md:h-20" />
+              <Activity className="text-orange-500 w-12 h-12 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-orange-600 shadow-sm">
-                <Activity className="w-4 h-4 md:w-6 md:h-6" />
+              <div className="p-1 md:p-3 bg-white rounded-lg md:rounded-2xl text-orange-600 shadow-sm">
+                <Activity className="w-3 h-3 md:w-6 md:h-6" />
               </div>
             </div>
             <div>
-              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{formatNumber(16, lang)}</h3>
-              <p className="text-[10px] md:text-sm text-orange-700 font-bold uppercase tracking-wide mt-1">Active Requests</p>
+              <h3 className="text-lg md:text-4xl font-black text-slate-900">{formatNumber(16, lang)}</h3>
+              <p className="text-[8px] md:text-sm text-orange-700 font-bold uppercase tracking-wide mt-0.5 md:mt-1">Active Requests</p>
             </div>
           </div>
 
           {/* Pending Requests */}
-          <div className="bg-blue-50 rounded-xl p-3 shadow-sm border border-blue-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+          <div className="bg-blue-50 rounded-xl p-2 md:p-3 shadow-sm border border-blue-100 flex flex-col justify-between h-20 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
             <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Timer className="text-blue-500 w-16 h-16 md:w-20 md:h-20" />
+              <Timer className="text-blue-500 w-12 h-12 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-blue-600 shadow-sm">
-                <Timer className="w-4 h-4 md:w-6 md:h-6" />
+              <div className="p-1 md:p-3 bg-white rounded-lg md:rounded-2xl text-blue-600 shadow-sm">
+                <Timer className="w-3 h-3 md:w-6 md:h-6" />
               </div>
             </div>
             <div>
-              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{formatNumber(5, lang)}</h3>
-              <p className="text-[10px] md:text-sm text-blue-700 font-bold uppercase tracking-wide mt-1">Pending</p>
+              <h3 className="text-lg md:text-4xl font-black text-slate-900">{formatNumber(5, lang)}</h3>
+              <p className="text-[8px] md:text-sm text-blue-700 font-bold uppercase tracking-wide mt-0.5 md:mt-1">Pending</p>
             </div>
           </div>
 
           {/* Meals Delivered */}
-          <div className="bg-green-50 rounded-xl p-3 shadow-sm border border-green-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+          <div className="bg-green-50 rounded-xl p-2 md:p-3 shadow-sm border border-green-100 flex flex-col justify-between h-20 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
             <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <PackageCheck className="text-green-500 w-16 h-16 md:w-20 md:h-20" />
+              <PackageCheck className="text-green-500 w-12 h-12 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-green-600 shadow-sm">
-                <PackageCheck className="w-4 h-4 md:w-6 md:h-6" />
+              <div className="p-1 md:p-3 bg-white rounded-lg md:rounded-2xl text-green-600 shadow-sm">
+                <PackageCheck className="w-3 h-3 md:w-6 md:h-6" />
               </div>
             </div>
             <div>
-              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{ordersCompleted}</h3>
-              <p className="text-[10px] md:text-sm text-green-700 font-bold uppercase tracking-wide mt-1">Delivered</p>
+              <h3 className="text-lg md:text-4xl font-black text-slate-900">{ordersCompleted}</h3>
+              <p className="text-[8px] md:text-sm text-green-700 font-bold uppercase tracking-wide mt-0.5 md:mt-1">Delivered</p>
             </div>
           </div>
 
           {/* Total Items */}
-          <div className="bg-teal-50 rounded-xl p-3 shadow-sm border border-teal-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+          <div className="bg-teal-50 rounded-xl p-2 md:p-3 shadow-sm border border-teal-100 flex flex-col justify-between h-20 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
             <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Package className="text-teal-500 w-16 h-16 md:w-20 md:h-20" />
+              <Package className="text-teal-500 w-12 h-12 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-teal-600 shadow-sm">
-                <Package className="w-4 h-4 md:w-6 md:h-6" />
+              <div className="p-1 md:p-3 bg-white rounded-lg md:rounded-2xl text-teal-600 shadow-sm">
+                <Package className="w-3 h-3 md:w-6 md:h-6" />
               </div>
             </div>
             <div>
-              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{totalItems}</h3>
-              <p className="text-[10px] md:text-sm text-teal-700 font-bold uppercase tracking-wide mt-1">Total Items</p>
+              <h3 className="text-lg md:text-4xl font-black text-slate-900">{totalItems}</h3>
+              <p className="text-[8px] md:text-sm text-teal-700 font-bold uppercase tracking-wide mt-0.5 md:mt-1">Total Items</p>
             </div>
           </div>
 
            {/* Alerts */}
-           <div className="bg-red-50 rounded-xl p-3 shadow-sm border border-red-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+           <div className="bg-red-50 rounded-xl p-2 md:p-3 shadow-sm border border-red-100 flex flex-col justify-between h-20 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
             <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <AlertTriangle className="text-red-500 w-16 h-16 md:w-20 md:h-20" />
+              <AlertTriangle className="text-red-500 w-12 h-12 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-red-600 shadow-sm">
-                <AlertTriangle className="w-4 h-4 md:w-6 md:h-6" />
+              <div className="p-1 md:p-3 bg-white rounded-lg md:rounded-2xl text-red-600 shadow-sm">
+                <AlertTriangle className="w-3 h-3 md:w-6 md:h-6" />
               </div>
             </div>
             <div>
-              <h3 className="text-2xl md:text-4xl font-black text-slate-900">{formatNumber(3, lang)}</h3>
-              <p className="text-[10px] md:text-sm text-red-700 font-bold uppercase tracking-wide mt-1">Alerts</p>
+              <h3 className="text-lg md:text-4xl font-black text-slate-900">{formatNumber(3, lang)}</h3>
+              <p className="text-[8px] md:text-sm text-red-700 font-bold uppercase tracking-wide mt-0.5 md:mt-1">Alerts</p>
             </div>
           </div>
 
           {/* Revenue */}
-          <div className="bg-purple-50 rounded-xl p-3 shadow-sm border border-purple-100 flex flex-col justify-between h-24 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
+          <div className="bg-purple-50 rounded-xl p-2 md:p-3 shadow-sm border border-purple-100 flex flex-col justify-between h-20 md:h-40 relative overflow-hidden group transition-all hover:shadow-md">
             <div className="absolute right-0 top-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <TrendingUp className="text-purple-500 w-16 h-16 md:w-20 md:h-20" />
+              <TrendingUp className="text-purple-500 w-12 h-12 md:w-20 md:h-20" />
             </div>
             <div className="flex justify-between items-start">
-              <div className="p-1.5 md:p-3 bg-white rounded-lg md:rounded-2xl text-purple-600 shadow-sm">
-                <TrendingUp className="w-4 h-4 md:w-6 md:h-6" />
+              <div className="p-1 md:p-3 bg-white rounded-lg md:rounded-2xl text-purple-600 shadow-sm">
+                <TrendingUp className="w-3 h-3 md:w-6 md:h-6" />
               </div>
             </div>
             <div>
-              <h3 className="text-lg md:text-4xl font-black text-slate-900 truncate">{todaysSales}</h3>
-              <p className="text-[10px] md:text-sm text-purple-700 font-bold uppercase tracking-wide mt-1">Revenue</p>
+              <h3 className="text-base md:text-4xl font-black text-slate-900 truncate">{todaysSales}</h3>
+              <p className="text-[8px] md:text-sm text-purple-700 font-bold uppercase tracking-wide mt-0.5 md:mt-1">Revenue</p>
             </div>
           </div>
         </div>
@@ -1396,36 +1396,36 @@ export default function SupplierDashboard() {
       {/* 5) QUICK ACTIONS */}
       <div className="px-4 mb-6 max-w-6xl mx-auto">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 ml-1">Quick Actions</h3>
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          <button onClick={() => scrollToSection('inventory')} className="flex flex-col items-center gap-2 min-w-[80px]">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-blue-600 hover:bg-blue-50 transition-colors">
+        <div className="flex gap-2 md:gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <button onClick={() => scrollToSection('inventory')} className="flex flex-col items-center gap-1.5 min-w-[70px] md:min-w-[80px]">
+            <div className="w-10 h-10 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-blue-600 hover:bg-blue-50 transition-colors">
               <Package className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <span className="text-[10px] font-bold text-slate-600">Inventory</span>
+            <span className="text-[9px] md:text-[10px] font-bold text-slate-600">Inventory</span>
           </button>
-          <button onClick={() => scrollToSection('orders')} className="flex flex-col items-center gap-2 min-w-[80px]">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-orange-600 hover:bg-orange-50 transition-colors">
+          <button onClick={() => scrollToSection('orders')} className="flex flex-col items-center gap-1.5 min-w-[70px] md:min-w-[80px]">
+            <div className="w-10 h-10 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-orange-600 hover:bg-orange-50 transition-colors">
               <FileText className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <span className="text-[10px] font-bold text-slate-600">Requests</span>
+            <span className="text-[9px] md:text-[10px] font-bold text-slate-600">Requests</span>
           </button>
-          <button onClick={() => setShowRiskMap(true)} className="flex flex-col items-center gap-2 min-w-[80px]">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors">
+          <button onClick={() => setShowRiskMap(true)} className="flex flex-col items-center gap-1.5 min-w-[70px] md:min-w-[80px]">
+            <div className="w-10 h-10 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors">
               <ShieldAlert className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <span className="text-[10px] font-bold text-slate-600">Risk Map</span>
+            <span className="text-[9px] md:text-[10px] font-bold text-slate-600">Risk Map</span>
           </button>
-          <button onClick={() => setChatOpen(true)} className="flex flex-col items-center gap-2 min-w-[80px]">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 transition-colors">
+          <button onClick={() => setChatOpen(true)} className="flex flex-col items-center gap-1.5 min-w-[70px] md:min-w-[80px]">
+            <div className="w-10 h-10 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 transition-colors">
               <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <span className="text-[10px] font-bold text-slate-600">Chat</span>
+            <span className="text-[9px] md:text-[10px] font-bold text-slate-600">Chat</span>
           </button>
-          <button onClick={() => setShowBroadcast(true)} className="flex flex-col items-center gap-2 min-w-[80px]">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-purple-600 hover:bg-purple-50 transition-colors">
+          <button onClick={() => setShowBroadcast(true)} className="flex flex-col items-center gap-1.5 min-w-[70px] md:min-w-[80px]">
+            <div className="w-10 h-10 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-purple-600 hover:bg-purple-50 transition-colors">
               <Radio className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <span className="text-[10px] font-bold text-slate-600">Broadcast</span>
+            <span className="text-[9px] md:text-[10px] font-bold text-slate-600">Broadcast</span>
           </button>
         </div>
       </div>
@@ -1513,32 +1513,32 @@ export default function SupplierDashboard() {
 
           <div className="space-y-4">
             {inventory.slice(0, 3).map((item) => (
-              <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 gap-4">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 shrink-0">
-                    <Package size={20} />
+              <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 md:p-4 rounded-xl md:rounded-2xl bg-slate-50 border border-slate-100 gap-2 md:gap-4">
+                <div className="flex items-start gap-2 md:gap-4">
+                  <div className="w-8 h-8 md:w-12 md:h-12 bg-white rounded-lg md:rounded-xl flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 shrink-0">
+                    <Package size={16} className="md:w-5 md:h-5" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-bold text-slate-900">{item.name}</h3>
-                      <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase tracking-wide rounded-full">
+                    <div className="flex items-center gap-2 mb-0.5 md:mb-1">
+                      <h3 className="font-bold text-sm md:text-base text-slate-900">{item.name}</h3>
+                      <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[9px] md:text-[10px] font-bold uppercase tracking-wide rounded-full">
                         High
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">Delivery Center • {item.quantity} {item.unit}</p>
+                    <p className="text-[10px] md:text-xs text-slate-500">Delivery Center • {item.quantity} {item.unit}</p>
                   </div>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2 mt-1 sm:mt-0">
                   <button 
                     onClick={() => setDeleteId(item.id)}
-                    className="flex-1 sm:flex-none py-2 px-4 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-100 transition-colors"
+                    className="flex-1 sm:flex-none py-1 md:py-2 px-2 md:px-4 rounded-lg md:rounded-xl border border-slate-200 text-slate-600 text-[10px] md:text-sm font-bold hover:bg-slate-100 transition-colors"
                   >
                     Remove
                   </button>
                   <button 
                     onClick={() => handleUpdate(item)}
-                    className="flex-1 sm:flex-none py-2 px-6 rounded-xl bg-green-600 text-white text-sm font-bold shadow-lg shadow-green-200 hover:bg-green-700 transition-transform active:scale-95"
+                    className="flex-1 sm:flex-none py-1 md:py-2 px-3 md:px-6 rounded-lg md:rounded-xl bg-green-600 text-white text-[10px] md:text-sm font-bold shadow-lg shadow-green-200 hover:bg-green-700 transition-transform active:scale-95"
                   >
                     Update
                   </button>
