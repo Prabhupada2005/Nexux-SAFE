@@ -145,7 +145,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"], 
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -197,6 +197,10 @@ def reset_password(data: PasswordReset, db: Session = Depends(get_db)):
 @app.get("/inventory")
 def get_inventory(db: Session = Depends(get_db)):
     return db.query(Inventory).all()
+
+@app.get("/alerts")
+async def get_alerts():
+    return [{"id": 1, "type": "Crisis", "location": "Ukhrul", "severity": "critical", "time": "18 min ago"}]
 
 @app.post("/inventory")
 def add_item(item: InventoryItem, db: Session = Depends(get_db)):

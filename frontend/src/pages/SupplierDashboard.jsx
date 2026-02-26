@@ -54,7 +54,6 @@ import { ref, onValue } from 'firebase/database';
 const API = "http://localhost:8000";
 
 /* -------------------- DIGIT + CURRENCY LOCALIZATION (ALL LANGS) -------------------- */
-// en: 0-9, hi: ०-९, or: ୦-୯, mni (Meitei Mayek): ꯰-꯹
 const DIGIT_MAP = {
   en: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
   hi: ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"],
@@ -63,7 +62,7 @@ const DIGIT_MAP = {
 };
 
 function localizeDigits(str, lang) {
-  const key = (lang || "en").split("-")[0]; // handles en-IN, hi-IN etc.
+  const key = (lang || "en").split("-")[0]; 
   const map = DIGIT_MAP[key] || DIGIT_MAP.en;
   return String(str).replace(/\d/g, (d) => map[Number(d)]);
 }
@@ -169,19 +168,22 @@ function Pill({ variant = "gray", children, className = "" }) {
   );
 }
 
-export function LiveStorageMonitoring() {
-  // Mock data as requested
-  const [sensorData, setSensorData] = useState({ 
-    temp: 29, 
-    humidity: 65, 
-    gas: "Medium", 
-    smoke: "Normal" 
-  });
+// --- CORRECTED LIVE STORAGE MONITORING COMPONENT ---
+export function LiveStorageMonitoring({ iotData }) {
+  const sensorData = useMemo(() => {
+    if (iotData && iotData.length > 0) {
+      return iotData[0];
+    }
+    return { temp: "--", humidity: "--", gas: "Normal", smoke: "Normal", status: "normal" };
+  }, [iotData]);
 
   const riskLevel = useMemo(() => {
-    const { temp, humidity, gas, smoke } = sensorData;
-    if (temp > 30 || humidity > 70 || gas === "High" || smoke === "High") return "CRITICAL";
-    if (temp > 27 || humidity > 60 || gas === "Medium") return "WARNING";
+    if (sensorData.status === "warning" || (typeof sensorData.temp === 'number' && sensorData.temp > 30)) {
+      return "CRITICAL";
+    }
+    if (typeof sensorData.temp === 'number' && sensorData.temp > 27) {
+      return "WARNING";
+    }
     return "SAFE";
   }, [sensorData]);
 
@@ -218,7 +220,7 @@ export function LiveStorageMonitoring() {
             </div>
             <div>
               <h4 className="font-black text-xl tracking-tight">Spoilage Risk: {riskLevel}</h4>
-              <p className="text-sm opacity-80 font-medium">Based on real-time sensor analysis</p>
+              <p className="text-sm opacity-80 font-medium">Source: {sensorData.location || "IoT Node 1"}</p>
             </div>
           </div>
           <div className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider border ${
@@ -434,8 +436,6 @@ export default function SupplierDashboard() {
     });
   }, [iotData]);
 
-
-
   // Export functions
   const exportToCSV = (type) => {
     let csvContent = '';
@@ -634,116 +634,63 @@ export default function SupplierDashboard() {
   }, [i18n]);
 
   // --- UPDATED FETCH DATA (No IoT from Python) ---
+  // --- ROBUST FETCH DATA ---
   const fetchData = async () => {
     try {
-      // Check if supplier has registered center
-      let email = '';
-      try {
-        email = localStorage.getItem('supplier_email');
-      } catch (e) {}
+      // 1. Check Center Status
+      const email = localStorage.getItem('supplier_email');
       if (email) {
-        setSupplierEmail(email);
-        try {
-          const centerRes = await axios.get(`${API}/centers/supplier/${email}`);
-          if (!centerRes.data.exists) {
-            setShowCenterSetup(true);
-            setLoading(false);
-            return;
-          }
-          // Store center info
-          if (centerRes.data.center) {
-            setCenterInfo(centerRes.data.center);
-          }
-        } catch (err) {
-          console.log('Center check failed, showing setup');
+        const centerRes = await axios.get(`${API}/centers/supplier/${email}`).catch(() => null);
+        if (centerRes && centerRes.data.exists) {
+          setCenterInfo(centerRes.data.center);
+        } else {
           setShowCenterSetup(true);
           setLoading(false);
           return;
         }
       }
 
-      // Fake loading delay for demo
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const [invRes, reqRes, riskRes, alertsRes] = await Promise.all([
+      // 2. Fetch Dashboard Data independently
+      const results = await Promise.allSettled([
         axios.get(`${API}/inventory`),
         axios.get(`${API}/food-requests`),
         axios.get(`${API}/risk-zones`),
-        axios.get(`${API}/alerts`),
+        axios.get(`${API}/alerts`) // This handles the 404 alert error
       ]);
 
-      if (invRes.data) {
-        setInventory(invRes.data);
-        try { localStorage.setItem('supplier_inventory', JSON.stringify(invRes.data)); } catch (e) {}
-      }
+      // Map results back to state only if successful
+      if (results[0].status === 'fulfilled') setInventory(results[0].value.data || []);
+      if (results[1].status === 'fulfilled') setRequests(results[1].value.data || []);
+      if (results[2].status === 'fulfilled') setRiskZones(results[2].value.data || []);
+      if (results[3].status === 'fulfilled') setCrisisAlerts(results[3].value.data || []);
 
-      if (reqRes.data) {
-        setRequests(reqRes.data);
-        try { localStorage.setItem('supplier_requests', JSON.stringify(reqRes.data)); } catch (e) {}
-      }
-
-      if (alertsRes.data && Array.isArray(alertsRes.data) && alertsRes.data.length > 0) {
-        setCrisisAlerts(alertsRes.data);
-      }
-
-      setRiskZones(riskRes.data || []);
       setLastSync(new Date());
       setLoading(false);
     } catch (err) {
-      console.error("Sync Error:", err);
-      setLoading(false);
-      if (inventory.length > 0 || requests.length > 0) {
-        toast("error", "Sync failed", "Check backend server is running.");
-      }
+      console.error("Dashboard Sync Error:", err);
+      setLoading(false); // Page will still render with whatever data is available
     }
   };
 
+  // --- INTEGRATED FIREBASE LISTENER ---
   useEffect(() => {
-    // Get supplier email from login
-    let email = '';
-    try {
-      email = localStorage.getItem('supplier_email');
-    } catch (e) {}
+    fetchData(); // Initial load for your backend data
 
-    // Fallback: Try to recover email from foodtech_user if missing
-    if (!email) {
-      try {
-        const user = JSON.parse(localStorage.getItem('foodtech_user'));
-        if (user && user.role === 'supplier' && user.email) {
-          email = user.email;
-          localStorage.setItem('supplier_email', email);
-        }
-      } catch (e) {}
-    }
-
-    if (!email) {
-      // Redirect to login if no email found
-      navigate('/login');
-      return;
-    }
-    fetchData();
-  }, []);
-
-  // --- ADDED FIREBASE IOT LISTENER ---
-  useEffect(() => {
+    // Connect to Firebase for the IoT cards
     const sensorsRef = ref(database, 'sensors');
-    
     const unsubscribe = onValue(sensorsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        // Convert Firebase object into an array for our UI
-        const formattedData = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        }));
-        setIotData(formattedData);
-      } else {
-        setIotData([]); 
+      const val = snapshot.val();
+      console.log("Firebase Data Received:", val); // <-- Open your browser console (F12) to see this!
+      if (val) {
+        // Convert the Firebase object into an array for your UI
+        const list = Object.keys(val).map(k => ({ id: k, ...val[k] }));
+        setIotData(list);
       }
+    }, (error) => {
+      console.error("Firebase Connection Error:", error);
     });
 
-    // Clean up the listener when you leave the page
-    return () => unsubscribe();
+    return () => unsubscribe(); // Clean up on page exit
   }, []);
 
   useEffect(() => {
@@ -1392,7 +1339,7 @@ export default function SupplierDashboard() {
       </div>
 
       {/* Live Storage Monitoring */}
-      <LiveStorageMonitoring />
+      <LiveStorageMonitoring iotData={iotData} />
 
       {/* 4) CENTER CONTROLS */}
       <div className="px-4 mb-6 max-w-6xl mx-auto">
@@ -1712,7 +1659,6 @@ export default function SupplierDashboard() {
         </div>
       )}
 
-      {/* Re-implementing other modals briefly to ensure they exist */}
       {showBroadcast && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden">
