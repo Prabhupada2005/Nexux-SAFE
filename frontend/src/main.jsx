@@ -5,14 +5,22 @@ import './index.css'
 import i18n from './i18n'
 import { I18nextProvider } from 'react-i18next'
 
-// Force unregister any existing service workers to clean up the client
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
+// --- PWA Service Worker Registration ---
+// This replaces the old "unregister" code. It actively listens for app updates
+// and ensures the app can work offline when the internet drops.
+import { registerSW } from 'virtual:pwa-register'
+
+const updateSW = registerSW({
+  onNeedRefresh() {
+    // When you push new code to GitHub/Production, this prompts the user to update
+    if (confirm('New emergency routing data is available. Reload app to update?')) {
+      updateSW(true)
     }
-  });
-}
+  },
+  onOfflineReady() {
+    console.log('SAFE FoodTech is now ready to work offline.')
+  },
+})
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

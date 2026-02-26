@@ -47,6 +47,10 @@ import { MapContainer, TileLayer, Circle, Popup, useMapEvents, Marker } from "re
 import "leaflet/dist/leaflet.css";
 import RiskMap from "./RiskMap";
 
+// --- ADDED FIREBASE IMPORTS ---
+import { database } from '../firebase';
+import { ref, onValue } from 'firebase/database';
+
 const API = "http://localhost:8000";
 
 /* -------------------- DIGIT + CURRENCY LOCALIZATION (ALL LANGS) -------------------- */
@@ -410,7 +414,7 @@ export default function SupplierDashboard() {
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
-  // Spoilage rows (with localized digits) - MOVED UP
+  // Spoilage rows (with localized digits)
   const spoilageRows = useMemo(() => {
     const base =
       iotData?.length > 0
@@ -629,6 +633,7 @@ export default function SupplierDashboard() {
     }
   }, [i18n]);
 
+  // --- UPDATED FETCH DATA (No IoT from Python) ---
   const fetchData = async () => {
     try {
       // Check if supplier has registered center
@@ -660,10 +665,9 @@ export default function SupplierDashboard() {
       // Fake loading delay for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const [invRes, reqRes, iotRes, riskRes, alertsRes] = await Promise.all([
+      const [invRes, reqRes, riskRes, alertsRes] = await Promise.all([
         axios.get(`${API}/inventory`),
         axios.get(`${API}/food-requests`),
-        axios.get(`${API}/iot/spoilage`),
         axios.get(`${API}/risk-zones`),
         axios.get(`${API}/alerts`),
       ]);
@@ -682,15 +686,12 @@ export default function SupplierDashboard() {
         setCrisisAlerts(alertsRes.data);
       }
 
-      setIotData(iotRes.data || []);
       setRiskZones(riskRes.data || []);
       setLastSync(new Date());
       setLoading(false);
     } catch (err) {
       console.error("Sync Error:", err);
-      // Set loading to false even on error so page shows
       setLoading(false);
-      // Don't show error toast on first load
       if (inventory.length > 0 || requests.length > 0) {
         toast("error", "Sync failed", "Check backend server is running.");
       }
@@ -721,8 +722,28 @@ export default function SupplierDashboard() {
       return;
     }
     fetchData();
-    // return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --- ADDED FIREBASE IOT LISTENER ---
+  useEffect(() => {
+    const sensorsRef = ref(database, 'sensors');
+    
+    const unsubscribe = onValue(sensorsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        // Convert Firebase object into an array for our UI
+        const formattedData = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key]
+        }));
+        setIotData(formattedData);
+      } else {
+        setIotData([]); 
+      }
+    });
+
+    // Clean up the listener when you leave the page
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
