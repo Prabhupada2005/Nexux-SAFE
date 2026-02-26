@@ -37,21 +37,25 @@ const EmergencyDashboard = () => {
         }
     };
 
-    const fetchData = () => {
-        axios.get('http://localhost:8000/risk-zones').then(res => {
-            setRiskZones(res.data);
-            localStorage.setItem('emergency_riskZones', JSON.stringify(res.data));
-        });
-        axios.get('http://localhost:8000/sos-alerts/pending').then(res => {
-            setPendingAlerts(res.data);
-            localStorage.setItem('emergency_pendingAlerts', JSON.stringify(res.data));
-            res.data.forEach(alert => getAddress(alert.lat, alert.lng, alert.id));
-        });
-        axios.get('http://localhost:8000/sos-alerts').then(res => {
-            setAllAlerts(res.data);
-            localStorage.setItem('emergency_allAlerts', JSON.stringify(res.data));
-        });
-    };
+    const fetchData = async () => {
+        try {
+          const [invRes, reqRes, msgRes, riskRes] = await Promise.all([
+            axios.get('http://localhost:8000/inventory'),
+            axios.get('http://localhost:8000/food-requests'),
+            // Notice we removed the IoT axios call here!
+            axios.get('http://localhost:8000/messages'),
+            axios.get('http://localhost:8000/risk-zones')
+          ]);
+    
+          setInventory(invRes.data);
+          setRequests(reqRes.data);
+          if (msgRes.data.length !== messages.length) {
+              setMessages(msgRes.data.reverse());
+          }
+          setRiskZones(riskRes.data);
+          setLastSync(new Date());
+        } catch (err) { console.error("Sync Error:", err); }
+      };
 
     useEffect(() => {
         fetchData();
