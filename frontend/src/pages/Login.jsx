@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { 
   Lock, Mail, ChevronRight, AlertCircle, User, Phone,
-  ShoppingBag, Truck, Siren, Globe, KeyRound, X, Download, WifiOff 
+  ShoppingBag, Truck, Siren, Globe, KeyRound, X, Download, WifiOff, Check
 } from 'lucide-react';
 
 // --- 1. FULL ANIMATED CONSUMER BACKGROUND (Organic Flow) ---
@@ -186,7 +186,7 @@ const Login = () => {
         'role_consumer': 'उपभोक्ता', 'sub_consumer': 'भोजन और सहायता का अनुरोध करें',
         'role_supplier': 'आपूर्तिकर्ता', 'sub_supplier': 'इन्वेंटरी प्रबंधित करें',
         'role_emergency': 'आपातकालीन', 'sub_emergency': 'आधिकारिक प्रतिक्रिया',
-        'create_account': 'खाता बनाएं', 'full_name': 'पूरा नाम', 'phone': 'फ़ोन नंबर',
+        'create_account': 'खाता बनाएं', 'full_name': 'पूरा नाम', 'phone': 'फ़ोन',
         'email': 'ईमेल', 'password': 'पासवर्ड', 'forgot_password': 'पासवर्ड भूल गए?',
         'signin': 'साइन इन', 'back_login': 'लॉगिन पर वापस जाएं', 'new_here': 'यहाँ नए हैं? खाता बनाएं',
         'official_only': 'केवल आधिकारिक उपयोग', 'reset_password': 'पासवर्ड रीसेट',
@@ -200,7 +200,7 @@ const Login = () => {
         'role_consumer': 'ꯀꯟꯁꯨꯃꯔ', 'sub_consumer': 'ꯆꯥꯛ ꯑꯃꯁꯨꯡ ꯃꯇꯦꯡ ꯅꯤꯕ',
         'role_supplier': 'ꯁꯄ꯭ꯂꯥꯏꯌꯔ', 'sub_supplier': 'ꯄꯣꯠ-ꯆꯩ ꯁꯤꯟꯗꯣꯛꯄ',
         'role_emergency': 'ꯏꯃꯔꯖꯦꯟꯁꯤ', 'sub_emergency': 'ꯑꯣꯐꯤꯁꯤꯑꯦꯜ ꯔꯦꯁꯄꯣꯟꯁ',
-        'create_account': 'ꯑꯦꯀꯥꯎꯟꯇ ꯁꯦꯝꯕ', 'full_name': 'ꯃꯤꯡ', 'phone': 'ꯐꯣꯟ ꯅꯝꯕꯔ',
+        'create_account': 'ꯑꯦꯀꯥꯎꯟꯇ ꯁꯦꯝꯕ', 'full_name': 'ꯃꯤꯡ', 'phone': 'ꯐꯣꯟ',
         'email': 'ꯏꯃꯦꯜ', 'password': 'ꯄꯥꯁꯋꯥꯔꯗ', 'forgot_password': 'ꯄꯥꯁꯋꯥꯔꯗ ꯀꯥꯑꯣꯈ꯭ꯔꯕ꯭ꯔꯥ?',
         'signin': 'ꯁꯥꯏꯟ ꯏꯟ', 'back_login': 'ꯂꯣꯒꯤꯟꯗ ꯍꯟꯕ', 'new_here': 'ꯑꯅꯧꯕꯔꯥ? ꯑꯦꯀꯥꯎꯟꯇ ꯁꯦꯝꯕꯤꯌꯨ',
         'official_only': 'ꯑꯣꯐꯤꯁꯤꯑꯦꯜꯒꯤꯗꯃꯛꯇ', 'reset_password': 'ꯄꯥꯁꯋꯥꯔꯗ ꯔꯤꯁꯦꯠ',
@@ -214,7 +214,7 @@ const Login = () => {
         'role_consumer': 'ଉପଭୋକ୍ତା', 'sub_consumer': 'ଖାଦ୍ୟ ଏବଂ ସହାୟତା ଅନୁରୋଧ କରନ୍ତୁ',
         'role_supplier': 'ଯୋଗାଣକାରୀ', 'sub_supplier': 'ଇନଭେଣ୍ଟୋରୀ ପରିଚାଳନା କରନ୍ତୁ',
         'role_emergency': 'ଜରୁରୀକାଳୀନ', 'sub_emergency': 'ସରକାରୀ ପ୍ରତିକ୍ରିୟା',
-        'create_account': 'ଆକାଉଣ୍ଟ୍ ତିଆରି କରନ୍ତୁ', 'full_name': 'ପୂରା ନାମ', 'phone': 'ଫୋନ୍ ନମ୍ବର',
+        'create_account': 'ଆକାଉଣ୍ଟ୍ ତିଆରି କରନ୍ତୁ', 'full_name': 'ପୂରା ନାମ', 'phone': 'ଫୋନ୍',
         'email': 'ଇମେଲ୍', 'password': 'ପାସୱାର୍ଡ', 'forgot_password': 'ପାସୱାର୍ଡ ଭୁଲିଗଲେ କି?',
         'signin': 'ସାଇନ୍ ଇନ୍', 'back_login': 'ଲଗଇନ୍ କୁ ଫେରନ୍ତୁ', 'new_here': 'ଏଠାରେ ନୂଆ କି? ଆକାଉଣ୍ଟ୍ ତିଆରି କରନ୍ତୁ',
         'official_only': 'କେବଳ ସରକାରୀ ବ୍ୟବହାର', 'reset_password': 'ପାସୱାର୍ଡ ରିସେଟ୍',
@@ -223,14 +223,6 @@ const Login = () => {
         'install': 'ଇନଷ୍ଟଲ୍ କରନ୍ତୁ', 'email_not_found': 'ଇମେଲ୍ ମିଳିଲା ନାହିଁ', 'pass_updated': 'ପାସୱାର୍ଡ ଅପଡେଟ୍ ହୋଇଛି',
         'restricted_reg': 'ଜରୁରୀକାଳୀନ ପଞ୍ଜୀକରଣ ନିଷେଧ'
       }, true, true);
-    }
-  }, [i18n]);
-
-  // Load saved language preference
-  useEffect(() => {
-    const savedLang = localStorage.getItem('foodtech_language');
-    if (savedLang && i18n.language !== savedLang) {
-      i18n.changeLanguage(savedLang);
     }
   }, [i18n]);
 
@@ -251,8 +243,19 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // OTP Verification State
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
+  const [serverOtp, setServerOtp] = useState(null);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (e.target.name === 'phone') {
+      setIsPhoneVerified(false);
+      setOtpSent(false);
+      setOtpInput('');
+    }
   };
 
   // 4-Language Toggle Logic
@@ -260,9 +263,34 @@ const Login = () => {
     const langs = ['en', 'hi', 'mni', 'or'];
     const current = langs.indexOf(i18n.language) > -1 ? langs.indexOf(i18n.language) : 0;
     const next = (current + 1) % langs.length;
-    const nextLang = langs[next];
-    i18n.changeLanguage(nextLang);
-    localStorage.setItem('foodtech_language', nextLang);
+    i18n.changeLanguage(langs[next]);
+  };
+
+  const handleSendOtp = async () => {
+    if (!formData.phone || formData.phone.length < 10) {
+      setError("Please enter a valid phone number to verify.");
+      return;
+    }
+    setError('');
+    try {
+      const res = await axios.post('http://localhost:8000/send-otp', { phone: formData.phone });
+      setServerOtp(res.data.otp);
+      setOtpSent(true);
+      alert(`OTP Sent! Code: ${res.data.otp}`); // Show in alert for simulation
+    } catch (err) {
+      console.error(err);
+      setError("Failed to send OTP. Ensure backend is running.");
+    }
+  };
+
+  const handleVerifyOtp = () => {
+    if (otpInput === serverOtp) {
+      setIsPhoneVerified(true);
+      setOtpSent(false);
+      setError('');
+    } else {
+      setError("Incorrect OTP. Please try again.");
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -270,10 +298,12 @@ const Login = () => {
     setIsLoading(true);
     setError('');
 
+    const email = formData.email.trim();
+
     if (activeTab === 'emergency') {
-      if (formData.phone === '112' && formData.password === 'admin123') {
+      if (email === 'admin@safe.gov' && formData.password === 'admin123') {
         localStorage.setItem('foodtech_user', JSON.stringify({
-          phone: '112',
+          email: 'admin@safe.gov',
           role: 'emergency',
           name: 'Emergency Admin'
         }));
@@ -295,8 +325,14 @@ const Login = () => {
             return;
         }
 
+        if (!isPhoneVerified) {
+            setError("Please verify your phone number before creating an account.");
+            setIsLoading(false);
+            return;
+        }
+
         await axios.post('http://localhost:8000/register', {
-          email: formData.email || null,
+          email: email,
           password: formData.password,
           full_name: formData.fullName,
           phone: formData.phone,
@@ -309,15 +345,15 @@ const Login = () => {
         setIsRegistering(false);
       } else {
         const res = await axios.post('http://localhost:8000/login', {
-          phone: formData.phone,
+          email: email,
           password: formData.password
         });
 
         if (res.data.success) {
-          const userRole = res.data.user.role;
+          const userRole = (res.data.user.role || '').toLowerCase();
           
           if (activeTab !== 'emergency' && userRole !== activeTab && userRole !== 'admin') {
-             setError(`Account mismatch: This phone number is registered as '${userRole}', but you're trying to login as '${activeTab}'. Please select the correct role tab.`);
+             setError(`Account mismatch: This email is registered as '${userRole}', but you're trying to login as '${activeTab}'. Please select the correct role tab.`);
              setIsLoading(false);
              return;
           }
@@ -328,13 +364,20 @@ const Login = () => {
           }
 
           localStorage.setItem('foodtech_user', JSON.stringify(res.data.user));
+          
+          setIsLoading(false); // Stop loading immediately before navigating
+
           if (userRole === 'supplier') {
-            localStorage.setItem('supplier_email', res.data.user.email || res.data.user.phone);
+            localStorage.setItem('supplier_email', res.data.user.email);
             navigate('/supplier');
           }
           else if (userRole === 'consumer') navigate('/consumer');
           else if (userRole === 'emergency') navigate('/emergency');
           else if (userRole === 'admin') navigate('/consumer');
+          else {
+            setError('Unknown account role. Please contact support.');
+            setIsLoading(false);
+          }
         } else {
           setError('Login failed: Invalid email or password. Please check your credentials and try again.');
         }
@@ -342,13 +385,15 @@ const Login = () => {
     } catch (err) {
       // More specific error messages
       if (err.response?.status === 404) {
-        setError('Account not found: No account exists with this phone number. Please check the number or register a new account.');
+        setError('Account not found: No account exists with this email address. Please check the email or register a new account.');
       } else if (err.response?.status === 401) {
         if (activeTab === 'emergency') {
           setError('Invalid credentials: The password you entered is incorrect. Please contact your system administrator for emergency access.');
         } else {
           setError('Invalid credentials: The password you entered is incorrect. Please try again or use "Forgot Password".');
         }
+      } else if (err.response?.status === 500) {
+        setError('Server Error: Database mismatch. Please delete "foodtech.db" in the backend folder and restart the server.');
       } else if (err.response?.data?.detail) {
         setError(`Error: ${err.response.data.detail}`);
       } else {
@@ -363,7 +408,8 @@ const Login = () => {
     localStorage.setItem('foodtech_user', JSON.stringify({
       role: 'consumer',
       name: 'Guest User',
-      isGuest: true
+      isGuest: true,
+      phoneVerified: false
     }));
     navigate('/consumer');
   };
@@ -371,18 +417,26 @@ const Login = () => {
   // Real Password Reset Handler
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    if(!resetData.email || !resetData.newPassword) return;
+    const email = resetData.email.trim();
+    const password = resetData.newPassword;
+
+    if(!email || !password) {
+        alert("Please enter both email and new password.");
+        return;
+    }
     
     try {
-        await axios.put('http://localhost:8000/reset-password', {
-            email: resetData.email,
-            new_password: resetData.newPassword
+        const res = await axios.put('http://localhost:8000/reset-password', {
+            email: email,
+            new_password: password
         });
-        alert(t('pass_updated'));
+        alert(res.data.message || t('pass_updated'));
         setShowForgotModal(false);
         setResetData({ email: '', newPassword: '' });
     } catch (err) {
-        alert(t('email_not_found'));
+        console.error("Reset Password Error:", err);
+        const errorMsg = err.response?.data?.detail || "Connection error or Email not found";
+        alert(`Error: ${errorMsg}`);
     }
   };
 
@@ -538,6 +592,61 @@ const Login = () => {
                                 required={isRegistering}
                             />
                         </div>
+                        <div className="relative group">
+                            <Phone className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                            <input 
+                                name="phone"
+                                type="text" 
+                                className={`w-full pl-10 pr-24 py-3 bg-gray-50 border ${isPhoneVerified ? 'border-green-500' : 'border-gray-200'} rounded-xl outline-none focus:ring-2 focus:ring-opacity-50 transition-all text-sm font-medium focus:bg-white`}
+                                placeholder={t('phone')}
+                                value={formData.phone}
+                                onChange={handleChange}
+                                required={isRegistering}
+                                disabled={isPhoneVerified}
+                            />
+                            {!isPhoneVerified && (
+                                <button
+                                    type="button"
+                                    onClick={handleSendOtp}
+                                    className="absolute right-2 top-2 bottom-2 px-3 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    Verify
+                                </button>
+                            )}
+                            {isPhoneVerified && (
+                                <div className="absolute right-3 top-3.5 text-green-600">
+                                    <Check size={20} />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* OTP Input Field (Conditional) */}
+                        <AnimatePresence>
+                            {otpSent && !isPhoneVerified && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="flex gap-2"
+                                >
+                                    <input 
+                                        type="text"
+                                        placeholder="Enter OTP"
+                                        className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm"
+                                        value={otpInput}
+                                        onChange={(e) => setOtpInput(e.target.value)}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleVerifyOtp}
+                                        className="px-4 py-3 bg-green-600 text-white font-bold rounded-xl text-sm hover:bg-green-700"
+                                    >
+                                        Confirm
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
                         {activeTab === 'consumer' && (
                             <>
                                 <div className="relative group">
@@ -570,34 +679,18 @@ const Login = () => {
                 )}
               </AnimatePresence>
 
-              {/* Phone Number (Always Visible) */}
               <div className="relative group">
-                <Phone className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
                 <input 
-                  name="phone"
-                  type="text" 
+                  name="email"
+                  type="email" 
                   className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-opacity-50 transition-all text-sm font-medium focus:bg-white"
-                  placeholder={t('phone', {defaultValue: 'Phone Number'})}
-                  value={formData.phone}
+                  placeholder={t('email')}
+                  value={formData.email}
                   onChange={handleChange}
                   required 
                 />
               </div>
-
-              {/* Email (Only for Registration - Optional) */}
-              {isRegistering && activeTab !== 'emergency' && (
-                <div className="relative group">
-                    <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                    <input 
-                    name="email"
-                    type="email" 
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-opacity-50 transition-all text-sm font-medium focus:bg-white"
-                    placeholder={t('email') + " (Optional)"}
-                    value={formData.email}
-                    onChange={handleChange}
-                    />
-                </div>
-              )}
 
               <div className="relative group">
                 <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
@@ -670,7 +763,7 @@ const Login = () => {
                     </p>
                     <div className="mt-3 text-xs text-gray-500">
                         <p className="font-bold">Demo credentials:</p>
-                        <p>Phone: 112 / Pass: admin123</p>
+                        <p>admin@safe.gov / admin123</p>
                     </div>
                 </div>
             )}

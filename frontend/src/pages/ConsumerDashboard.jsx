@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
-    MapPin, Search, SlidersHorizontal, List, Shield, Crosshair, Download, LogOut, AlertTriangle, Bot, Package, Navigation, MessageCircle, Send, Utensils, Mic, MicOff, ThumbsUp, WifiOff 
+    MapPin, Search, SlidersHorizontal, List, Shield, Crosshair, Download, LogOut, AlertTriangle, Bot, Package, Navigation, MessageCircle, Send, Utensils, Mic, MicOff, ThumbsUp, WifiOff, MapPinOff, Phone, Lock, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import L from 'leaflet';
 import { useTranslation } from 'react-i18next';
+
+const API_BASE_URL = 'http://localhost:8000';
 
 const FOOD_CENTERS = [
     { id: 1, name: "Moirang Bazar Food Center", address: "Moirang Bazar, Bishnupur", lat: 24.5167, lng: 93.7667, status: "open", crowd: "High", items: 45, cookedFood: true, menu: ["Rice Meals", "Dal Chawal", "Khichdi", "Vegetable Curry", "Chapati Pack"] },
@@ -142,6 +144,12 @@ const ConsumerDashboard = () => {
     const [expandedMenus, setExpandedMenus] = useState({});
     const [myRequests, setMyRequests] = useState([]);
 
+    // Guest Phone Verification State
+    const [showPhoneAuthModal, setShowPhoneAuthModal] = useState(false);
+    const [guestPhone, setGuestPhone] = useState('');
+    const [guestOTP, setGuestOTP] = useState('');
+    const [generatedOTP, setGeneratedOTP] = useState(null);
+
     // Routing States
     const [routePath, setRoutePath] = useState([]); // Stores the road coordinates
     const [routeInfo, setRouteInfo] = useState(null); // Stores distance/duration
@@ -184,10 +192,17 @@ const ConsumerDashboard = () => {
         return centersWithDistance.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))[0];
     }, [userLoc, centers]);
 
-    // Chat States - Removed (no longer using real-time chat with centers)
+    // Chat States
     const [activeChat, setActiveChat] = useState(null);
     const [activeChatCenter, setActiveChatCenter] = useState(null);
     const [msgText, setMsgText] = useState("");
+    const [centerMessages, setCenterMessages] = useState(() => {
+        try { 
+            const saved = localStorage.getItem('consumer_messages'); 
+            const parsed = saved ? JSON.parse(saved) : null;
+            return (parsed && typeof parsed === 'object') ? parsed : {}; 
+        } catch(e) { return {}; }
+    });
     const [aiMessages, setAiMessages] = useState([{ sender: 'AI Bot', content: 'Hello! I am your FoodTech Assistant.', self: false }]);
     // Search & Filter UI states
     const [searchTerm, setSearchTerm] = useState('');
@@ -197,6 +212,7 @@ const ConsumerDashboard = () => {
     const [showFilters, setShowFilters] = useState(true);
     const [isListExpanded, setIsListExpanded] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
+    const [locationError, setLocationError] = useState(false);
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     const [loading, setLoading] = useState(true);
@@ -238,21 +254,11 @@ const ConsumerDashboard = () => {
         const langs = ['en', 'hi', 'mni', 'or'];
         const current = langs.indexOf(i18n.language) > -1 ? langs.indexOf(i18n.language) : 0;
         const next = (current + 1) % langs.length;
-        const nextLang = langs[next];
-        i18n.changeLanguage(nextLang);
-        localStorage.setItem('foodtech_language', nextLang);
+        i18n.changeLanguage(langs[next]);
     };
 
-    // Load saved language preference
-    useEffect(() => {
-        const savedLang = localStorage.getItem('foodtech_language');
-        if (savedLang && i18n.language !== savedLang) {
-            i18n.changeLanguage(savedLang);
-        }
-    }, [i18n]);
-
     const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
-    useEffect(() => { scrollToBottom(); }, [aiMessages, activeChat, isTyping]);
+    useEffect(() => { scrollToBottom(); }, [centerMessages, aiMessages, activeChat, isTyping]);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -283,6 +289,12 @@ const ConsumerDashboard = () => {
     }, [i18n]);
 
     useEffect(() => {
+        let isMounted = true;
+        // Safety timeout: Force loading to stop after 8 seconds if it gets stuck
+        const safetyTimer = setTimeout(() => {
+            if (isMounted) setLoading(false);
+        }, 8000);
+
         const initDashboard = async () => {
             try {
                 // Fake loading delay for smooth transition
@@ -290,14 +302,31 @@ const ConsumerDashboard = () => {
 
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
-                        (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                        () => console.log("Location access denied")
+                        (pos) => {
+                            setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                            setLocationError(false);
+                        },
+                        () => {
+                            console.log("Location access denied");
+                            setLocationError(true);
+                        }
                     );
+                    try {
+                        const pos = await new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                        });
+                        setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                        setLocationError(false);
+                    } catch (error) {
+                        console.log("Location access denied or timed out");
+                        setLocationError(true);
+                        setUserLoc({ lat: 24.8170, lng: 93.9368 }); // Fallback to Imphal
+                    }
                 }
 
                 // Fetch registered centers from backend
                 try {
-                    const res = await axios.get('http://localhost:8000/centers');
+                    const res = await axios.get(`${API_BASE_URL}/centers`);
                     const validData = validateCenters(res.data);
                     if (validData.length > 0) {
                         const newCenters = validData.map(c => ({
@@ -321,7 +350,7 @@ const ConsumerDashboard = () => {
 
                 // Fetch risk zones
                 try {
-                    const res = await axios.get('http://localhost:8000/risk-zones');
+                    const res = await axios.get(`${API_BASE_URL}/risk-zones`);
                     const validZones = validateCenters(res.data);
                     setRiskZones(validZones);
                     localStorage.setItem('consumer_riskZones', JSON.stringify(validZones));
@@ -331,7 +360,7 @@ const ConsumerDashboard = () => {
                 const user = JSON.parse(localStorage.getItem('foodtech_user'));
                 if (user) {
                     try {
-                        const reqRes = await axios.get('http://localhost:8000/food-requests');
+                        const reqRes = await axios.get(`${API_BASE_URL}/food-requests`);
                         const userRequests = reqRes.data.filter(r => r.consumer_name === user.name);
                         setMyRequests(userRequests);
                     } catch (e) { console.log('No requests'); }
@@ -340,15 +369,37 @@ const ConsumerDashboard = () => {
             } catch (err) {
                 console.error("Dashboard init error", err);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
 
         initDashboard();
+        return () => { 
+            isMounted = false;
+            clearTimeout(safetyTimer);
+        };
     }, []);
 
-    // Poll messages separately - REMOVED (no longer using real-time chat)
-    // useEffect removed to prevent unnecessary API calls
+    // Poll messages only for the active chat center to save resources and avoid console spam
+    useEffect(() => {
+        if (loading || activeChat !== 'supplier' || !activeChatCenter) return;
+
+        const fetchMessages = () => {
+            axios.get(`${API_BASE_URL}/messages/${activeChatCenter.id}`)
+                .then(res => {
+                    setCenterMessages(prev => {
+                        const newState = { ...prev, [activeChatCenter.id]: res.data.reverse() };
+                        localStorage.setItem('consumer_messages', JSON.stringify(newState));
+                        return newState;
+                    });
+                })
+                .catch(err => console.warn(`Failed to fetch messages for center ${activeChatCenter.id}`));
+        };
+
+        fetchMessages(); // Fetch immediately
+        const interval = setInterval(fetchMessages, 5000);
+        return () => clearInterval(interval);
+    }, [activeChat, activeChatCenter, loading]);
 
     // Filtered centers for UI (search + chips)
     const filteredCenters = useMemo(() => {
@@ -429,7 +480,7 @@ const ConsumerDashboard = () => {
         const user = JSON.parse(localStorage.getItem('foodtech_user'));
 
         try {
-            await axios.post('http://localhost:8000/sos-alert', {
+            await axios.post(`${API_BASE_URL}/sos-alert`, {
                 lat: userLoc.lat,
                 lng: userLoc.lng,
                 reason: sosReason,
@@ -447,6 +498,10 @@ const ConsumerDashboard = () => {
 
     // --- FETCH DYNAMIC ROAD ROUTE (OSRM API) ---
     const getRoadRoute = async (start, end, showTruck = true) => {
+        if (!start || !end) {
+            alert("Cannot navigate: Your location is not yet available. Please wait or enable GPS.");
+            return;
+        }
         try {
             // OSRM Public API (Free, No Key Needed)
             const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
@@ -499,18 +554,56 @@ const ConsumerDashboard = () => {
     };
 
     const handleRequestFood = async () => {
-        if (!reqItem.name) return;
-        const user = JSON.parse(localStorage.getItem('foodtech_user'));
+        if (!reqItem.name) {
+            alert("Please select a food item.");
+            return;
+        }
+        
+        const userStr = localStorage.getItem('foodtech_user');
+        if (!userStr) {
+            alert("You must be logged in to request food.");
+            return;
+        }
+        const user = JSON.parse(userStr);
+
+        // Security: Guest Verification Check
+        if (user.isGuest && !user.phoneVerified) {
+            setShowPhoneAuthModal(true);
+            return;
+        }
+
+        const qty = parseFloat(reqItem.quantity);
+        if (isNaN(qty) || qty <= 0) {
+            alert("Please enter a valid quantity.");
+            return;
+        }
+
+        // Security: Check daily limit (Max 3 requests)
+        const today = new Date().toISOString().split('T')[0];
+        const requestCountKey = `daily_requests_${user.email || user.name}_${today}`;
+        const currentCount = parseInt(localStorage.getItem(requestCountKey) || '0');
+
+        if (currentCount >= 3) {
+            alert("Your limit for requesting food is over for today.");
+            return;
+        }
 
         try {
-            await axios.post('http://localhost:8000/request-food', {
-                consumer_name: user.name,
+            const payload = {
+                consumer_name: user.name || "Guest",
                 item_name: reqItem.name,
-                quantity: parseFloat(reqItem.quantity),
-                center_id: selectedCenter?.id,
-                center_name: selectedCenter?.name,
-                delivery_type: reqItem.deliveryType
-            });
+                quantity: qty,
+                center_id: selectedCenter?.id || null,
+                center_name: selectedCenter?.name || null,
+                delivery_type: reqItem.deliveryType,
+                phone: user.phone || "Not Provided"
+            };
+            
+            await axios.post(`${API_BASE_URL}/request-food`, payload);
+            
+            // Increment count on success
+            localStorage.setItem(requestCountKey, currentCount + 1);
+
             setShowRequestModal(false);
 
             // Show route for both pickup and delivery
@@ -532,7 +625,48 @@ const ConsumerDashboard = () => {
             setReqItem({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup', unit: 'kg' });
             setSelectedCenter(null);
 
-        } catch (e) { alert("Error sending request."); }
+        } catch (e) { 
+            console.error("Request failed:", e);
+            let errorMsg = "Please check your connection.";
+            if (e.response) {
+                errorMsg = e.response.data?.detail || `Server Error (${e.response.status})`;
+            } else if (e.request) {
+                errorMsg = "No response from server. Ensure backend is running.";
+            } else {
+                errorMsg = e.message;
+            }
+            alert(`Failed to send food request: ${errorMsg}`); 
+        }
+    };
+
+    const handleSendOTP = async () => {
+        if (!guestPhone || guestPhone.length < 10) {
+            alert("Please enter a valid 10-digit phone number");
+            return;
+        }
+        try {
+            const res = await axios.post(`${API_BASE_URL}/send-otp`, { phone: guestPhone });
+            setGeneratedOTP(res.data.otp);
+            alert(`OTP Sent: ${res.data.otp}\n(If using real SMS, check your phone)`);
+        } catch (e) {
+            console.error(e);
+            const msg = e.response?.data?.detail || "Ensure backend is running.";
+            alert(`Failed to send OTP: ${msg}`);
+        }
+    };
+
+    const handleVerifyOTP = () => {
+        if (guestOTP === generatedOTP) {
+            const user = JSON.parse(localStorage.getItem('foodtech_user'));
+            user.phoneVerified = true;
+            user.phone = guestPhone;
+            localStorage.setItem('foodtech_user', JSON.stringify(user));
+            setShowPhoneAuthModal(false);
+            alert("Phone Verified! Sending request...");
+            handleRequestFood();
+        } else {
+            alert("Incorrect OTP. Please try again.");
+        }
     };
 
     const handleCancelPickup = (centerId) => {
@@ -621,20 +755,40 @@ const ConsumerDashboard = () => {
     const sendChatMessage = async (e) => {
         e.preventDefault();
         if (!msgText) return;
-        
-        // Only AI chat is supported now (no supplier chat)
-        // Add user message
-        setAiMessages(prev => [...prev, { sender: 'You', content: msgText, self: true }]);
-        const userQuery = msgText;
-        setMsgText("");
-        setIsTyping(true);
+        const user = JSON.parse(localStorage.getItem('foodtech_user'));
+        if (activeChat === 'supplier' && activeChatCenter) {
+            try {
+                await axios.post(`${API_BASE_URL}/messages/${activeChatCenter.id}`, {
+                    sender: user.name,
+                    content: msgText,
+                    sender_type: 'consumer'
+                });
+                const res = await axios.get(`${API_BASE_URL}/messages/${activeChatCenter.id}`);
+                setCenterMessages(prev => {
+                    const newState = {
+                        ...prev,
+                        [activeChatCenter.id]: res.data.reverse()
+                    };
+                    localStorage.setItem('consumer_messages', JSON.stringify(newState));
+                    return newState;
+                });
+                setMsgText(""); // Clear input after sending
+            } catch (err) {
+                console.log('Message send failed:', err);
+                alert('Could not send message. Check if backend is running.');
+            }
+        } else {
+            // Add user message
+            setAiMessages(prev => [...prev, { sender: 'You', content: msgText, self: true }]);
+            const userQuery = msgText;
+            setMsgText("");
+            setIsTyping(true);
 
             // AI Response Logic
             try {
                 // Attempt to call backend AI service
-                const response = await axios.post('http://localhost:8000/ai-chat', {
+                const response = await axios.post(`${API_BASE_URL}/ai-chat`, {
                     query: userQuery,
-                    language: i18n.language,  // Send current language
                     context: {
                         user_location: userLoc,
                         centers: centers
@@ -769,6 +923,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     setIsTyping(false);
                 }, 800);
             }
+        }
     };
 
     if (loading) {
@@ -831,6 +986,15 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     <button onClick={handleInstallClick} className="p-2 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100" title="Install App">
                         <Download size={20} />
                     </button>
+                )}
+
+                {/* Location Error Indicator */}
+                {locationError && (
+                    <div className="w-full bg-blue-600/90 backdrop-blur-md text-white py-1 px-4 text-center text-xs font-bold z-[60] flex items-center justify-center gap-2 border-b border-blue-500/50 shrink-0">
+                        <MapPinOff size={14} />
+                        <span>Location access blocked. Enable in browser settings for local results.</span>
+                        <span>Location access blocked. Using default location (Imphal).</span>
+                    </div>
                 )}
                 <button onClick={handleLogout} className="p-2 rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100">
                     <LogOut size={20} />
@@ -1005,21 +1169,37 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     </button>
                 </div>
                 
-            {/* Chat Widget - AI Only */}
+            {/* Chat Widget & Modals (Preserved) */}
             {activeChat && (
-                <div className={`absolute bottom-0 w-full md:w-96 md:bottom-20 md:left-4 bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[60vh] md:h-[500px]`}>
-                    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 flex justify-between items-center">
+                <div className={`absolute bottom-0 w-full md:w-96 md:bottom-20 ${activeChat === 'ai' ? 'md:left-4' : 'md:right-6'} bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[60vh] md:h-[500px]`}>
+                    <div className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white p-4 flex justify-between items-center`}>
                         <div>
                             <span className="font-black flex gap-2 text-base items-center">
-                                <Bot size={20} />
-                                SAFE Assistant
+                                {activeChat === 'ai' ? <Bot size={20} /> : <MessageCircle size={20} />}
+                                {activeChat === 'ai' ? 'SAFE Assistant' : (activeChatCenter ? t(`center_names.${activeChatCenter.id}`, activeChatCenter.name) : t('supplier_support', 'Supplier Support'))}
                             </span>
+                            {activeChat === 'supplier' && activeChatCenter && (
+                                <p className="text-xs text-green-100 mt-1">📍 {activeChatCenter.address}</p>
+                            )}
                         </div>
                         <button onClick={() => { setActiveChat(null); setActiveChatCenter(null); }} className="hover:bg-white/20 rounded-lg p-2 transition-all"><span className="text-xl">×</span></button>
                     </div>
                     <div className="flex-1 p-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white space-y-3">
-                        {/* Quick Prompts Chips */}
-                        {aiMessages.length === 1 && (
+                        {activeChat === 'supplier' ? (
+                            activeChatCenter && centerMessages[activeChatCenter.id] ? (
+                                centerMessages[activeChatCenter.id].map((m, i) => (
+                                    <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.sender_type === 'consumer' ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>
+                                        <div className="text-[10px] opacity-70 mb-1">{m.sender}</div>
+                                        {m.content}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center text-slate-400 text-sm py-8">{t('no_messages', 'No messages yet. Start the conversation!')}</div>
+                            )
+                        ) : (
+                            <>
+                                {/* Quick Prompts Chips */}
+                                {aiMessages.length === 1 && (
                                     <div className="flex flex-wrap gap-2 mb-4">
                                         {["Nearest center open now?", "What meals available near me?", "Low crowd centers?", "How to request delivery?", "Emergency help"].map((prompt, idx) => (
                                             <button
@@ -1066,6 +1246,8 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                                         </div>
                                     </div>
                                 )}
+                            </>
+                        )}
                         <div ref={chatEndRef} />
                     </div>
                     <form onSubmit={sendChatMessage} className="p-4 border-t-2 border-slate-100 flex gap-3 bg-white">
@@ -1077,11 +1259,71 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         />
                         <button
                             type="submit"
-                            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all"
+                            className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all`}
                         >
                             <Send size={18} />
                         </button>
                     </form>
+                </div>
+            )}
+
+            {/* Security: Guest Phone Verification Modal */}
+            {showPhoneAuthModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[70]">
+                    <div className="bg-white p-6 rounded-2xl w-80 shadow-2xl border border-slate-200 relative">
+                        <button onClick={() => setShowPhoneAuthModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                            <X size={20} />
+                        </button>
+                        <div className="text-center mb-4">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2 text-blue-600">
+                                <Shield size={24} />
+                            </div>
+                            <h3 className="font-bold text-lg text-slate-900">Guest Verification</h3>
+                            <p className="text-xs text-slate-500">Verify phone number to request food</p>
+                        </div>
+                        
+                        {!generatedOTP ? (
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                                    <input 
+                                        type="tel" 
+                                        placeholder="Phone Number" 
+                                        className="w-full pl-10 pr-4 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={guestPhone}
+                                        onChange={(e) => setGuestPhone(e.target.value)}
+                                    />
+                                </div>
+                                <button onClick={handleSendOTP} className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition">
+                                    Send OTP
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Enter OTP" 
+                                        className="w-full pl-10 pr-4 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={guestOTP}
+                                        onChange={(e) => setGuestOTP(e.target.value)}
+                                    />
+                                </div>
+                                <button onClick={handleVerifyOTP} className="w-full bg-green-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-green-700 transition">
+                                    Verify & Continue
+                                </button>
+                                <div className="flex justify-between items-center mt-2">
+                                    <button onClick={() => setGeneratedOTP(null)} className="text-slate-500 text-xs hover:underline">
+                                        Change Number
+                                    </button>
+                                    <button onClick={handleSendOTP} className="text-blue-600 text-xs hover:underline font-bold">
+                                        Resend OTP
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 

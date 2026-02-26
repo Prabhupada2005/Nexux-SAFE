@@ -39,7 +39,8 @@ import {
   TrendingUp,
   Droplets,
   Wind,
-  Flame
+  Flame,
+  Trash2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -48,8 +49,8 @@ import "leaflet/dist/leaflet.css";
 import RiskMap from "./RiskMap";
 
 // --- ADDED FIREBASE IMPORTS ---
-import { database } from '../firebase';
-import { ref, onValue } from 'firebase/database';
+// import { database } from '../firebase';
+// import { ref, onValue } from 'firebase/database';
 
 const API = "http://localhost:8000";
 
@@ -311,6 +312,8 @@ export default function SupplierDashboard() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
 
   // Center status
   const [centerStatus, setCenterStatus] = useState(() => {
@@ -687,20 +690,20 @@ export default function SupplierDashboard() {
     fetchData(); // Initial load for your backend data
 
     // Connect to Firebase for the IoT cards
-    const sensorsRef = ref(database, 'sensors');
-    const unsubscribe = onValue(sensorsRef, (snapshot) => {
-      const val = snapshot.val();
-      console.log("Firebase Data Received:", val); // <-- Open your browser console (F12) to see this!
-      if (val) {
-        // Convert the Firebase object into an array for your UI
-        const list = Object.keys(val).map(k => ({ id: k, ...val[k] }));
-        setIotData(list);
-      }
-    }, (error) => {
-      console.error("Firebase Connection Error:", error);
-    });
+    // const sensorsRef = ref(database, 'sensors');
+    // const unsubscribe = onValue(sensorsRef, (snapshot) => {
+    //   const val = snapshot.val();
+    //   console.log("Firebase Data Received:", val); // <-- Open your browser console (F12) to see this!
+    //   if (val) {
+    //     // Convert the Firebase object into an array for your UI
+    //     const list = Object.keys(val).map(k => ({ id: k, ...val[k] }));
+    //     setIotData(list);
+    //   }
+    // }, (error) => {
+    //   console.error("Firebase Connection Error:", error);
+    // });
 
-    return () => unsubscribe(); // Clean up on page exit
+    // return () => unsubscribe(); // Clean up on page exit
   }, []);
 
   useEffect(() => {
@@ -2158,6 +2161,63 @@ export default function SupplierDashboard() {
                   Edit Center Details
                 </button>
               </div>
+
+              <div className="pt-4 border-t border-slate-100">
+                <button onClick={() => { setShowSettingsModal(false); setShowDeleteConfirm(true); }} className="w-full py-3 rounded-xl bg-red-50 text-red-600 text-sm font-bold hover:bg-red-100 transition flex items-center justify-center gap-2">
+                  <Trash2 size={18} />
+                  Delete Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70]">
+          <div className="bg-white p-6 rounded-2xl w-[92%] max-w-sm shadow-2xl border border-red-100">
+            <div className="text-center mb-4">
+              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-red-600">
+                <AlertTriangle size={28} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900">Delete Account?</h3>
+              <p className="text-sm text-slate-500 mt-1">
+                This action is permanent. Your center and inventory data will be removed.
+              </p>
+            </div>
+
+            {orders.some(o => o.status !== 'Delivered' && o.status !== 'Rejected') && (
+               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800 font-medium flex gap-2">
+                 <AlertTriangle size={16} className="shrink-0" />
+                 Warning: You have active orders. You must fulfill or reject them before deleting.
+               </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1">Confirm Password</label>
+                <input 
+                  type="password" 
+                  className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                  placeholder="Enter your password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                />
+              </div>
+              
+              <button 
+                onClick={handleDeleteAccount}
+                className="w-full py-3 rounded-xl bg-red-600 text-white font-bold shadow-lg shadow-red-200 hover:bg-red-700 transition-all"
+              >
+                Confirm Deletion
+              </button>
+              <button 
+                onClick={() => { setShowDeleteConfirm(false); setDeletePassword(""); }}
+                className="w-full py-3 rounded-xl text-slate-500 font-bold hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

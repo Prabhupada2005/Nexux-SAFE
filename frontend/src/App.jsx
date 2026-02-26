@@ -18,14 +18,20 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  const user = JSON.parse(userStr);
+  try {
+    const user = JSON.parse(userStr);
 
-  // If role is restricted (e.g., Consumer trying to access Supplier)
-  if (allowedRoles && !allowedRoles.includes(user.role) && user.role !== 'admin') {
+    // If role is restricted (e.g., Consumer trying to access Supplier)
+    if (allowedRoles && !allowedRoles.includes(user.role) && user.role !== 'admin') {
+      return <Navigate to="/login" replace />;
+    }
+
+    return children;
+  } catch (error) {
+    // If JSON is invalid, clear it and redirect to login
+    localStorage.removeItem('foodtech_user');
     return <Navigate to="/login" replace />;
   }
-
-  return children;
 };
 
 function App() {
