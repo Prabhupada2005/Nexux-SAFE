@@ -3,11 +3,11 @@ from database import SessionLocal, User
 db = SessionLocal()
 
 # Check if emergency user exists
-emergency_user = db.query(User).filter(User.email == "emergency@test.com").first()
+emergency_user = db.query(User).filter(User.phone == "112").first()
 
 if emergency_user:
     print("Emergency user already exists!")
-    print(f"Email: {emergency_user.email}")
+    print(f"Phone: {emergency_user.phone}")
     print(f"Password: {emergency_user.password}")
 else:
     # Create emergency user
@@ -21,7 +21,7 @@ else:
     db.add(new_user)
     db.commit()
     print("Emergency user created successfully!")
-    print("Email: emergency@test.com")
+    print("Phone: 112")
     print("Password: demo123")
 
 db.close()

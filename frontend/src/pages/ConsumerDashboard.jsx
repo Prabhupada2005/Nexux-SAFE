@@ -184,17 +184,10 @@ const ConsumerDashboard = () => {
         return centersWithDistance.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))[0];
     }, [userLoc, centers]);
 
-    // Chat States
+    // Chat States - Removed (no longer using real-time chat with centers)
     const [activeChat, setActiveChat] = useState(null);
     const [activeChatCenter, setActiveChatCenter] = useState(null);
     const [msgText, setMsgText] = useState("");
-    const [centerMessages, setCenterMessages] = useState(() => {
-        try { 
-            const saved = localStorage.getItem('consumer_messages'); 
-            const parsed = saved ? JSON.parse(saved) : null;
-            return (parsed && typeof parsed === 'object') ? parsed : {}; 
-        } catch(e) { return {}; }
-    });
     const [aiMessages, setAiMessages] = useState([{ sender: 'AI Bot', content: 'Hello! I am your FoodTech Assistant.', self: false }]);
     // Search & Filter UI states
     const [searchTerm, setSearchTerm] = useState('');
@@ -245,11 +238,21 @@ const ConsumerDashboard = () => {
         const langs = ['en', 'hi', 'mni', 'or'];
         const current = langs.indexOf(i18n.language) > -1 ? langs.indexOf(i18n.language) : 0;
         const next = (current + 1) % langs.length;
-        i18n.changeLanguage(langs[next]);
+        const nextLang = langs[next];
+        i18n.changeLanguage(nextLang);
+        localStorage.setItem('foodtech_language', nextLang);
     };
 
+    // Load saved language preference
+    useEffect(() => {
+        const savedLang = localStorage.getItem('foodtech_language');
+        if (savedLang && i18n.language !== savedLang) {
+            i18n.changeLanguage(savedLang);
+        }
+    }, [i18n]);
+
     const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
-    useEffect(() => { scrollToBottom(); }, [centerMessages, aiMessages, activeChat, isTyping]);
+    useEffect(() => { scrollToBottom(); }, [aiMessages, activeChat, isTyping]);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -344,24 +347,8 @@ const ConsumerDashboard = () => {
         initDashboard();
     }, []);
 
-    // Poll messages separately
-    useEffect(() => {
-        if (loading) return;
-        const interval = setInterval(() => {
-            centers.forEach(center => {
-                axios.get(`http://localhost:8000/messages/${center.id}`)
-                    .then(res => {
-                        setCenterMessages(prev => {
-                            const newState = { ...prev, [center.id]: res.data.reverse() };
-                            localStorage.setItem('consumer_messages', JSON.stringify(newState));
-                            return newState;
-                        });
-                    })
-                    .catch(err => console.log(`No messages for center ${center.id}`));
-            });
-        }, 5000);
-        return () => clearInterval(interval);
-    }, [centers, loading]);
+    // Poll messages separately - REMOVED (no longer using real-time chat)
+    // useEffect removed to prevent unnecessary API calls
 
     // Filtered centers for UI (search + chips)
     const filteredCenters = useMemo(() => {
@@ -634,40 +621,20 @@ const ConsumerDashboard = () => {
     const sendChatMessage = async (e) => {
         e.preventDefault();
         if (!msgText) return;
-        const user = JSON.parse(localStorage.getItem('foodtech_user'));
-        if (activeChat === 'supplier' && activeChatCenter) {
-            try {
-                await axios.post(`http://localhost:8000/messages/${activeChatCenter.id}`, {
-                    sender: user.name,
-                    content: msgText,
-                    sender_type: 'consumer'
-                });
-                const res = await axios.get(`http://localhost:8000/messages/${activeChatCenter.id}`);
-                setCenterMessages(prev => {
-                    const newState = {
-                        ...prev,
-                        [activeChatCenter.id]: res.data.reverse()
-                    };
-                    localStorage.setItem('consumer_messages', JSON.stringify(newState));
-                    return newState;
-                });
-                setMsgText(""); // Clear input after sending
-            } catch (err) {
-                console.log('Message send failed:', err);
-                alert('Could not send message. Check if backend is running.');
-            }
-        } else {
-            // Add user message
-            setAiMessages(prev => [...prev, { sender: 'You', content: msgText, self: true }]);
-            const userQuery = msgText;
-            setMsgText("");
-            setIsTyping(true);
+        
+        // Only AI chat is supported now (no supplier chat)
+        // Add user message
+        setAiMessages(prev => [...prev, { sender: 'You', content: msgText, self: true }]);
+        const userQuery = msgText;
+        setMsgText("");
+        setIsTyping(true);
 
             // AI Response Logic
             try {
                 // Attempt to call backend AI service
                 const response = await axios.post('http://localhost:8000/ai-chat', {
                     query: userQuery,
+                    language: i18n.language,  // Send current language
                     context: {
                         user_location: userLoc,
                         centers: centers
@@ -802,7 +769,6 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     setIsTyping(false);
                 }, 800);
             }
-        }
     };
 
     if (loading) {
@@ -1039,37 +1005,21 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     </button>
                 </div>
                 
-            {/* Chat Widget & Modals (Preserved) */}
+            {/* Chat Widget - AI Only */}
             {activeChat && (
-                <div className={`absolute bottom-0 w-full md:w-96 md:bottom-20 ${activeChat === 'ai' ? 'md:left-4' : 'md:right-6'} bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[60vh] md:h-[500px]`}>
-                    <div className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white p-4 flex justify-between items-center`}>
+                <div className={`absolute bottom-0 w-full md:w-96 md:bottom-20 md:left-4 bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[60vh] md:h-[500px]`}>
+                    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 flex justify-between items-center">
                         <div>
                             <span className="font-black flex gap-2 text-base items-center">
-                                {activeChat === 'ai' ? <Bot size={20} /> : <MessageCircle size={20} />}
-                                {activeChat === 'ai' ? 'SAFE Assistant' : (activeChatCenter ? t(`center_names.${activeChatCenter.id}`, activeChatCenter.name) : t('supplier_support', 'Supplier Support'))}
+                                <Bot size={20} />
+                                SAFE Assistant
                             </span>
-                            {activeChat === 'supplier' && activeChatCenter && (
-                                <p className="text-xs text-green-100 mt-1">📍 {activeChatCenter.address}</p>
-                            )}
                         </div>
                         <button onClick={() => { setActiveChat(null); setActiveChatCenter(null); }} className="hover:bg-white/20 rounded-lg p-2 transition-all"><span className="text-xl">×</span></button>
                     </div>
                     <div className="flex-1 p-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white space-y-3">
-                        {activeChat === 'supplier' ? (
-                            activeChatCenter && centerMessages[activeChatCenter.id] ? (
-                                centerMessages[activeChatCenter.id].map((m, i) => (
-                                    <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.sender_type === 'consumer' ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>
-                                        <div className="text-[10px] opacity-70 mb-1">{m.sender}</div>
-                                        {m.content}
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="text-center text-slate-400 text-sm py-8">{t('no_messages', 'No messages yet. Start the conversation!')}</div>
-                            )
-                        ) : (
-                            <>
-                                {/* Quick Prompts Chips */}
-                                {aiMessages.length === 1 && (
+                        {/* Quick Prompts Chips */}
+                        {aiMessages.length === 1 && (
                                     <div className="flex flex-wrap gap-2 mb-4">
                                         {["Nearest center open now?", "What meals available near me?", "Low crowd centers?", "How to request delivery?", "Emergency help"].map((prompt, idx) => (
                                             <button
@@ -1116,8 +1066,6 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                                         </div>
                                     </div>
                                 )}
-                            </>
-                        )}
                         <div ref={chatEndRef} />
                     </div>
                     <form onSubmit={sendChatMessage} className="p-4 border-t-2 border-slate-100 flex gap-3 bg-white">
@@ -1129,7 +1077,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         />
                         <button
                             type="submit"
-                            className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all`}
+                            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all"
                         >
                             <Send size={18} />
                         </button>

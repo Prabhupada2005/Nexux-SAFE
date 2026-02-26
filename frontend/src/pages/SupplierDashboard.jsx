@@ -573,9 +573,19 @@ export default function SupplierDashboard() {
     const langs = ["en", "hi", "mni", "or"];
     const current = langs.indexOf(lang) > -1 ? langs.indexOf(lang) : 0;
     const next = (current + 1) % langs.length;
-    i18n.changeLanguage(langs[next]);
-    toast("info", "Language changed", `Now using: ${langs[next].toUpperCase()}`);
+    const nextLang = langs[next];
+    i18n.changeLanguage(nextLang);
+    localStorage.setItem('foodtech_language', nextLang);
+    toast("info", "Language changed", `Now using: ${nextLang.toUpperCase()}`);
   };
+
+  // Load saved language preference
+  useEffect(() => {
+    const savedLang = localStorage.getItem('foodtech_language');
+    if (savedLang && i18n.language !== savedLang) {
+      i18n.changeLanguage(savedLang);
+    }
+  }, [i18n]);
 
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
@@ -2127,6 +2137,7 @@ export default function SupplierDashboard() {
                   value={lang}
                   onChange={(e) => {
                     i18n.changeLanguage(e.target.value);
+                    localStorage.setItem('foodtech_language', e.target.value);
                     toast("info", "Language changed", `Now using: ${e.target.value.toUpperCase()}`);
                   }}
                   className="w-full p-2 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from typing import Optional
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, func
 from sqlalchemy.ext.declarative import declarative_base
@@ -17,11 +18,11 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
+    email = Column(String, index=True, nullable=True)
     password = Column(String)
     full_name = Column(String)
     role = Column(String)  # consumer, supplier, emergency, admin
-    phone = Column(String)
+    phone = Column(String, unique=True, index=True)
 
 class Inventory(Base):
     __tablename__ = "inventory"
@@ -86,14 +87,14 @@ Base.metadata.create_all(bind=engine)
 
 # --- 3. Pydantic Schemas (Data Validation) ---
 class UserCreate(BaseModel):
-    email: str
+    email: Optional[str] = None
     password: str
     full_name: str
     role: str
     phone: str
 
 class LoginRequest(BaseModel):
-    email: str
+    phone: str
     password: str
 
 class InventoryItem(BaseModel):
@@ -162,9 +163,9 @@ def get_db():
 
 @app.post("/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
+    db_user = db.query(User).filter(User.phone == user.phone).first()
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="Phone number already registered")
     new_user = User(email=user.email, password=user.password, full_name=user.full_name, role=user.role, phone=user.phone)
     db.add(new_user)
     db.commit()
@@ -174,15 +175,15 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 @app.post("/login")
 def login(creds: LoginRequest, db: Session = Depends(get_db)):
     # First check if user exists
-    user = db.query(User).filter(User.email == creds.email).first()
+    user = db.query(User).filter(User.phone == creds.phone).first()
     if not user:
-        raise HTTPException(status_code=404, detail="No account found with this email address")
+        raise HTTPException(status_code=404, detail="No account found with this phone number")
     
     # Then check password
     if user.password != creds.password:
         raise HTTPException(status_code=401, detail="Incorrect password")
     
-    return {"success": True, "user": {"email": user.email, "name": user.full_name, "role": user.role}}
+    return {"success": True, "user": {"email": user.email, "phone": user.phone, "name": user.full_name, "role": user.role}}
 
 @app.put("/reset-password")
 def reset_password(data: PasswordReset, db: Session = Depends(get_db)):
@@ -228,14 +229,24 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 # Requests
 @app.get("/food-requests")
 def get_requests(db: Session = Depends(get_db)):
-    return db.query(FoodRequest).all()
+    try:
+        return db.query(FoodRequest).all()
+    except Exception as e:
+        print(f"Error fetching food requests: {e}")
+        return []
 
 @app.post("/request-food")
 def request_food(req: RequestItem, db: Session = Depends(get_db)):
-    new_req = FoodRequest(consumer_name=req.consumer_name, item_name=req.item_name, quantity=req.quantity)
-    db.add(new_req)
-    db.commit()
-    return new_req
+    try:
+        new_req = FoodRequest(consumer_name=req.consumer_name, item_name=req.item_name, quantity=req.quantity)
+        db.add(new_req)
+        db.commit()
+        db.refresh(new_req)
+        return new_req
+    except Exception as e:
+        print(f"Error creating food request: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/reject-request/{request_id}")
 def reject_request(request_id: int, data: RejectRequest, db: Session = Depends(get_db)):
@@ -277,11 +288,7 @@ def fulfill_request(request_id: int, db: Session = Depends(get_db)):
     print(f"SUCCESS: Deducted {req.quantity}. New Balance: {item.quantity}")
     return {"message": f"Success! Deducted {req.quantity}. Remaining: {item.quantity}"}
 
-# Chat & Risk
-@app.get("/messages")
-def get_messages(db: Session = Depends(get_db)):
-    return db.query(Message).all()
-
+# Centers & Risk
 @app.get("/centers")
 def get_centers(db: Session = Depends(get_db)):
     return db.query(Center).all()
@@ -313,28 +320,13 @@ def get_supplier_center(email: str, db: Session = Depends(get_db)):
         return {"exists": False}
     return {"exists": True, "center": center}
 
-@app.get("/messages/{center_id}")
-def get_center_messages(center_id: int, db: Session = Depends(get_db)):
-    return db.query(Message).filter(Message.center_id == center_id).all()
-
-@app.post("/messages")
-def send_message(msg: MessageCreate, db: Session = Depends(get_db)):
-    new_msg = Message(sender=msg.sender, content=msg.content, sender_type=msg.sender_type)
-    db.add(new_msg)
-    db.commit()
-    return new_msg
-
-@app.post("/messages/{center_id}")
-def send_center_message(center_id: int, msg: MessageCreate, db: Session = Depends(get_db)):
-    new_msg = Message(center_id=center_id, sender=msg.sender, content=msg.content, sender_type=msg.sender_type)
-    db.add(new_msg)
-    db.commit()
-    return new_msg
-
 @app.get("/risk-zones")
 def get_risk_zones(db: Session = Depends(get_db)):
-    # Only return verified risk zones
-    return db.query(RiskZone).filter(RiskZone.verified == True).all()
+    try:
+        return db.query(RiskZone).filter(RiskZone.verified == True).all()
+    except Exception as e:
+        print(f"Error fetching risk zones: {e}")
+        return []
 
 @app.post("/risk-zones")
 def add_risk_zone(zone: RiskZoneCreate, db: Session = Depends(get_db)):
@@ -475,6 +467,83 @@ def get_alert_clusters(db: Session = Depends(get_db)):
             })
     
     return clusters
+
+# AI Chat Schema
+class AIChatRequest(BaseModel):
+    query: str
+    context: dict = {}
+    language: str = "en"  # Default to English
+
+# AI Chat Endpoint
+@app.post("/ai-chat")
+def ai_chat(request: AIChatRequest):
+    query = request.query.lower()
+    lang = request.language
+    
+    # Multi-language responses
+    responses = {
+        "en": {
+            "nearest": "I can help you find the nearest food center! Check the map above to see centers near your location. The closest ones are marked with distance indicators.",
+            "open": "Most food centers are currently open. Look for centers with 'Open' status on the map. You can also check crowd levels to avoid busy locations.",
+            "menu": "Food centers offer rice meals, vegetables, water, and emergency supplies. Click on any center marker on the map to see their specific menu and availability.",
+            "request": "To request food, click on a food center marker on the map and use the 'Request Food' button. Specify the item and quantity you need.",
+            "sos": "If you're in danger, use the SOS Alert button (red button with warning icon) to report your location. Emergency services will be notified immediately.",
+            "crowd": "Check the crowd level indicator on each food center. Green means low crowd, yellow is moderate, and red indicates high crowd. Plan your visit accordingly!",
+            "safe": "Red zones on the map indicate danger areas. Avoid these zones when traveling. The system will suggest safe routes automatically.",
+            "default": "I'm here to help! You can ask me about: nearest food centers, what's available, how to request food, SOS alerts, crowd levels, or safe routes. What would you like to know?"
+        },
+        "hi": {
+            "nearest": "मैं आपको निकटतम खाद्य केंद्र खोजने में मदद कर सकता हूं! अपने स्थान के पास केंद्र देखने के लिए ऊपर का नक्शा देखें। निकटतम वाले दूरी संकेतक के साथ चिह्नित हैं।",
+            "open": "अधिकांश खाद्य केंद्र वर्तमान में खुले हैं। नक्शे पर 'खुला' स्थिति वाले केंद्रों को देखें। आप व्यस्त स्थानों से बचने के लिए भीड़ स्तर भी जांच सकते हैं।",
+            "menu": "खाद्य केंद्र चावल के भोजन, सब्जियां, पानी और आपातकालीन आपूर्ति प्रदान करते हैं। उनके विशिष्ट मेनू और उपलब्धता देखने के लिए नक्शे पर किसी भी केंद्र मार्कर पर क्लिक करें।",
+            "request": "भोजन का अनुरोध करने के लिए, नक्शे पर एक खाद्य केंद्र मार्कर पर क्लिक करें और 'भोजन अनुरोध करें' बटन का उपयोग करें। आपको आवश्यक वस्तु और मात्रा निर्दिष्ट करें।",
+            "sos": "यदि आप खतरे में हैं, तो अपने स्थान की रिपोर्ट करने के लिए SOS अलर्ट बटन (चेतावनी आइकन के साथ लाल बटन) का उपयोग करें। आपातकालीन सेवाओं को तुरंत सूचित किया जाएगा।",
+            "crowd": "प्रत्येक खाद्य केंद्र पर भीड़ स्तर संकेतक की जांच करें। हरा मतलब कम भीड़, पीला मध्यम है, और लाल उच्च भीड़ को इंगित करता है। तदनुसार अपनी यात्रा की योजना बनाएं!",
+            "safe": "नक्शे पर लाल क्षेत्र खतरे वाले क्षेत्रों को इंगित करते हैं। यात्रा करते समय इन क्षेत्रों से बचें। सिस्टम स्वचालित रूप से सुरक्षित मार्गों का सुझाव देगा।",
+            "default": "मैं मदद के लिए यहां हूं! आप मुझसे पूछ सकते हैं: निकटतम खाद्य केंद्र, क्या उपलब्ध है, भोजन का अनुरोध कैसे करें, SOS अलर्ट, भीड़ स्तर, या सुरक्षित मार्ग। आप क्या जानना चाहेंगे?"
+        },
+        "mni": {
+            "nearest": "ꯑꯩꯅꯥ ꯅꯍꯥꯀꯄꯨ ꯈ꯭ꯋꯥꯏꯗꯒꯤ ꯅꯀꯄꯥ ꯆꯥꯅꯕꯥ ꯁꯦꯟꯇꯔ ꯊꯤꯕꯗꯥ ꯃꯇꯦꯡ ꯄꯥꯡꯕꯥ ꯉꯃꯒꯅꯤ! ꯅꯍꯥꯛꯀꯤ ꯃꯐꯝ ꯃꯅꯥꯛꯇꯥ ꯂꯩꯕꯥ ꯁꯦꯟꯇꯔꯁꯤꯡ ꯎꯅꯕꯥ ꯃꯊꯛꯇꯥ ꯂꯩꯕꯥ ꯃꯦꯞ ꯌꯦꯡꯕꯤꯌꯨ꯫",
+            "open": "ꯆꯥꯅꯕꯥ ꯁꯦꯟꯇꯔ ꯑꯌꯥꯝꯕꯥ ꯍꯧꯖꯤꯛ ꯍꯥꯡꯗꯣꯛꯂꯤ꯫ ꯃꯦꯞꯇꯥ 'ꯍꯥꯡꯗꯣꯛꯂꯕꯥ' ꯍꯥꯌꯕꯥ ꯁꯦꯟꯇꯔꯁꯤꯡ ꯊꯤꯌꯨ꯫",
+            "menu": "ꯆꯥꯅꯕꯥ ꯁꯦꯟꯇꯔꯁꯤꯡꯅꯥ ꯆꯦꯡ ꯆꯥꯕꯥ, ꯎꯍꯩ-ꯊꯥꯡꯖꯤꯡ, ꯏꯁꯤꯡ ꯑꯃꯁꯨꯡ ꯈꯨꯗꯣꯡꯊꯤꯕꯥ ꯃꯇꯃꯒꯤ ꯄꯣꯠꯂꯃꯁꯤꯡ ꯄꯤꯔꯤ꯫",
+            "request": "ꯆꯥꯅꯕꯥ ꯂꯧꯅꯕꯥ, ꯃꯦꯞꯇꯥ ꯆꯥꯅꯕꯥ ꯁꯦꯟꯇꯔ ꯃꯥꯔꯀꯔ ꯑꯃꯗꯥ ꯀ꯭ꯂꯤꯛ ꯇꯧ ꯑꯃꯁꯨꯡ 'ꯆꯥꯅꯕꯥ ꯂꯧꯕꯥ' ꯕꯇꯟ ꯁꯤꯖꯤꯟꯅꯧ꯫",
+            "sos": "ꯀꯔꯤꯒꯨꯝꯕꯥ ꯅꯍꯥꯛ ꯈꯨꯗꯣꯡꯊꯤꯕꯥ ꯃꯇꯃꯗꯥ ꯂꯩꯔꯕꯗꯤ, SOS ꯑꯦꯂꯔꯠ ꯕꯇꯟ ꯁꯤꯖꯤꯟꯅꯧ꯫",
+            "crowd": "ꯆꯥꯅꯕꯥ ꯁꯦꯟꯇꯔ ꯈꯨꯗꯤꯡꯃꯛꯇꯥ ꯃꯤꯌꯥꯝꯒꯤ ꯆꯥꯡ ꯌꯦꯡꯕꯤꯌꯨ꯫ ꯒ꯭ꯔꯤꯟ ꯍꯥꯌꯕꯁꯤ ꯃꯤꯌꯥꯝ ꯈꯔꯥ, ꯌꯦꯂꯣ ꯍꯥꯌꯕꯁꯤ ꯃꯌꯥꯏ ꯑꯣꯏ꯫",
+            "safe": "ꯃꯦꯞꯇꯥ ꯂꯩꯕꯥ ꯂꯥꯜ ꯖꯣꯅꯁꯤꯡꯅꯥ ꯈꯨꯗꯣꯡꯊꯤꯕꯥ ꯃꯐꯃꯁꯤꯡ ꯇꯥꯛꯂꯤ꯫ ꯆꯠꯄꯥ ꯃꯇꯃꯗꯥ ꯖꯣꯅ ꯑꯁꯤꯗꯒꯤ ꯂꯥꯞꯅꯥ ꯂꯩꯌꯨ꯫",
+            "default": "ꯑꯩꯅꯥ ꯃꯇꯦꯡ ꯄꯥꯡꯅꯕꯥ ꯃꯐꯝ ꯑꯁꯤꯗꯥ ꯂꯩ! ꯅꯍꯥꯛꯅꯥ ꯑꯩꯗꯒꯤ ꯍꯪꯕꯥ ꯌꯥꯏ: ꯈ꯭ꯋꯥꯏꯗꯒꯤ ꯅꯀꯄꯥ ꯆꯥꯅꯕꯥ ꯁꯦꯟꯇꯔ, ꯀꯔꯤ ꯂꯩꯔꯤꯕꯥ, ꯆꯥꯅꯕꯥ ꯀꯔꯝꯅꯥ ꯂꯧꯒꯗꯒꯦ꯫"
+        },
+        "or": {
+            "nearest": "ମୁଁ ଆପଣଙ୍କୁ ନିକଟତମ ଖାଦ୍ୟ କେନ୍ଦ୍ର ଖୋଜିବାରେ ସାହାଯ୍ୟ କରିପାରିବି! ଆପଣଙ୍କ ଅବସ୍ଥାନ ନିକଟରେ କେନ୍ଦ୍ରଗୁଡିକ ଦେଖିବା ପାଇଁ ଉପରେ ମାନଚିତ୍ର ଯାଞ୍ଚ କରନ୍ତୁ।",
+            "open": "ଅଧିକାଂଶ ଖାଦ୍ୟ କେନ୍ଦ୍ର ବର୍ତ୍ତମାନ ଖୋଲା ଅଛି। ମାନଚିତ୍ରରେ 'ଖୋଲା' ସ୍ଥିତି ସହିତ କେନ୍ଦ୍ରଗୁଡିକ ଖୋଜନ୍ତୁ।",
+            "menu": "ଖାଦ୍ୟ କେନ୍ଦ୍ରଗୁଡିକ ଚାଉଳ ଭୋଜନ, ପନିପରିବା, ପାଣି ଏବଂ ଜରୁରୀକାଳୀନ ଯୋଗାଣ ପ୍ରଦାନ କରନ୍ତି।",
+            "request": "ଖାଦ୍ୟ ଅନୁରୋଧ କରିବାକୁ, ମାନଚିତ୍ରରେ ଏକ ଖାଦ୍ୟ କେନ୍ଦ୍ର ମାର୍କର୍ ଉପରେ କ୍ଲିକ୍ କରନ୍ତୁ ଏବଂ 'ଖାଦ୍ୟ ଅନୁରୋଧ' ବଟନ୍ ବ୍ୟବହାର କରନ୍ତୁ।",
+            "sos": "ଯଦି ଆପଣ ବିପଦରେ ଅଛନ୍ତି, ତେବେ ଆପଣଙ୍କ ଅବସ୍ଥାନ ରିପୋର୍ଟ କରିବାକୁ SOS ଆଲର୍ଟ ବଟନ୍ (ଲାଲ୍ ବଟନ୍) ବ୍ୟବହାର କରନ୍ତୁ।",
+            "crowd": "ପ୍ରତ୍ୟେକ ଖାଦ୍ୟ କେନ୍ଦ୍ରରେ ଭିଡ଼ ସ୍ତର ସୂଚକ ଯାଞ୍ଚ କରନ୍ତୁ। ସବୁଜ ଅର୍ଥ କମ୍ ଭିଡ଼, ହଳଦିଆ ମଧ୍ୟମ, ଏବଂ ଲାଲ୍ ଉଚ୍ଚ ଭିଡ଼ ସୂଚିତ କରେ।",
+            "safe": "ମାନଚିତ୍ରରେ ଲାଲ୍ ଜୋନ୍ ବିପଦ କ୍ଷେତ୍ର ସୂଚିତ କରେ। ଯାତ୍ରା କରିବା ସମୟରେ ଏହି ଜୋନ୍ଗୁଡିକରୁ ଦୂରେଇ ରୁହନ୍ତୁ।",
+            "default": "ମୁଁ ସାହାଯ୍ୟ କରିବାକୁ ଏଠାରେ ଅଛି! ଆପଣ ମୋତେ ପଚାରିପାରିବେ: ନିକଟତମ ଖାଦ୍ୟ କେନ୍ଦ୍ର, କଣ ଉପଲବ୍ଧ, ଖାଦ୍ୟ କିପରି ଅନୁରୋଧ କରିବେ, SOS ଆଲର୍ଟ, ଭିଡ଼ ସ୍ତର, କିମ୍ବା ସୁରକ୍ଷିତ ମାର୍ଗ।"
+        }
+    }
+    
+    # Get language responses (default to English if language not found)
+    lang_responses = responses.get(lang, responses["en"])
+    
+    # Match query to response
+    if "nearest" in query or "closest" in query or "near" in query:
+        return {"response": lang_responses["nearest"]}
+    elif "open" in query or "available" in query:
+        return {"response": lang_responses["open"]}
+    elif "menu" in query or "food" in query or "meal" in query:
+        return {"response": lang_responses["menu"]}
+    elif "request" in query or "order" in query:
+        return {"response": lang_responses["request"]}
+    elif "sos" in query or "emergency" in query or "danger" in query:
+        return {"response": lang_responses["sos"]}
+    elif "crowd" in query or "busy" in query:
+        return {"response": lang_responses["crowd"]}
+    elif "safe" in query or "route" in query:
+        return {"response": lang_responses["safe"]}
+    else:
+        return {"response": lang_responses["default"]}
 
 # IoT Simulation
 @app.get("/iot/spoilage")

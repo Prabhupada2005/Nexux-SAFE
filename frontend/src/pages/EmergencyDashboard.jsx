@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  Siren, LogOut, Map as MapIcon, ShieldAlert, Radio, Activity, Globe, CheckCircle, XCircle, AlertTriangle, Clock, WifiOff 
+  Siren, LogOut, Activity, Globe, CheckCircle, XCircle, AlertTriangle, Clock, WifiOff 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Circle, Marker, Popup } from 'react-leaflet';
@@ -39,21 +39,25 @@ const EmergencyDashboard = () => {
 
     const fetchData = async () => {
         try {
-          const [invRes, reqRes, msgRes, riskRes] = await Promise.all([
-            axios.get('http://localhost:8000/inventory'),
-            axios.get('http://localhost:8000/food-requests'),
-            // Notice we removed the IoT axios call here!
-            axios.get('http://localhost:8000/messages'),
+          const [alertsRes, riskRes] = await Promise.all([
+            axios.get('http://localhost:8000/sos-alerts'),
             axios.get('http://localhost:8000/risk-zones')
           ]);
     
-          setInventory(invRes.data);
-          setRequests(reqRes.data);
-          if (msgRes.data.length !== messages.length) {
-              setMessages(msgRes.data.reverse());
-          }
+          const alerts = alertsRes.data;
+          setAllAlerts(alerts);
+          setPendingAlerts(alerts.filter(a => a.status === 'pending'));
           setRiskZones(riskRes.data);
-          setLastSync(new Date());
+          
+          localStorage.setItem('emergency_allAlerts', JSON.stringify(alerts));
+          localStorage.setItem('emergency_pendingAlerts', JSON.stringify(alerts.filter(a => a.status === 'pending')));
+          localStorage.setItem('emergency_riskZones', JSON.stringify(riskRes.data));
+          
+          // Fetch addresses for pending alerts
+          const pendingAlertsList = alerts.filter(a => a.status === 'pending');
+          pendingAlertsList.forEach(alert => {
+            getAddress(alert.lat, alert.lng, alert.id);
+          });
         } catch (err) { console.error("Sync Error:", err); }
       };
 
@@ -61,6 +65,7 @@ const EmergencyDashboard = () => {
         fetchData();
         const interval = setInterval(fetchData, 5000);
         return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -78,15 +83,72 @@ const EmergencyDashboard = () => {
     useEffect(() => {
         if (i18n.addResourceBundle) {
             i18n.addResourceBundle('hi', 'translation', {
-                'offline_msg': 'ऑफ़लाइन मोड - लाइव अपडेट रुके हुए हैं', 'logout': 'लॉग आउट'
+                'offline_msg': 'ऑफ़लाइन मोड - लाइव अपडेट रुके हुए हैं', 
+                'logout': 'लॉग आउट',
+                'emergency_command': 'आपातकालीन कमांड',
+                'official_only': 'केवल आधिकारिक उपयोग',
+                'pending_alerts': 'लंबित अलर्ट',
+                'no_pending': 'कोई लंबित अलर्ट नहीं',
+                'verify': 'सत्यापित करें',
+                'reject': 'अस्वीकार करें',
+                'system_status': 'सिस्टम स्थिति',
+                'database': 'डेटाबेस',
+                'total_alerts': 'कुल अलर्ट',
+                'pending': 'लंबित',
+                'risk_zones': 'जोखिम क्षेत्र',
+                'online': 'ऑनलाइन',
+                'active': 'सक्रिय',
+                'live_map': 'लाइव रणनीतिक मानचित्र',
+                'danger_zones': 'खतरा क्षेत्र',
+                'danger_zone': 'खतरा क्षेत्र',
+                'radius': 'त्रिज्या',
+                'verified_alert': 'सत्यापित अलर्ट'
             }, true, true);
 
             i18n.addResourceBundle('mni', 'translation', {
-                'offline_msg': 'ꯑꯣꯐꯂꯥꯏꯟ ꯃꯣꯗ - ꯂꯥꯏꯕ ꯑꯞꯗꯦꯠ ꯂꯦꯞꯂꯤ', 'logout': 'ꯂꯣꯒ ꯑꯥꯎꯠ'
+                'offline_msg': 'ꯑꯣꯐꯂꯥꯏꯟ ꯃꯣꯗ - ꯂꯥꯏꯕ ꯑꯞꯗꯦꯠ ꯂꯦꯞꯂꯤ', 
+                'logout': 'ꯂꯣꯒ ꯑꯥꯎꯠ',
+                'emergency_command': 'ꯏꯃꯔꯖꯦꯟꯁꯤ ꯀꯃꯥꯟꯗ',
+                'official_only': 'ꯑꯣꯐꯤꯁꯤꯑꯦꯜꯒꯤꯗꯃꯛꯇ',
+                'pending_alerts': 'ꯂꯦꯞꯂꯤꯕ ꯑꯦꯂꯔꯠ',
+                'no_pending': 'ꯂꯦꯞꯂꯤꯕ ꯑꯦꯂꯔꯠ ꯂꯩꯇꯦ',
+                'verify': 'ꯆꯦꯛꯁꯤꯟꯕ',
+                'reject': 'ꯌꯥꯗꯕ',
+                'system_status': 'ꯁꯤꯁ꯭ꯇꯦꯝ ꯁ꯭ꯇꯦꯇꯁ',
+                'database': 'ꯗꯦꯇꯥꯕꯦꯖ',
+                'total_alerts': 'ꯑꯄꯨꯅꯕ ꯑꯦꯂꯔꯠ',
+                'pending': 'ꯂꯦꯞꯂꯤꯕ',
+                'risk_zones': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯐꯝ',
+                'online': 'ꯑꯣꯅꯂꯥꯏꯟ',
+                'active': 'ꯑꯦꯛꯇꯤꯕ',
+                'live_map': 'ꯂꯥꯏꯕ ꯃꯦꯞ',
+                'danger_zones': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯐꯝ',
+                'danger_zone': 'ꯈꯨꯗꯣꯡꯊꯤꯕ ꯃꯐꯝ',
+                'radius': 'ꯔꯦꯗꯤꯌꯁ',
+                'verified_alert': 'ꯆꯦꯛꯁꯤꯟꯕ ꯑꯦꯂꯔꯠ'
             }, true, true);
 
             i18n.addResourceBundle('or', 'translation', {
-                'offline_msg': 'ଅଫଲାଇନ୍ ମୋଡ୍ - ଲାଇଭ୍ ଅପଡେଟ୍ ବନ୍ଦ ଅଛି', 'logout': 'ଲଗ୍ ଆଉଟ୍'
+                'offline_msg': 'ଅଫଲାଇନ୍ ମୋଡ୍ - ଲାଇଭ୍ ଅପଡେଟ୍ ବନ୍ଦ ଅଛି', 
+                'logout': 'ଲଗ୍ ଆଉଟ୍',
+                'emergency_command': 'ଜରୁରୀକାଳୀନ କମାଣ୍ଡ',
+                'official_only': 'କେବଳ ସରକାରୀ ବ୍ୟବହାର',
+                'pending_alerts': 'ବିଚାରାଧୀନ ଆଲର୍ଟ',
+                'no_pending': 'କୌଣସି ବିଚାରାଧୀନ ଆଲର୍ଟ ନାହିଁ',
+                'verify': 'ଯାଞ୍ଚ କରନ୍ତୁ',
+                'reject': 'ପ୍ରତ୍ୟାଖ୍ୟାନ',
+                'system_status': 'ସିଷ୍ଟମ୍ ସ୍ଥିତି',
+                'database': 'ଡାଟାବେସ୍',
+                'total_alerts': 'ମୋଟ ଆଲର୍ଟ',
+                'pending': 'ବିଚାରାଧୀନ',
+                'risk_zones': 'ବିପଦ ଅଞ୍ଚଳ',
+                'online': 'ଅନଲାଇନ୍',
+                'active': 'ସକ୍ରିୟ',
+                'live_map': 'ଲାଇଭ୍ ମାନଚିତ୍ର',
+                'danger_zones': 'ବିପଦ ଅଞ୍ଚଳ',
+                'danger_zone': 'ବିପଦ ଅଞ୍ଚଳ',
+                'radius': 'ବ୍ୟାସାର୍ଦ୍ଧ',
+                'verified_alert': 'ଯାଞ୍ଚ ହୋଇଥିବା ଆଲର୍ଟ'
             }, true, true);
         }
     }, [i18n]);
@@ -113,8 +175,18 @@ const EmergencyDashboard = () => {
         const langs = ['en', 'hi', 'mni', 'or'];
         const current = langs.indexOf(i18n.language) > -1 ? langs.indexOf(i18n.language) : 0;
         const next = (current + 1) % langs.length;
-        i18n.changeLanguage(langs[next]);
+        const nextLang = langs[next];
+        i18n.changeLanguage(nextLang);
+        localStorage.setItem('foodtech_language', nextLang);
     };
+
+    // Load saved language preference
+    useEffect(() => {
+        const savedLang = localStorage.getItem('foodtech_language');
+        if (savedLang && i18n.language !== savedLang) {
+            i18n.changeLanguage(savedLang);
+        }
+    }, [i18n]);
 
     const handleLogout = () => {
         if (window.confirm("Are you sure you want to logout?")) {
@@ -136,8 +208,8 @@ const EmergencyDashboard = () => {
             <div className="flex-1 flex flex-col relative overflow-hidden rounded-3xl md:rounded-none shadow-2xl md:shadow-none bg-gray-800 w-full h-full border border-gray-700 md:border-none">
             <nav className="bg-red-900 text-white px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row justify-between items-center shadow-lg border-b border-red-700 gap-3 md:gap-0">
                 <div className="flex items-center gap-4 w-full md:w-auto">
-                    <h1 className="text-xl font-bold flex items-center gap-2 tracking-wider"><Siren className="animate-pulse"/> EMERGENCY COMMAND</h1>
-                    <span className="text-xs bg-red-950 px-2 py-1 rounded text-red-200 border border-red-800">OFFICIAL USE ONLY</span>
+                    <h1 className="text-xl font-bold flex items-center gap-2 tracking-wider"><Siren className="animate-pulse"/> {t('emergency_command', 'EMERGENCY COMMAND')}</h1>
+                    <span className="text-xs bg-red-950 px-2 py-1 rounded text-red-200 border border-red-800">{t('official_only', 'OFFICIAL USE ONLY')}</span>
                 </div>
                 <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
                     <button onClick={toggleLanguage} className="bg-red-800 px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-bold hover:bg-red-700">
@@ -153,9 +225,9 @@ const EmergencyDashboard = () => {
                 {/* Sidebar */}
                 <div className="w-full md:w-96 h-[40%] md:h-full bg-gray-800 border-r border-gray-700 p-4 space-y-4 overflow-y-auto order-2 md:order-1">
                     <div className="p-4 bg-red-900/30 border border-red-500/30 rounded-lg">
-                        <h2 className="text-red-400 font-bold flex items-center gap-2 mb-3"><AlertTriangle size={18}/> Pending Alerts ({pendingAlerts.length})</h2>
+                        <h2 className="text-red-400 font-bold flex items-center gap-2 mb-3"><AlertTriangle size={18}/> {t('pending_alerts', 'Pending Alerts')} ({pendingAlerts.length})</h2>
                         {pendingAlerts.length === 0 ? (
-                            <div className="text-sm text-gray-400">No pending alerts</div>
+                            <div className="text-sm text-gray-400">{t('no_pending', 'No pending alerts')}</div>
                         ) : (
                             <div className="space-y-2 max-h-64 overflow-y-auto">
                                 {pendingAlerts.map(alert => (
@@ -168,10 +240,10 @@ const EmergencyDashboard = () => {
                                         <div className="text-xs text-gray-500 mb-2">{addresses[alert.id] || 'Loading address...'}</div>
                                         <div className="flex gap-2">
                                             <button onClick={() => handleVerify(alert.id)} className="flex-1 bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs flex items-center justify-center gap-1">
-                                                <CheckCircle size={12}/> Verify
+                                                <CheckCircle size={12}/> {t('verify', 'Verify')}
                                             </button>
                                             <button onClick={() => handleReject(alert.id)} className="flex-1 bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs flex items-center justify-center gap-1">
-                                                <XCircle size={12}/> Reject
+                                                <XCircle size={12}/> {t('reject', 'Reject')}
                                             </button>
                                         </div>
                                     </div>
@@ -181,12 +253,12 @@ const EmergencyDashboard = () => {
                     </div>
                     
                     <div className="p-4 bg-gray-700/30 border border-gray-600 rounded-lg">
-                        <h2 className="text-blue-400 font-bold flex items-center gap-2 mb-2"><Activity size={18}/> System Status</h2>
+                        <h2 className="text-blue-400 font-bold flex items-center gap-2 mb-2"><Activity size={18}/> {t('system_status', 'System Status')}</h2>
                         <div className="space-y-2 text-xs">
-                            <div className="flex justify-between"><span>Database:</span> <span className="text-green-400">Online</span></div>
-                            <div className="flex justify-between"><span>Total Alerts:</span> <span className="text-yellow-400">{allAlerts.length}</span></div>
-                            <div className="flex justify-between"><span>Pending:</span> <span className="text-orange-400">{pendingAlerts.length}</span></div>
-                            <div className="flex justify-between"><span>Risk Zones:</span> <span className="text-red-400">{riskZones.length} Active</span></div>
+                            <div className="flex justify-between"><span>{t('database', 'Database')}:</span> <span className="text-green-400">{t('online', 'Online')}</span></div>
+                            <div className="flex justify-between"><span>{t('total_alerts', 'Total Alerts')}:</span> <span className="text-yellow-400">{allAlerts.length}</span></div>
+                            <div className="flex justify-between"><span>{t('pending', 'Pending')}:</span> <span className="text-orange-400">{pendingAlerts.length}</span></div>
+                            <div className="flex justify-between"><span>{t('risk_zones', 'Risk Zones')}:</span> <span className="text-red-400">{riskZones.length} {t('active', 'Active')}</span></div>
                         </div>
                     </div>
                 </div>
@@ -204,9 +276,9 @@ const EmergencyDashboard = () => {
                             >
                                 <Popup>
                                     <div className="text-center">
-                                        <b className="text-red-600 uppercase">DANGER ZONE</b><br/>
+                                        <b className="text-red-600 uppercase">{t('danger_zone', 'DANGER ZONE')}</b><br/>
                                         {zone.reason}<br/>
-                                        <span className="text-xs text-gray-600">Radius: {zone.radius}m</span>
+                                        <span className="text-xs text-gray-600">{t('radius', 'Radius')}: {zone.radius}m</span>
                                     </div>
                                 </Popup>
                             </Circle>
@@ -218,7 +290,7 @@ const EmergencyDashboard = () => {
                             })}>
                                 <Popup>
                                     <div>
-                                        <b className="text-red-600">Verified Alert</b><br/>
+                                        <b className="text-red-600">{t('verified_alert', 'Verified Alert')}</b><br/>
                                         <span className="text-xs">{alert.sender_name}</span><br/>
                                         <span className="text-xs">{alert.reason}</span><br/>
                                         <span className="text-xs text-gray-500">{new Date(alert.timestamp).toLocaleString()}</span>
@@ -228,7 +300,7 @@ const EmergencyDashboard = () => {
                         ))}
                     </MapContainer>
                     <div className="absolute top-4 right-4 z-[400] bg-black/80 text-white p-2 rounded text-xs border border-gray-600">
-                        Live Strategic Map - {riskZones.length} Danger Zones
+                        {t('live_map', 'Live Strategic Map')} - {riskZones.length} {t('danger_zones', 'Danger Zones')}
                     </div>
                 </div>
             </div>

@@ -339,8 +339,18 @@ const LandingPage = () => {
     const langs = ['en', 'hi', 'mni', 'or'];
     const current = langs.indexOf(i18n.language) > -1 ? langs.indexOf(i18n.language) : 0;
     const next = (current + 1) % langs.length;
-    i18n.changeLanguage(langs[next]);
+    const nextLang = langs[next];
+    i18n.changeLanguage(nextLang);
+    localStorage.setItem('foodtech_language', nextLang);
   };
+
+  // Load saved language preference
+  useEffect(() => {
+    const savedLang = localStorage.getItem('foodtech_language');
+    if (savedLang && i18n.language !== savedLang) {
+      i18n.changeLanguage(savedLang);
+    }
+  }, [i18n]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;

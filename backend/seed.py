@@ -21,7 +21,7 @@ def seed_users():
     print("Seeding Users...")
     for user_data in users:
         # Check if exists
-        exists = db.query(User).filter(User.email == user_data["email"]).first()
+        exists = db.query(User).filter(User.phone == user_data["phone"]).first()
         if not exists:
             new_user = User(
                 email=user_data["email"],
@@ -31,9 +31,9 @@ def seed_users():
                 phone=user_data["phone"]
             )
             db.add(new_user)
-            print(f"   Created: {user_data['email']}")
+            print(f"   Created: {user_data['phone']} ({user_data['email']})")
         else:
-            print(f"   Skipped (Exists): {user_data['email']}")
+            print(f"   Skipped (Exists): {user_data['phone']}")
 
     db.commit()
 
