@@ -156,6 +156,7 @@ const ConsumerDashboard = () => {
     const [truckPosition, setTruckPosition] = useState(null); // Live truck location
     const [truckProgress, setTruckProgress] = useState(0); // 0-100% progress
     const [activePickupCenter, setActivePickupCenter] = useState(null); // Track which center has active pickup
+    const [roadDistances, setRoadDistances] = useState({}); // Store real road distances
     const [riskZones, setRiskZones] = useState(() => {
         try { 
             const saved = localStorage.getItem('consumer_riskZones'); 
@@ -241,6 +242,48 @@ const ConsumerDashboard = () => {
         return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     }, []);
 
+    // Real-time location tracking
+    useEffect(() => {
+        let watchId;
+        if (navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                    setLocationError(false);
+                },
+                (err) => console.warn("Location watch error:", err),
+                { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+            );
+        }
+        return () => {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        };
+    }, []);
+
+    // Fetch real road distances using OSRM Table API
+    useEffect(() => {
+        if (!userLoc || centers.length === 0) return;
+
+        const fetchRoadDistances = async () => {
+            const targets = centers.slice(0, 20); // Limit to 20 to be safe with URL length
+            const coords = [`${userLoc.lng},${userLoc.lat}`, ...targets.map(c => `${c.lng},${c.lat}`)].join(';');
+            
+            try {
+                const url = `https://router.project-osrm.org/table/v1/driving/${coords}?sources=0&annotations=distance`;
+                const res = await axios.get(url);
+                if (res.data?.distances?.[0]) {
+                    const newDistances = {};
+                    res.data.distances[0].slice(1).forEach((dist, i) => {
+                        if (targets[i]) newDistances[targets[i].id] = (dist / 1000).toFixed(1);
+                    });
+                    setRoadDistances(prev => ({ ...prev, ...newDistances }));
+                }
+            } catch (e) { console.error("Distance fetch failed", e); }
+        };
+        const timer = setTimeout(fetchRoadDistances, 2000); // Debounce
+        return () => clearTimeout(timer);
+    }, [userLoc, centers]);
+
     const handleInstallClick = async () => {
         if (!deferredPrompt) return;
         deferredPrompt.prompt();
@@ -293,12 +336,12 @@ const ConsumerDashboard = () => {
         // Safety timeout: Force loading to stop after 8 seconds if it gets stuck
         const safetyTimer = setTimeout(() => {
             if (isMounted) setLoading(false);
-        }, 8000);
+        }, 5000);
 
         const initDashboard = async () => {
             try {
                 // Fake loading delay for smooth transition
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 800));
 
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
@@ -313,7 +356,7 @@ const ConsumerDashboard = () => {
                     );
                     try {
                         const pos = await new Promise((resolve, reject) => {
-                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
                         });
                         setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                         setLocationError(false);
@@ -326,7 +369,7 @@ const ConsumerDashboard = () => {
 
                 // Fetch registered centers from backend
                 try {
-                    const res = await axios.get(`${API_BASE_URL}/centers`);
+                    const res = await axios.get(`${API_BASE_URL}/centers`, { timeout: 5000 });
                     const validData = validateCenters(res.data);
                     if (validData.length > 0) {
                         const newCenters = validData.map(c => ({
@@ -350,7 +393,7 @@ const ConsumerDashboard = () => {
 
                 // Fetch risk zones
                 try {
-                    const res = await axios.get(`${API_BASE_URL}/risk-zones`);
+                    const res = await axios.get(`${API_BASE_URL}/risk-zones`, { timeout: 5000 });
                     const validZones = validateCenters(res.data);
                     setRiskZones(validZones);
                     localStorage.setItem('consumer_riskZones', JSON.stringify(validZones));
@@ -360,7 +403,7 @@ const ConsumerDashboard = () => {
                 const user = JSON.parse(localStorage.getItem('foodtech_user'));
                 if (user) {
                     try {
-                        const reqRes = await axios.get(`${API_BASE_URL}/food-requests`);
+                        const reqRes = await axios.get(`${API_BASE_URL}/food-requests`, { timeout: 5000 });
                         const userRequests = reqRes.data.filter(r => r.consumer_name === user.name);
                         setMyRequests(userRequests);
                     } catch (e) { console.log('No requests'); }
@@ -452,14 +495,14 @@ const ConsumerDashboard = () => {
         // Nearest acts as a sort (requires location)
         if (activeChip === 'nearest' && userLoc) {
             list.sort((a, b) => {
-                const distA = parseFloat(calculateDistance(userLoc, a)) || Infinity;
-                const distB = parseFloat(calculateDistance(userLoc, b)) || Infinity;
+                const distA = parseFloat(roadDistances[a.id] || calculateDistance(userLoc, a)) || Infinity;
+                const distB = parseFloat(roadDistances[b.id] || calculateDistance(userLoc, b)) || Infinity;
                 return distA - distB;
             });
         }
 
         return list;
-    }, [centers, searchTerm, activeChip, userLoc]);
+    }, [centers, searchTerm, activeChip, userLoc, roadDistances]);
 
     // --- Voice Command ---
     const startListening = () => {
@@ -619,7 +662,8 @@ const ConsumerDashboard = () => {
                 center_id: selectedCenter?.id || null,
                 center_name: selectedCenter?.name || null,
                 delivery_type: reqItem.deliveryType,
-                phone: user.phone || "Not Provided"
+                phone: user.phone || "Not Provided",
+                is_priority: reqItem.isPriority || false
             };
             
             await axios.post(`${API_BASE_URL}/request-food`, payload);
@@ -1129,7 +1173,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                                                 {c.crowd}
                                             </span>
                                             <p className="text-xs font-bold text-emerald-600 mt-1">
-                                                {c.distance || calculateDistance(userLoc, c)} km
+                                                {roadDistances[c.id] ? `${roadDistances[c.id]} km` : `${calculateDistance(userLoc, c)} km`}
                                             </p>
                                         </div>
                                     </div>
@@ -1486,6 +1530,19 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                                         </select>
                                     )}
                                 </div>
+                            </div>
+
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                                <input 
+                                    type="checkbox" 
+                                    id="priorityCheck" 
+                                    className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    checked={reqItem.isPriority || false}
+                                    onChange={(e) => setReqItem({...reqItem, isPriority: e.target.checked})}
+                                />
+                                <label htmlFor="priorityCheck" className="text-xs text-blue-800 font-medium cursor-pointer">
+                                    <strong>Priority Request:</strong> For Child (&lt;10y), Senior (&gt;60y), or Differently Abled. We will prioritize this delivery.
+                                </label>
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 mt-8"><button onClick={() => setShowRequestModal(false)} className="px-6 py-3 text-slate-600 text-sm font-bold hover:bg-slate-100 rounded-xl transition-all">{t('cancel')}</button><button onClick={handleRequestFood} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all">{t('send_request')}</button></div>

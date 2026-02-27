@@ -274,8 +274,8 @@ const Login = () => {
     setError('');
     try {
       const res = await axios.post('http://localhost:8000/send-otp', { phone: formData.phone });
-      setServerOtp(res.data.otp);
       setOtpSent(true);
+      setServerOtp(res.data.otp);
       alert(`OTP Sent! Code: ${res.data.otp}`); // Show in alert for simulation
     } catch (err) {
       console.error(err);
@@ -339,16 +339,29 @@ const Login = () => {
           age: parseInt(formData.age) || 0,
           family_members: parseInt(formData.familyMembers) || 1,
           role: activeTab 
-        });
+        }, { timeout: 10000 });
         
-        alert("Account created! Please sign in.");
-        setIsRegistering(false);
+        // Auto-login after registration
+        const res = await axios.post('http://localhost:8000/login', {
+          email: email,
+          password: formData.password
+        }, { timeout: 10000 });
+
+        if (res.data.success) {
+          localStorage.setItem('foodtech_user', JSON.stringify(res.data.user));
+          const userRole = (res.data.user.role || '').toLowerCase();
+          if (userRole === 'supplier') {
+            localStorage.setItem('supplier_email', res.data.user.email);
+            navigate('/supplier');
+          } else if (userRole === 'consumer') navigate('/consumer');
+          else if (userRole === 'emergency') navigate('/emergency');
+          else if (userRole === 'admin') navigate('/consumer');
+        }
       } else {
         const res = await axios.post('http://localhost:8000/login', {
           email: email,
           password: formData.password
-        });
-
+        }, { timeout: 10000 });
         if (res.data.success) {
           const userRole = (res.data.user.role || '').toLowerCase();
           
@@ -429,10 +442,9 @@ const Login = () => {
         const res = await axios.put('http://localhost:8000/reset-password', {
             email: email,
             new_password: password
-        });
+        }, { timeout: 5000 });
         alert(res.data.message || t('pass_updated'));
-        setShowForgotModal(false);
-        setResetData({ email: '', newPassword: '' });
+        setShowForgotModal(false); setResetData({ email: '', newPassword: '' });
     } catch (err) {
         console.error("Reset Password Error:", err);
         const errorMsg = err.response?.data?.detail || "Connection error or Email not found";
