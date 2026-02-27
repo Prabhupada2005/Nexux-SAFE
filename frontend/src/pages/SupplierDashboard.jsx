@@ -289,6 +289,7 @@ const SupplierDashboard = () => {
   // Settings
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [lang, setLang] = useState(localStorage.getItem('foodtech_language') || 'en');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [crowdLevel, setCrowdLevel] = useState(() => {
     try {
@@ -395,7 +396,7 @@ const SupplierDashboard = () => {
         ];
 
     return base.map((s, idx) => {
-      const risk = s.status === "warning" || s.food_quality !== "Good";
+      const risk = s.status === "warning" || (s.food_quality !== "Good" && s.food_quality !== "Fresh");
       const hours = risk ? 8 + (idx % 4) * 2 : 48;
       const percent = risk ? 68 : 66;
       return { ...s, risk, hours, percent };
@@ -675,7 +676,7 @@ const SupplierDashboard = () => {
       if (results[0].status === 'fulfilled') setInventory(results[0].value.data || []);
       if (results[1].status === 'fulfilled') setRequests(results[1].value.data || []);
       if (results[2].status === 'fulfilled') setRiskZones(results[2].value.data || []);
-      if (results[3].status === 'fulfilled') {
+      if (results[3].status === 'fulfilled' && Array.isArray(results[3].value.data)) {
         const alerts = results[3].value.data || [];
         setCrisisAlerts(alerts.map(a => ({
           ...a,
@@ -700,22 +701,20 @@ const SupplierDashboard = () => {
     const safetyTimer = setTimeout(() => setLoading(false), 8000);
 
     fetchData(); // Initial load for your backend data
+    
+    // Poll for IoT updates every 2 seconds to show simulation
+    const interval = setInterval(() => {
+      axios.get(`${API}/iot/spoilage`)
+        .then(res => {
+          if (Array.isArray(res.data)) setIotData(res.data);
+        })
+        .catch(e => console.error("IoT Poll Error", e));
+    }, 2000);
 
-    // Connect to Firebase for the IoT cards
-    // const sensorsRef = ref(database, 'sensors');
-    // const unsubscribe = onValue(sensorsRef, (snapshot) => {
-    //   const val = snapshot.val();
-    //   console.log("Firebase Data Received:", val); // <-- Open your browser console (F12) to see this!
-    //   if (val) {
-    //     // Convert the Firebase object into an array for your UI
-    //     const list = Object.keys(val).map(k => ({ id: k, ...val[k] }));
-    //     setIotData(list);
-    //   }
-    // }, (error) => {
-    //   console.error("Firebase Connection Error:", error);
-    // });
-
-    return () => clearTimeout(safetyTimer); // Clean up
+    return () => {
+      clearTimeout(safetyTimer);
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -804,7 +803,7 @@ const SupplierDashboard = () => {
       const res = await axios.post(`${API}/fulfill-request/${id}`);
       toast("success", "Fulfilled", res?.data?.message || "Order fulfilled.");
       fetchData();
-   } catch (err) {
+    } catch (err) {
       toast("error", "Fulfill failed", err?.response?.data?.detail || "Check backend.");
     }
   };
@@ -1239,27 +1238,27 @@ const SupplierDashboard = () => {
               <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm w-full">
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Location</div>
-                  <div className="font-semibold text-slate-700 truncate">{currentCrisis.location}</div>
+                  <div className="font-semibold text-slate-700 truncate">{currentCrisis.location || 'Unknown'}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Severity</div>
-                  <div className="font-bold text-red-600">{currentCrisis.severity.toUpperCase()}</div>
+                  <div className="font-bold text-red-600">{currentCrisis.severity?.toUpperCase() || 'UNKNOWN'}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Affected</div>
-                  <div className="font-semibold text-slate-700">{currentCrisis.affected}</div>
+                  <div className="font-semibold text-slate-700">{currentCrisis.affected || 'N/A'}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Time</div>
-                  <div className="font-semibold text-slate-700">{currentCrisis.time}</div>
+                  <div className="font-semibold text-slate-700">{currentCrisis.time || 'Just now'}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Source</div>
-                  <div className="font-semibold text-slate-700 truncate">{currentCrisis.source}</div>
+                  <div className="font-semibold text-slate-700 truncate">{currentCrisis.source || 'System'}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Confidence</div>
-                  <div className={`font-bold ${currentCrisis.confidence === 'High' ? 'text-emerald-600' : 'text-amber-600'}`}>{currentCrisis.confidence}</div>
+                  <div className={`font-bold ${currentCrisis.confidence === 'High' ? 'text-emerald-600' : 'text-amber-600'}`}>{currentCrisis.confidence || 'Medium'}</div>
                 </div>
               </div>
               <button 
@@ -2075,7 +2074,7 @@ const SupplierDashboard = () => {
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <MapClickHandler onMapClick={handleMapClick} />
 
-                {riskZones.map((zone) => (
+                {riskZones.filter(z => z && typeof z.lat === 'number' && typeof z.lng === 'number').map((zone) => (
                   <Circle
                     key={zone.id}
                     center={[zone.lat, zone.lng]}

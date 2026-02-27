@@ -218,7 +218,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -637,8 +637,8 @@ def get_alert_clusters(db: Session = Depends(get_db)):
 # IoT Simulation
 # Global state for IoT data (allows external updates)
 IOT_STATE = [
-    {"id": 1, "location": "Warehouse A", "temp": 24, "humidity": 50, "status": "normal", "food_quality": "Good"},
-    {"id": 2, "location": "Transit Truck 4", "temp": 26, "humidity": 55, "status": "normal", "food_quality": "Good"}
+    {"id": 1, "location": "Warehouse A", "temp": 24, "humidity": 50, "status": "normal", "food_quality": "Fresh"},
+    {"id": 2, "location": "Cold Storage B", "temp": 4, "humidity": 90, "status": "normal", "food_quality": "Fresh"}
 ]
 
 @app.get("/iot/spoilage")
