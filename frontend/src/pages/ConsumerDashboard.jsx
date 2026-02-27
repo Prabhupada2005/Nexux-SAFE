@@ -365,7 +365,6 @@ const ConsumerDashboard = () => {
                         setMyRequests(userRequests);
                     } catch (e) { console.log('No requests'); }
                 }
-
             } catch (err) {
                 console.error("Dashboard init error", err);
             } finally {
@@ -378,6 +377,30 @@ const ConsumerDashboard = () => {
             isMounted = false;
             clearTimeout(safetyTimer);
         };
+    }, []);
+
+    // Poll for request updates and notifications
+    useEffect(() => {
+        const checkRequests = async () => {
+            const user = JSON.parse(localStorage.getItem('foodtech_user'));
+            if (!user) return;
+            
+            try {
+                const res = await axios.get(`${API_BASE_URL}/food-requests`);
+                const myReqs = res.data.filter(r => r.consumer_name === user.name);
+                setMyRequests(myReqs);
+
+                myReqs.forEach(req => {
+                    if (req.status === 'rejected' && req.rejection_reason === "Center is not available. Choose other center." && !localStorage.getItem(`notified_${req.id}`)) {
+                        alert(`Order for ${req.item_name} cancelled: Center is not available. Choose other center.`);
+                        localStorage.setItem(`notified_${req.id}`, 'true');
+                    }
+                });
+            } catch (e) { }
+        };
+
+        const interval = setInterval(checkRequests, 5000);
+        return () => clearInterval(interval);
     }, []);
 
     // Poll messages only for the active chat center to save resources and avoid console spam

@@ -303,14 +303,14 @@ def delete_supplier(creds: DeleteAccountRequest, db: Session = Depends(get_db)):
     center = db.query(Center).filter(Center.supplier_email == creds.email).first()
     
     if center:
-        # 3. Check for active orders (Anything not rejected. Fulfilled orders are deleted from DB in this system)
+        # 3. Check for pending orders
         active_count = db.query(FoodRequest).filter(
             FoodRequest.center_id == center.id,
-            FoodRequest.status != "rejected"
+            FoodRequest.status == "pending"
         ).count()
         
         if active_count > 0:
-             raise HTTPException(status_code=400, detail=f"Cannot delete account. You have {active_count} active orders. Please fulfill or reject them first.")
+             raise HTTPException(status_code=400, detail=f"Cannot delete account. You have {active_count} pending orders. Please fulfill or reject them first.")
         
         db.delete(center)
     
@@ -404,7 +404,7 @@ def fulfill_request(request_id: int, db: Session = Depends(get_db)):
 
     # Deduct
     item.quantity -= req.quantity
-    db.delete(req)
+    req.status = "completed"
     db.commit()
     
     print(f"SUCCESS: Deducted {req.quantity}. New Balance: {item.quantity}")
@@ -438,6 +438,31 @@ def create_center(center: CenterCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_center)
     return new_center
+
+@app.delete("/centers/{center_id}")
+def delete_center(center_id: int, force: bool = False, db: Session = Depends(get_db)):
+    center = db.query(Center).filter(Center.id == center_id).first()
+    if not center:
+        raise HTTPException(status_code=404, detail="Center not found")
+    
+    # Check for pending orders
+    active_orders = db.query(FoodRequest).filter(
+        FoodRequest.center_id == center.id,
+        FoodRequest.status == "pending"
+    ).all()
+    
+    if active_orders:
+        if not force:
+             raise HTTPException(status_code=400, detail=f"Cannot delete center. You have {len(active_orders)} pending orders. Please fulfill or reject them, or force delete.")
+        
+        # Auto-reject if forced
+        for order in active_orders:
+            order.status = "rejected"
+            order.rejection_reason = "Center is not available. Choose other center."
+    
+    db.delete(center)
+    db.commit()
+    return {"message": "Center deleted successfully"}
 
 @app.get("/centers/supplier/{email}")
 def get_supplier_center(email: str, db: Session = Depends(get_db)):

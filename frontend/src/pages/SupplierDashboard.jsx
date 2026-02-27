@@ -366,11 +366,7 @@ export default function SupplierDashboard() {
 
   // Orders - filter out rejected requests
   const orders = useMemo(() => {
-    return (requests || []).filter(r => r && r.status !== 'rejected').map((r) => {
-      const mod = (r.id ?? 0) % 3;
-      const status = mod === 0 ? "Status" : mod === 1 ? "Accepted" : "Delivered";
-      return { ...r, status };
-    });
+    return (requests || []).filter(r => r && r.status !== 'rejected');
   }, [requests]);
 
   const lowStockItems = useMemo(() => (inventory || []).filter((i) => Number(i.quantity) < 30), [inventory]);
@@ -471,6 +467,51 @@ export default function SupplierDashboard() {
     a.download = filename;
     a.click();
     toast('success', 'Report Exported', `${filename} downloaded successfully`);
+  };
+
+  const handleDeleteAccount = async () => {
+    const user = JSON.parse(localStorage.getItem('foodtech_user'));
+    if (!user || !user.email) return;
+    
+    try {
+      await axios.post(`${API}/delete-supplier`, {
+        email: user.email,
+        password: deletePassword
+      });
+      localStorage.removeItem('foodtech_user');
+      localStorage.removeItem('supplier_email');
+      navigate('/login');
+    } catch (err) {
+      toast("error", "Deletion failed", err.response?.data?.detail || "Deletion failed");
+    }
+  };
+
+  const handleDeleteCenter = async () => {
+    if (!centerInfo?.id) return;
+    if (!confirm("Are you sure you want to delete your center? This will remove it from the map and stop all incoming requests.")) return;
+
+    try {
+      await axios.delete(`${API}/centers/${centerInfo.id}`);
+      setCenterInfo(null);
+      toast("success", "Center Deleted", "You are no longer listed on the map.");
+      fetchData(); // This will trigger showCenterSetup(true)
+    } catch (err) {
+      // Check if failure is due to pending orders
+      if (err.response?.status === 400 && err.response?.data?.detail?.includes("pending orders")) {
+        if (confirm("You have pending orders. Do you want to REJECT them all and delete the center immediately?")) {
+          try {
+            await axios.delete(`${API}/centers/${centerInfo.id}?force=true`);
+            setCenterInfo(null);
+            toast("success", "Center Deleted", "Pending orders were rejected.");
+            fetchData();
+          } catch (forceErr) {
+            toast("error", "Delete Failed", forceErr.response?.data?.detail || "Could not delete center");
+          }
+        }
+      } else {
+        toast("error", "Delete Failed", err.response?.data?.detail || "Could not delete center");
+      }
+    }
   };
 
   const sendBroadcast = async () => {
@@ -675,7 +716,15 @@ export default function SupplierDashboard() {
       if (results[0].status === 'fulfilled') setInventory(results[0].value.data || []);
       if (results[1].status === 'fulfilled') setRequests(results[1].value.data || []);
       if (results[2].status === 'fulfilled') setRiskZones(results[2].value.data || []);
-      if (results[3].status === 'fulfilled') setCrisisAlerts(results[3].value.data || []);
+      if (results[3].status === 'fulfilled') {
+        const alerts = results[3].value.data || [];
+        setCrisisAlerts(alerts.map(a => ({
+          ...a,
+          source: a.source || 'News API',
+          affected: a.affected || 3200,
+          confidence: a.confidence || 'High'
+        })));
+      }
 
       setLastSync(new Date());
       setLoading(false);
@@ -722,6 +771,7 @@ export default function SupplierDashboard() {
 
     try {
       await axios.post(`${API}/inventory`, { ...newItem, quantity: parseFloat(newItem.quantity) });
+
 
       // Optimistic update for offline feel
       const updated = [...inventory, { ...newItem, id: Date.now(), quantity: parseFloat(newItem.quantity) }];
@@ -791,7 +841,7 @@ export default function SupplierDashboard() {
       const res = await axios.post(`${API}/fulfill-request/${id}`);
       toast("success", "Fulfilled", res?.data?.message || "Order fulfilled.");
       fetchData();
-    } catch (err) {
+   } catch (err) {
       toast("error", "Fulfill failed", err?.response?.data?.detail || "Check backend.");
     }
   };
@@ -1357,7 +1407,12 @@ export default function SupplierDashboard() {
       {/* 4) CENTER CONTROLS */}
       <div className="px-4 mb-6 max-w-6xl mx-auto">
         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-50 pb-2">Operations Control</h3>
+          <div className="flex justify-between items-center mb-4 border-b border-slate-50 pb-2">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Operations Control</h3>
+            <button onClick={handleDeleteCenter} className="text-xs font-bold text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors" title="Delete Center">
+               <Trash2 size={14} /> Delete Center
+            </button>
+          </div>
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
           <div className="flex items-center justify-between w-full md:w-auto gap-4">
             <div>
@@ -1461,9 +1516,9 @@ export default function SupplierDashboard() {
                       </div>
                     </td>
                     <td className="py-2">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${req.status === 'completed' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
                         <Truck size={12} className="mr-1.5"/>
-                        Delivery
+                        {req.status === 'completed' ? 'Completed' : 'Pending'}
                       </span>
                     </td>
                     <td className="py-2">
@@ -1474,18 +1529,25 @@ export default function SupplierDashboard() {
                     </td>
                     <td className="py-2 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleReject(req.id)}
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                        >
-                          <XCircle size={18} />
-                        </button>
-                        <button 
-                          onClick={() => handleFulfill(req.id)}
-                          className="px-4 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-full shadow-md hover:bg-slate-800 transition-transform active:scale-95"
-                        >
-                          Process
-                        </button>
+                        {req.status !== 'completed' ? (
+                          <>
+                            <button 
+                              onClick={() => handleReject(req.id)}
+                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                              title="Reject"
+                            >
+                              <XCircle size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleFulfill(req.id)}
+                              className="px-4 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-full shadow-md hover:bg-slate-800 transition-transform active:scale-95"
+                            >
+                              Complete
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><CheckCircle2 size={14}/> Done</span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1514,8 +1576,8 @@ export default function SupplierDashboard() {
             </button>
           </div>
 
-          <div className="space-y-4">
-            {inventory.slice(0, 3).map((item) => (
+          <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
+            {inventory.map((item) => (
               <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 md:p-4 rounded-xl md:rounded-2xl bg-slate-50 border border-slate-100 gap-2 md:gap-4">
                 <div className="flex items-start gap-2 md:gap-4">
                   <div className="w-8 h-8 md:w-12 md:h-12 bg-white rounded-lg md:rounded-xl flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 shrink-0">
