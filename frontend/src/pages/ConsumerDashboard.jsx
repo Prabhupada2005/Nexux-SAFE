@@ -662,7 +662,8 @@ const ConsumerDashboard = () => {
                 center_id: selectedCenter?.id || null,
                 center_name: selectedCenter?.name || null,
                 delivery_type: reqItem.deliveryType,
-                phone: user.phone || "Not Provided"
+                phone: user.phone || "Not Provided",
+                is_priority: reqItem.isPriority || false
             };
             
             await axios.post(`${API_BASE_URL}/request-food`, payload);
@@ -1529,6 +1530,19 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                                         </select>
                                     )}
                                 </div>
+                            </div>
+
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                                <input 
+                                    type="checkbox" 
+                                    id="priorityCheck" 
+                                    className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    checked={reqItem.isPriority || false}
+                                    onChange={(e) => setReqItem({...reqItem, isPriority: e.target.checked})}
+                                />
+                                <label htmlFor="priorityCheck" className="text-xs text-blue-800 font-medium cursor-pointer">
+                                    <strong>Priority Request:</strong> For Child (&lt;10y), Senior (&gt;60y), or Differently Abled. We will prioritize this delivery.
+                                </label>
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 mt-8"><button onClick={() => setShowRequestModal(false)} className="px-6 py-3 text-slate-600 text-sm font-bold hover:bg-slate-100 rounded-xl transition-all">{t('cancel')}</button><button onClick={handleRequestFood} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all">{t('send_request')}</button></div>
