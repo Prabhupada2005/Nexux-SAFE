@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
-    MapPin, Search, SlidersHorizontal, List, Shield, Crosshair, Download, LogOut, AlertTriangle, Bot, Package, Navigation, MessageCircle, Send, Utensils, Mic, MicOff, ThumbsUp, WifiOff, MapPinOff, Phone, Lock, X
+    MapPin, Search, SlidersHorizontal, List, Shield, Crosshair, Download, LogOut, AlertTriangle, Bot, Navigation, Send, Utensils, Mic, MicOff, ThumbsUp, WifiOff, MapPinOff, Phone, Lock, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -117,18 +117,7 @@ const MapComponent = ({ userLoc, centers, routePath, truckPosition, truckProgres
 const ConsumerDashboard = () => {
     const { t, i18n } = useTranslation();
     const [userLoc, setUserLoc] = useState(null);
-    const [centers, setCenters] = useState(() => {
-        try { 
-            const saved = localStorage.getItem('consumer_centers'); 
-            const parsed = saved ? JSON.parse(saved) : null;
-            const validated = validateCenters(parsed);
-            if (validated.length > 0) {
-                // Ensure uniqueness on initial load to prevent key errors from bad storage data
-                return Array.from(new Map(validated.map(item => [String(item.id), item])).values());
-            }
-            return FOOD_CENTERS; 
-        } catch(e) { return FOOD_CENTERS; }
-    });
+    const [centers, setCenters] = useState(FOOD_CENTERS);
     const navigate = useNavigate();
     const chatEndRef = useRef(null);
 
@@ -141,8 +130,6 @@ const ConsumerDashboard = () => {
     const [reqItem, setReqItem] = useState({ name: '', quantity: '1', plateSize: 'full', deliveryType: 'pickup', unit: 'kg' });
     const [feedbackText, setFeedbackText] = useState('');
     const [isListening, setIsListening] = useState(false);
-    const [expandedMenus, setExpandedMenus] = useState({});
-    const [myRequests, setMyRequests] = useState([]);
 
     // Guest Phone Verification State
     const [showPhoneAuthModal, setShowPhoneAuthModal] = useState(false);
@@ -152,11 +139,9 @@ const ConsumerDashboard = () => {
 
     // Routing States
     const [routePath, setRoutePath] = useState([]); // Stores the road coordinates
-    const [routeInfo, setRouteInfo] = useState(null); // Stores distance/duration
     const [truckPosition, setTruckPosition] = useState(null); // Live truck location
     const [truckProgress, setTruckProgress] = useState(0); // 0-100% progress
-    const [activePickupCenter, setActivePickupCenter] = useState(null); // Track which center has active pickup
-    const [roadDistances, setRoadDistances] = useState({}); // Store real road distances
+
     const [riskZones, setRiskZones] = useState(() => {
         try { 
             const saved = localStorage.getItem('consumer_riskZones'); 
@@ -195,15 +180,7 @@ const ConsumerDashboard = () => {
 
     // Chat States
     const [activeChat, setActiveChat] = useState(null);
-    const [activeChatCenter, setActiveChatCenter] = useState(null);
     const [msgText, setMsgText] = useState("");
-    const [centerMessages, setCenterMessages] = useState(() => {
-        try { 
-            const saved = localStorage.getItem('consumer_messages'); 
-            const parsed = saved ? JSON.parse(saved) : null;
-            return (parsed && typeof parsed === 'object') ? parsed : {}; 
-        } catch(e) { return {}; }
-    });
     const [aiMessages, setAiMessages] = useState([{ sender: 'AI Bot', content: 'Hello! I am your FoodTech Assistant.', self: false }]);
     // Search & Filter UI states
     const [searchTerm, setSearchTerm] = useState('');
@@ -260,29 +237,7 @@ const ConsumerDashboard = () => {
         };
     }, []);
 
-    // Fetch real road distances using OSRM Table API
-    useEffect(() => {
-        if (!userLoc || centers.length === 0) return;
 
-        const fetchRoadDistances = async () => {
-            const targets = centers.slice(0, 20); // Limit to 20 to be safe with URL length
-            const coords = [`${userLoc.lng},${userLoc.lat}`, ...targets.map(c => `${c.lng},${c.lat}`)].join(';');
-            
-            try {
-                const url = `https://router.project-osrm.org/table/v1/driving/${coords}?sources=0&annotations=distance`;
-                const res = await axios.get(url);
-                if (res.data?.distances?.[0]) {
-                    const newDistances = {};
-                    res.data.distances[0].slice(1).forEach((dist, i) => {
-                        if (targets[i]) newDistances[targets[i].id] = (dist / 1000).toFixed(1);
-                    });
-                    setRoadDistances(prev => ({ ...prev, ...newDistances }));
-                }
-            } catch (e) { console.error("Distance fetch failed", e); }
-        };
-        const timer = setTimeout(fetchRoadDistances, 2000); // Debounce
-        return () => clearTimeout(timer);
-    }, [userLoc, centers]);
 
     const handleInstallClick = async () => {
         if (!deferredPrompt) return;
@@ -293,15 +248,8 @@ const ConsumerDashboard = () => {
         }
     };
 
-    const toggleLanguage = () => {
-        const langs = ['en', 'hi', 'mni', 'or'];
-        const current = langs.indexOf(i18n.language) > -1 ? langs.indexOf(i18n.language) : 0;
-        const next = (current + 1) % langs.length;
-        i18n.changeLanguage(langs[next]);
-    };
-
     const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
-    useEffect(() => { scrollToBottom(); }, [centerMessages, aiMessages, activeChat, isTyping]);
+    useEffect(() => { scrollToBottom(); }, [aiMessages, activeChat, isTyping]);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -344,30 +292,36 @@ const ConsumerDashboard = () => {
                 await new Promise(resolve => setTimeout(resolve, 800));
 
                 if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                            setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                            setLocationError(false);
-                        },
-                        () => {
-                            console.log("Location access denied");
-                            setLocationError(true);
-                        }
-                    );
                     try {
                         const pos = await new Promise((resolve, reject) => {
-                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { 
+                                timeout: 8000, 
+                                enableHighAccuracy: false,
+                                maximumAge: 30000
+                            });
                         });
                         setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                         setLocationError(false);
                     } catch (error) {
-                        console.log("Location access denied or timed out");
-                        setLocationError(true);
-                        setUserLoc({ lat: 24.8170, lng: 93.9368 }); // Fallback to Imphal
+                        console.warn("Location timeout, using network location");
+                        // Fallback: try network-based location (faster but less accurate)
+                        try {
+                            const pos = await new Promise((resolve, reject) => {
+                                navigator.geolocation.getCurrentPosition(resolve, reject, { 
+                                    timeout: 5000, 
+                                    enableHighAccuracy: false
+                                });
+                            });
+                            setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                            setLocationError(false);
+                        } catch (e) {
+                            console.error("Location failed:", e.message);
+                            setLocationError(true);
+                        }
                     }
                 }
 
-                // Fetch registered centers from backend
+                // Fetch registered centers from backend and merge with hardcoded
                 try {
                     const res = await axios.get(`${API_BASE_URL}/centers`, { timeout: 5000 });
                     const validData = validateCenters(res.data);
@@ -378,10 +332,6 @@ const ConsumerDashboard = () => {
                             cookedFood: true,
                             menu: c.menu || ['Rice Meals', 'Dal Chawal']
                         }));
-                        // Merge with hardcoded centers
-                        const merged = [...FOOD_CENTERS, ...newCenters];
-                        setCenters(merged);
-                        localStorage.setItem('consumer_centers', JSON.stringify(merged));
                         // Merge with hardcoded centers and deduplicate by ID
                         const allCenters = [...FOOD_CENTERS, ...newCenters];
                         const uniqueCenters = Array.from(new Map(allCenters.map(item => [String(item.id), item])).values());
@@ -389,7 +339,11 @@ const ConsumerDashboard = () => {
                         setCenters(uniqueCenters);
                         localStorage.setItem('consumer_centers', JSON.stringify(uniqueCenters));
                     }
-                } catch (e) { console.log('No registered centers yet'); }
+                } catch { 
+                    console.log('No registered centers yet');
+                    setCenters(FOOD_CENTERS);
+                    localStorage.removeItem('consumer_centers');
+                }
 
                 // Fetch risk zones
                 try {
@@ -397,17 +351,7 @@ const ConsumerDashboard = () => {
                     const validZones = validateCenters(res.data);
                     setRiskZones(validZones);
                     localStorage.setItem('consumer_riskZones', JSON.stringify(validZones));
-                } catch (e) { console.log('No risk zones'); }
-
-                // Fetch user's food requests
-                const user = JSON.parse(localStorage.getItem('foodtech_user'));
-                if (user) {
-                    try {
-                        const reqRes = await axios.get(`${API_BASE_URL}/food-requests`, { timeout: 5000 });
-                        const userRequests = reqRes.data.filter(r => r.consumer_name === user.name);
-                        setMyRequests(userRequests);
-                    } catch (e) { console.log('No requests'); }
-                }
+                } catch { console.log('No risk zones'); }
             } catch (err) {
                 console.error("Dashboard init error", err);
             } finally {
@@ -431,7 +375,6 @@ const ConsumerDashboard = () => {
             try {
                 const res = await axios.get(`${API_BASE_URL}/food-requests`);
                 const myReqs = res.data.filter(r => r.consumer_name === user.name);
-                setMyRequests(myReqs);
 
                 myReqs.forEach(req => {
                     if (req.status === 'rejected' && req.rejection_reason === "Center is not available. Choose other center." && !localStorage.getItem(`notified_${req.id}`)) {
@@ -439,33 +382,36 @@ const ConsumerDashboard = () => {
                         localStorage.setItem(`notified_${req.id}`, 'true');
                     }
                 });
-            } catch (e) { }
+            } catch { } 
         };
 
         const interval = setInterval(checkRequests, 5000);
         return () => clearInterval(interval);
     }, []);
 
-    // Poll messages only for the active chat center to save resources and avoid console spam
+    // Auto-refresh centers every 10 seconds
     useEffect(() => {
-        if (loading || activeChat !== 'supplier' || !activeChatCenter) return;
-
-        const fetchMessages = () => {
-            axios.get(`${API_BASE_URL}/messages/${activeChatCenter.id}`)
-                .then(res => {
-                    setCenterMessages(prev => {
-                        const newState = { ...prev, [activeChatCenter.id]: res.data.reverse() };
-                        localStorage.setItem('consumer_messages', JSON.stringify(newState));
-                        return newState;
-                    });
-                })
-                .catch(err => console.warn(`Failed to fetch messages for center ${activeChatCenter.id}`));
+        const refreshCenters = async () => {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/centers`, { timeout: 5000 });
+                const validData = validateCenters(res.data);
+                if (validData.length > 0) {
+                    const newCenters = validData.map(c => ({
+                        ...c,
+                        items: c.items || 50,
+                        cookedFood: true,
+                        menu: c.menu || ['Rice Meals', 'Dal Chawal']
+                    }));
+                    const allCenters = [...FOOD_CENTERS, ...newCenters];
+                    const uniqueCenters = Array.from(new Map(allCenters.map(item => [String(item.id), item])).values());
+                    setCenters(uniqueCenters);
+                }
+            } catch { }
         };
 
-        fetchMessages(); // Fetch immediately
-        const interval = setInterval(fetchMessages, 5000);
+        const interval = setInterval(refreshCenters, 10000);
         return () => clearInterval(interval);
-    }, [activeChat, activeChatCenter, loading]);
+    }, []);
 
     // Filtered centers for UI (search + chips)
     const filteredCenters = useMemo(() => {
@@ -495,14 +441,14 @@ const ConsumerDashboard = () => {
         // Nearest acts as a sort (requires location)
         if (activeChip === 'nearest' && userLoc) {
             list.sort((a, b) => {
-                const distA = parseFloat(roadDistances[a.id] || calculateDistance(userLoc, a)) || Infinity;
-                const distB = parseFloat(roadDistances[b.id] || calculateDistance(userLoc, b)) || Infinity;
+                const distA = parseFloat(calculateDistance(userLoc, a)) || Infinity;
+                const distB = parseFloat(calculateDistance(userLoc, b)) || Infinity;
                 return distA - distB;
             });
         }
 
         return list;
-    }, [centers, searchTerm, activeChip, userLoc, roadDistances]);
+    }, [centers, searchTerm, activeChip, userLoc]);
 
     // --- Voice Command ---
     const startListening = () => {
@@ -562,29 +508,39 @@ const ConsumerDashboard = () => {
         }
     };
 
-    // --- FETCH DYNAMIC ROAD ROUTE (OSRM API) ---
+    // --- FETCH SAFE ROUTE (AVOIDING DANGER ZONES) ---
     const getRoadRoute = async (start, end, showTruck = true) => {
         if (!start || !end) {
             alert("Cannot navigate: Your location is not yet available. Please wait or enable GPS.");
             return;
         }
         try {
-            // OSRM Public API (Free, No Key Needed)
-            const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
-            const response = await axios.get(url);
+            // Call backend safe route API
+            const response = await axios.get(`${API_BASE_URL}/safe-route`, {
+                params: {
+                    start_lat: start.lat,
+                    start_lng: start.lng,
+                    end_lat: end.lat,
+                    end_lng: end.lng
+                }
+            });
 
-            if (response.data.routes && response.data.routes.length > 0) {
-                const route = response.data.routes[0];
-
-                // Convert [lon, lat] to [lat, lon] for Leaflet
-                const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+            if (response.data) {
+                const routeData = response.data;
+                
+                // Build route path: start -> waypoints -> end
+                let coordinates = [[routeData.start.lat, routeData.start.lng]];
+                if (routeData.waypoints && routeData.waypoints.length > 0) {
+                    coordinates = coordinates.concat(routeData.waypoints);
+                }
+                coordinates.push([routeData.end.lat, routeData.end.lng]);
+                
                 setRoutePath(coordinates);
 
-                // Set Info
-                setRouteInfo({
-                    distance: (route.distance / 1000).toFixed(1) + " km",
-                    duration: (route.duration / 60).toFixed(0) + " min"
-                });
+                // Show alert if route has danger zones
+                if (routeData.has_danger_zones) {
+                    alert(`⚠️ Route adjusted to avoid ${routeData.danger_zones.length} danger zone(s). Follow the blue path on map.`);
+                }
 
                 // Start truck animation only if showTruck is true (for delivery)
                 if (showTruck) {
@@ -592,15 +548,15 @@ const ConsumerDashboard = () => {
                     setTruckProgress(0);
                     animateTruck(coordinates);
                 } else {
-                    // For pickup, don't show truck
                     setTruckPosition(null);
                     setTruckProgress(0);
                 }
             }
         } catch (error) {
-            console.error("Routing Error:", error);
+            console.error("Safe routing error:", error);
             // Fallback to straight line if API fails
             setRoutePath([[start.lat, start.lng], [end.lat, end.lng]]);
+            alert("Could not calculate safe route. Showing direct path.");
         }
     };
 
@@ -644,16 +600,6 @@ const ConsumerDashboard = () => {
             return;
         }
 
-        // Security: Check daily limit (Max 3 requests)
-        const today = new Date().toISOString().split('T')[0];
-        const requestCountKey = `daily_requests_${user.email || user.name}_${today}`;
-        const currentCount = parseInt(localStorage.getItem(requestCountKey) || '0');
-
-        if (currentCount >= 3) {
-            alert("Your limit for requesting food is over for today.");
-            return;
-        }
-
         try {
             const payload = {
                 consumer_name: user.name || "Guest",
@@ -667,14 +613,14 @@ const ConsumerDashboard = () => {
             };
             
             await axios.post(`${API_BASE_URL}/request-food`, payload);
-            
-            // Increment count on success
-            localStorage.setItem(requestCountKey, currentCount + 1);
 
             setShowRequestModal(false);
 
             // Show route for both pickup and delivery
             if (userLoc && selectedCenter) {
+                console.log('Selected Center:', selectedCenter.name, selectedCenter.lat, selectedCenter.lng);
+                console.log('User Location:', userLoc.lat, userLoc.lng);
+                
                 if (reqItem.deliveryType === 'delivery') {
                     // Delivery: truck goes from center to user (with truck animation)
                     await getRoadRoute(selectedCenter, userLoc, true);
@@ -682,7 +628,6 @@ const ConsumerDashboard = () => {
                 } else {
                     // Pickup: user goes from their location to center (no truck, just directions)
                     await getRoadRoute(userLoc, selectedCenter, false);
-                    setActivePickupCenter(selectedCenter.id); // Mark this center as having active pickup
                     alert(`Pickup Request Confirmed! Follow the blue route on map to reach ${selectedCenter.name}.`);
                 }
             } else {
@@ -736,19 +681,7 @@ const ConsumerDashboard = () => {
         }
     };
 
-    const handleCancelPickup = (centerId) => {
-        setRoutePath([]);
-        setRouteInfo(null);
-        setActivePickupCenter(null);
-        alert('Pickup request cancelled. Route cleared.');
-    };
 
-    const openGoogleMaps = () => {
-        if (userLoc && centers[1]) {
-            const url = `https://www.google.com/maps/dir/?api=1&origin=${centers[1].lat},${centers[1].lng}&destination=${userLoc.lat},${userLoc.lng}&travelmode=driving`;
-            window.open(url, '_blank');
-        }
-    };
 
     const handleFeedback = async () => { alert("Feedback Sent!"); setShowFeedbackModal(false); };
 
@@ -822,174 +755,47 @@ const ConsumerDashboard = () => {
     const sendChatMessage = async (e) => {
         e.preventDefault();
         if (!msgText) return;
-        const user = JSON.parse(localStorage.getItem('foodtech_user'));
-        if (activeChat === 'supplier' && activeChatCenter) {
-            try {
-                await axios.post(`${API_BASE_URL}/messages/${activeChatCenter.id}`, {
-                    sender: user.name,
-                    content: msgText,
-                    sender_type: 'consumer'
-                });
-                const res = await axios.get(`${API_BASE_URL}/messages/${activeChatCenter.id}`);
-                setCenterMessages(prev => {
-                    const newState = {
-                        ...prev,
-                        [activeChatCenter.id]: res.data.reverse()
-                    };
-                    localStorage.setItem('consumer_messages', JSON.stringify(newState));
-                    return newState;
-                });
-                setMsgText(""); // Clear input after sending
-            } catch (err) {
-                console.log('Message send failed:', err);
-                alert('Could not send message. Check if backend is running.');
-            }
-        } else {
-            // Add user message
-            setAiMessages(prev => [...prev, { sender: 'You', content: msgText, self: true }]);
-            const userQuery = msgText;
-            setMsgText("");
-            setIsTyping(true);
+        
+        // Add user message
+        setAiMessages(prev => [...prev, { sender: 'You', content: msgText, self: true }]);
+        const userQuery = msgText;
+        setMsgText("");
+        setIsTyping(true);
 
-            // AI Response Logic
-            try {
-                // Attempt to call backend AI service
-                const response = await axios.post(`${API_BASE_URL}/ai-chat`, {
-                    query: userQuery,
-                    context: {
-                        user_location: userLoc,
-                        centers: centers
+        // AI Response Logic
+        try {
+            // Attempt to call backend AI service
+            const response = await axios.post(`${API_BASE_URL}/ai-chat`, {
+                query: userQuery,
+                context: {
+                    user_location: userLoc,
+                    centers: centers
+                }
+            });
+            setAiMessages(prev => [...prev, { sender: 'AI Bot', content: response.data.response, self: false }]);
+            setIsTyping(false);
+        } catch (error) {
+            console.warn("AI Backend unreachable, using local fallback logic.");
+            setTimeout(() => {
+                let aiResponse = "";
+                const lowerQuery = userQuery.toLowerCase();
+
+                if (lowerQuery.includes('nearest') || lowerQuery.includes('closest') || lowerQuery.includes('near')) {
+                    if (nearestCenter) {
+                        aiResponse = `The nearest food center is ${nearestCenter.name}, located ${nearestCenter.distance} km away.`;
+                    } else {
+                        aiResponse = "Please enable location access to find the nearest center.";
                     }
-                });
-                setAiMessages(prev => [...prev, { sender: 'AI Bot', content: response.data.response, self: false }]);
-                setIsTyping(false);
-            } catch (error) {
-                // --- GEMINI API INTEGRATION (Fallback) ---
-                // TODO: Get a free API key from https://aistudio.google.com/app/apikey and paste it below
-                const GEMINI_API_KEY = "";
-
-                if (GEMINI_API_KEY) {
-                    try {
-                        // 1. Prepare Context (Centers + Distance)
-                        const contextCenters = centers.map(c => {
-                            let dist = "unknown";
-                            if (userLoc) {
-                                const R = 6371; // Earth radius km
-                                const dLat = (c.lat - userLoc.lat) * Math.PI / 180;
-                                const dLng = (c.lng - userLoc.lng) * Math.PI / 180;
-                                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(userLoc.lat * Math.PI / 180) * Math.cos(c.lat * Math.PI / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-                                dist = (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1) + " km";
-                            }
-                            return { name: c.name, status: c.status, crowd: c.crowd, menu: c.menu, distance: dist, hotMeals: c.cookedFood };
-                        });
-
-                        // 2. Call Gemini API
-                        const prompt = `You are the Nexus FoodTech AI Assistant. Help the consumer find food centers.
-Context:
-- User Location: ${userLoc ? `Lat ${userLoc.lat}, Lng ${userLoc.lng}` : 'Unknown'}
-- Centers Data: ${JSON.stringify(contextCenters)}
-
-User Query: "${userQuery}"
-
-Answer concisely, helpfully, and naturally. If asking for nearest, check the calculated distances.`;
-
-                        const res = await axios.post(
-                            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-                            { contents: [{ parts: [{ text: prompt }] }] }
-                        );
-
-                        const aiText = res.data.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if (aiText) {
-                            setAiMessages(prev => [...prev, { sender: 'AI Bot', content: aiText, self: false }]);
-                            setIsTyping(false);
-                            return; // Stop here, don't use local fallback
-                        }
-                    } catch (gErr) {
-                        console.warn("Gemini API failed, falling back to local logic.", gErr);
-                    }
+                } else if (lowerQuery.includes('open') || lowerQuery.includes('available')) {
+                    const openCenters = centers.filter(c => c.status === 'open');
+                    aiResponse = `Currently ${openCenters.length} centers are open: ${openCenters.slice(0, 3).map(c => c.name).join(', ')}.`;
+                } else {
+                    aiResponse = "I can help you find food centers, check availability, and more. Try asking: 'Which center is nearest?'";
                 }
 
-                console.warn("AI Backend/Gemini unreachable, using local fallback logic.");
-                setTimeout(() => {
-                    let aiResponse = "";
-                    const lowerQuery = userQuery.toLowerCase();
-
-                    // Food center queries
-                    if (lowerQuery.includes('nearest') || lowerQuery.includes('closest') || lowerQuery.includes('near')) {
-                        if (nearestCenter) {
-                            aiResponse = `The nearest food center is ${nearestCenter.name}, located ${nearestCenter.distance} km away. It has ${nearestCenter.crowd} crowd and ${nearestCenter.items} items available. ${nearestCenter.cookedFood ? 'Hot meals are available!' : ''}`;
-                        } else {
-                            aiResponse = "Please enable location access to find the nearest center.";
-                        }
-                    }
-                    // Open centers
-                    else if (lowerQuery.includes('open') || lowerQuery.includes('available')) {
-                        const openCenters = centers.filter(c => c.status === 'open');
-                        aiResponse = `Currently ${openCenters.length} centers are open: ${openCenters.slice(0, 3).map(c => c.name).join(', ')}${openCenters.length > 3 ? ' and more.' : '.'}`;
-                    }
-                    // Low crowd centers
-                    else if (lowerQuery.includes('crowd') || lowerQuery.includes('busy') || lowerQuery.includes('wait')) {
-                        const lowCrowd = centers.filter(c => c.crowd === 'Low' && c.status === 'open');
-                        if (lowCrowd.length > 0) {
-                            aiResponse = `Centers with low crowd: ${lowCrowd.map(c => c.name).join(', ')}. You can visit these for faster service.`;
-                        } else {
-                            aiResponse = "All centers are currently busy. Please try again later or request delivery.";
-                        }
-                    }
-                    // Hot meals
-                    else if (lowerQuery.includes('hot') || lowerQuery.includes('cooked') || lowerQuery.includes('meal')) {
-                        const hotMealCenters = centers.filter(c => c.cookedFood && c.status === 'open');
-                        aiResponse = `${hotMealCenters.length} centers serve hot meals: ${hotMealCenters.slice(0, 3).map(c => c.name).join(', ')}.`;
-                    }
-                    // Request food help
-                    else if (lowerQuery.includes('request') || lowerQuery.includes('order') || lowerQuery.includes('need food')) {
-                        aiResponse = "To request food, click the 'Request Food' button. You can choose from cooked meals, vegetables, or grains. Use the microphone icon for voice ordering!";
-                    }
-                    // Location help
-                    else if (lowerQuery.includes('location') || lowerQuery.includes('address')) {
-                        aiResponse = "All food centers are marked on the map. Click any marker to see the full address and details. You can also get directions by clicking 'Get Directions'.";
-                    }
-                    // Delivery tracking
-                    else if (lowerQuery.includes('track') || lowerQuery.includes('delivery') || lowerQuery.includes('truck')) {
-                        if (routePath.length > 0) {
-                            aiResponse = `Your delivery is ${truckProgress}% complete. Estimated time: ${routeInfo?.duration}. You can track the truck on the map in real-time.`;
-                        } else {
-                            aiResponse = "No active delivery. Request food first, and you'll be able to track the delivery truck on the map.";
-                        }
-                    }
-                    // Emergency/SOS
-                    else if (lowerQuery.includes('emergency') || lowerQuery.includes('sos') || lowerQuery.includes('urgent')) {
-                        aiResponse = "For emergencies, click the red SOS button in the header. This will send an immediate alert to all nearby centers.";
-                    }
-                    // Language help
-                    else if (lowerQuery.includes('language') || lowerQuery.includes('hindi') || lowerQuery.includes('translate')) {
-                        aiResponse = "You can change the language using the globe icon in the header. We support English, Hindi, Manipuri, and Odia.";
-                    }
-                    // List all centers
-                    else if (lowerQuery.includes('list') || lowerQuery.includes('all centers') || lowerQuery.includes('show all')) {
-                        aiResponse = `We have ${centers.length} food centers: ${centers.map(c => c.name).join(', ')}. Check the map or scroll down to see details.`;
-                    }
-                    // Greetings
-                    else if (lowerQuery.includes('hello') || lowerQuery.includes('hi') || lowerQuery.includes('hey')) {
-                        aiResponse = "Hello! I'm your FoodTech AI Assistant. I can help you find food centers, track deliveries, and answer questions. What do you need?";
-                    }
-                    // Help/What can you do
-                    else if (lowerQuery.includes('help') || lowerQuery.includes('what can you') || lowerQuery.includes('how to')) {
-                        aiResponse = "I can help you with:\n• Finding nearest food centers\n• Checking which centers are open\n• Locating centers with hot meals\n• Tracking your delivery\n• Requesting food\n• Emergency assistance\n\nJust ask me anything!";
-                    }
-                    // Stuck/Lost/Confused
-                    else if (lowerQuery.includes('stuck') || lowerQuery.includes('lost') || lowerQuery.includes('confused') || lowerQuery.includes('don\'t know')) {
-                        aiResponse = "Don't worry! Here's how to use the app:\n\n1. Click 'Request Delivery' to order food from the nearest center\n2. Use the map to see all food centers and danger zones\n3. Click any center's 'Request Pickup' to collect food yourself\n4. Use 'Chat' to message a specific center\n5. Click the red SOS button for emergencies\n\nWhat would you like to do?";
-                    }
-                    // Default response
-                    else {
-                        aiResponse = "I can help you find food centers, check availability, track deliveries, and more. Try asking: 'Which center is nearest?' or 'Where can I get hot meals?'";
-                    }
-
-                    setAiMessages(prev => [...prev, { sender: 'AI Bot', content: aiResponse, self: false }]);
-                    setIsTyping(false);
-                }, 800);
-            }
+                setAiMessages(prev => [...prev, { sender: 'AI Bot', content: aiResponse, self: false }]);
+                setIsTyping(false);
+            }, 800);
         }
     };
 
@@ -1173,7 +979,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                                                 {c.crowd}
                                             </span>
                                             <p className="text-xs font-bold text-emerald-600 mt-1">
-                                                {roadDistances[c.id] ? `${roadDistances[c.id]} km` : `${calculateDistance(userLoc, c)} km`}
+                                                {calculateDistance(userLoc, c)} km
                                             </p>
                                         </div>
                                     </div>
@@ -1236,84 +1042,65 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                     </button>
                 </div>
                 
-            {/* Chat Widget & Modals (Preserved) */}
             {activeChat && (
-                <div className={`absolute bottom-0 w-full md:w-96 md:bottom-20 ${activeChat === 'ai' ? 'md:left-4' : 'md:right-6'} bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[60vh] md:h-[500px]`}>
-                    <div className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white p-4 flex justify-between items-center`}>
+                <div className={`absolute bottom-0 w-full md:w-96 md:bottom-20 md:left-4 bg-white rounded-t-2xl md:rounded-2xl shadow-2xl border-2 border-slate-200 flex flex-col z-50 overflow-hidden h-[60vh] md:h-[500px]`}>
+                    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 flex justify-between items-center">
                         <div>
                             <span className="font-black flex gap-2 text-base items-center">
-                                {activeChat === 'ai' ? <Bot size={20} /> : <MessageCircle size={20} />}
-                                {activeChat === 'ai' ? 'SAFE Assistant' : (activeChatCenter ? t(`center_names.${activeChatCenter.id}`, activeChatCenter.name) : t('supplier_support', 'Supplier Support'))}
+                                <Bot size={20} />
+                                SAFE Assistant
                             </span>
-                            {activeChat === 'supplier' && activeChatCenter && (
-                                <p className="text-xs text-green-100 mt-1">📍 {activeChatCenter.address}</p>
-                            )}
                         </div>
-                        <button onClick={() => { setActiveChat(null); setActiveChatCenter(null); }} className="hover:bg-white/20 rounded-lg p-2 transition-all"><span className="text-xl">×</span></button>
+                        <button onClick={() => setActiveChat(null)} className="hover:bg-white/20 rounded-lg p-2 transition-all"><span className="text-xl">×</span></button>
                     </div>
                     <div className="flex-1 p-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white space-y-3">
-                        {activeChat === 'supplier' ? (
-                            activeChatCenter && centerMessages[activeChatCenter.id] ? (
-                                centerMessages[activeChatCenter.id].map((m, i) => (
-                                    <div key={i} className={`p-3 rounded-2xl text-sm max-w-[80%] shadow-sm ${m.sender_type === 'consumer' ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white ml-auto' : 'bg-white border border-slate-200'}`}>
-                                        <div className="text-[10px] opacity-70 mb-1">{m.sender}</div>
-                                        {m.content}
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="text-center text-slate-400 text-sm py-8">{t('no_messages', 'No messages yet. Start the conversation!')}</div>
-                            )
-                        ) : (
-                            <>
-                                {/* Quick Prompts Chips */}
-                                {aiMessages.length === 1 && (
-                                    <div className="flex flex-wrap gap-2 mb-4">
-                                        {["Nearest center open now?", "What meals available near me?", "Low crowd centers?", "How to request delivery?", "Emergency help"].map((prompt, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => handleAIChip(prompt)}
-                                                className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors font-medium"
-                                            >
-                                                {prompt}
-                                            </button>
+                        {/* Quick Prompts Chips */}
+                        {aiMessages.length === 1 && (
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                {["Nearest center open now?", "What meals available near me?", "Low crowd centers?", "How to request delivery?", "Emergency help"].map((prompt, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleAIChip(prompt)}
+                                        className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors font-medium"
+                                    >
+                                        {prompt}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {aiMessages.map((m, i) => (
+                            <div key={i} className={`flex flex-col ${m.self ? 'items-end' : 'items-start'}`}>
+                                <div className={`p-3 rounded-2xl text-sm max-w-[85%] shadow-sm ${m.self ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white' : 'bg-white border border-slate-200'}`}>
+                                    {m.content}
+                                </div>
+                                {/* Render Mini Cards if available */}
+                                {m.cards && m.cards.length > 0 && (
+                                    <div className="flex gap-2 overflow-x-auto w-full mt-2 pb-2 px-1">
+                                        {m.cards.map(c => (
+                                            <div key={c.id} className="min-w-[180px] bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
+                                                <div className="font-bold text-slate-800 text-xs truncate">{c.name}</div>
+                                                <div className="text-[10px] text-slate-500 mb-2">{c.distance} km • {c.crowd} Crowd</div>
+                                                <button 
+                                                    onClick={() => { getRoadRoute(userLoc, c, false); setActiveChat(null); }}
+                                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg text-[10px] font-bold transition-colors"
+                                                >
+                                                    Navigate
+                                                </button>
+                                            </div>
                                         ))}
                                     </div>
                                 )}
-
-                                {aiMessages.map((m, i) => (
-                                    <div key={i} className={`flex flex-col ${m.self ? 'items-end' : 'items-start'}`}>
-                                        <div className={`p-3 rounded-2xl text-sm max-w-[85%] shadow-sm ${m.self ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white' : 'bg-white border border-slate-200'}`}>
-                                            {m.content}
-                                        </div>
-                                        {/* Render Mini Cards if available */}
-                                        {m.cards && m.cards.length > 0 && (
-                                            <div className="flex gap-2 overflow-x-auto w-full mt-2 pb-2 px-1">
-                                                {m.cards.map(c => (
-                                                    <div key={c.id} className="min-w-[180px] bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
-                                                        <div className="font-bold text-slate-800 text-xs truncate">{c.name}</div>
-                                                        <div className="text-[10px] text-slate-500 mb-2">{c.distance} km • {c.crowd} Crowd</div>
-                                                        <button 
-                                                            onClick={() => { getRoadRoute(userLoc, c, false); setActiveChat(null); }}
-                                                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg text-[10px] font-bold transition-colors"
-                                                        >
-                                                            Navigate
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                                {isTyping && (
-                                    <div className="p-3 rounded-2xl text-sm max-w-[80%] shadow-sm bg-white border border-slate-200 mr-auto w-16">
-                                        <div className="flex gap-1 items-center h-full pl-1">
-                                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
-                                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-75"></span>
-                                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-150"></span>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
+                            </div>
+                        ))}
+                        {isTyping && (
+                            <div className="p-3 rounded-2xl text-sm max-w-[80%] shadow-sm bg-white border border-slate-200 mr-auto w-16">
+                                <div className="flex gap-1 items-center h-full pl-1">
+                                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+                                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-75"></span>
+                                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-150"></span>
+                                </div>
+                            </div>
                         )}
                         <div ref={chatEndRef} />
                     </div>
@@ -1326,7 +1113,7 @@ Answer concisely, helpfully, and naturally. If asking for nearest, check the cal
                         />
                         <button
                             type="submit"
-                            className={`${activeChat === 'ai' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all`}
+                            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all"
                         >
                             <Send size={18} />
                         </button>

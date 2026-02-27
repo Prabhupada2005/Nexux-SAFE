@@ -352,7 +352,9 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 
 # Requests
 @app.get("/food-requests")
-def get_requests(db: Session = Depends(get_db)):
+def get_requests(center_id: int = None, db: Session = Depends(get_db)):
+    if center_id:
+        return db.query(FoodRequest).filter(FoodRequest.center_id == center_id).all()
     return db.query(FoodRequest).all()
 
 @app.post("/request-food")
@@ -470,6 +472,22 @@ def get_supplier_center(email: str, db: Session = Depends(get_db)):
     if not center:
         return {"exists": False}
     return {"exists": True, "center": center}
+
+@app.patch("/centers/{center_id}")
+def update_center(center_id: int, updates: dict, db: Session = Depends(get_db)):
+    center = db.query(Center).filter(Center.id == center_id).first()
+    if not center:
+        raise HTTPException(status_code=404, detail="Center not found")
+    
+    # Update only provided fields
+    if "status" in updates:
+        center.status = updates["status"]
+    if "crowd" in updates:
+        center.crowd = updates["crowd"]
+    
+    db.commit()
+    db.refresh(center)
+    return center
 
 @app.get("/messages/{center_id}")
 def get_center_messages(center_id: int, db: Session = Depends(get_db)):

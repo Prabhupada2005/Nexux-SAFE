@@ -320,6 +320,7 @@ const SupplierDashboard = () => {
   const [showSOSModal, setShowSOSModal] = useState(false);
   const [sosReason, setSOSReason] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [riskZones, setRiskZones] = useState([]);
   const [notifications, setNotifications] = useState([
     { id: 1, type: 'warning', title: 'Low Stock Alert', message: 'Tomatoes below 30 units', time: '2 min ago', read: false },
     { id: 2, type: 'success', title: 'Order Fulfilled', message: 'Order #123 delivered successfully', time: '5 min ago', read: false },
@@ -538,24 +539,20 @@ const SupplierDashboard = () => {
     if (!centerInfo?.id) return toast("error", "No Center", "Please register your center first.");
 
     const newIsOpen = !centerStatus.isOpen;
-    const newStatus = {
+    const statusStr = newIsOpen ? 'open' : 'closed';
+    
+    setCenterStatus({
       isOpen: newIsOpen,
       lastUpdated: new Date().toISOString()
-    };
-    
-    // Optimistic update
-    setCenterStatus(newStatus);
+    });
+    setCenterInfo(prev => ({ ...prev, status: statusStr }));
 
     try {
-      const statusStr = newIsOpen ? 'open' : 'closed';
-      // Use POST /centers to update (upsert behavior)
-      await axios.post(`${API}/centers`, { ...centerInfo, status: statusStr, supplier_email: supplierEmail });
-      setCenterInfo(prev => ({ ...prev, status: statusStr }));
-      toast('success', 'Center Status Updated', `Center is now ${newIsOpen ? 'OPEN' : 'CLOSED'}`);
+      await axios.patch(`${API}/centers/${centerInfo.id}`, { status: statusStr });
+      toast('success', 'Status Synced', `Center is now ${newIsOpen ? 'OPEN' : 'CLOSED'}`);
     } catch (err) {
-      console.warn("Backend update failed", err);
-      // Keep local state but warn
-      toast('warning', 'Status Updated Locally', 'Could not sync with server');
+      console.error("Sync failed:", err.response?.data);
+      toast('warning', 'Updated Locally', 'Will sync on refresh');
     }
   };
 
@@ -563,12 +560,14 @@ const SupplierDashboard = () => {
     if (!centerInfo?.id) return toast("error", "No Center", "Please register your center first.");
     
     setCrowdLevel(level);
+    setCenterInfo(prev => ({ ...prev, crowd: level }));
+    localStorage.setItem('crowd_level', level);
+
     try {
-      await axios.post(`${API}/centers`, { ...centerInfo, crowd: level, supplier_email: supplierEmail });
-      setCenterInfo(prev => ({ ...prev, crowd: level }));
-      toast('success', 'Crowd Level Updated', `Crowd level set to ${level}`);
+      await axios.patch(`${API}/centers/${centerInfo.id}`, { crowd: level });
+      toast('success', 'Crowd Synced', `Crowd level: ${level}`);
     } catch (err) {
-      toast('warning', 'Crowd Updated Locally', 'Could not sync with server');
+      toast('warning', 'Updated Locally', 'Will sync on refresh');
     }
   };
 
@@ -652,10 +651,12 @@ const SupplierDashboard = () => {
     try {
       // 1. Check Center Status
       const email = localStorage.getItem('supplier_email');
+      let currentCenterId = null;
       if (email) {
         const centerRes = await axios.get(`${API}/centers/supplier/${email}`, { timeout: 5000 }).catch(() => null);
         if (centerRes && centerRes.data.exists) {
           setCenterInfo(centerRes.data.center);
+          currentCenterId = centerRes.data.center.id;
         } else {
           setShowCenterSetup(true);
           setLoading(false);
@@ -666,7 +667,7 @@ const SupplierDashboard = () => {
       // 2. Fetch Dashboard Data independently
       const results = await Promise.allSettled([
         axios.get(`${API}/inventory`, { timeout: 5000 }),
-        axios.get(`${API}/food-requests`, { timeout: 5000 }),
+        currentCenterId ? axios.get(`${API}/food-requests?center_id=${currentCenterId}`, { timeout: 5000 }) : Promise.resolve({ data: [] }),
         axios.get(`${API}/risk-zones`, { timeout: 5000 }),
         axios.get(`${API}/alerts`, { timeout: 5000 }), // This handles the 404 alert error
         axios.get(`${API}/iot/spoilage`, { timeout: 5000 })
@@ -1101,6 +1102,38 @@ const SupplierDashboard = () => {
                </div>
              </div>
 
+             {/* Latitude & Longitude */}
+             <div className="grid grid-cols-2 gap-3">
+               <div className="space-y-2">
+                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1 flex items-center gap-1">
+                   Latitude <span className="text-red-500">*</span>
+                 </label>
+                 <input 
+                   required
+                   type="number"
+                   step="any"
+                   value={centerForm.lat}
+                   onChange={e => setCenterForm({...centerForm, lat: parseFloat(e.target.value)})}
+                   className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400"
+                   placeholder="24.8170"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1 flex items-center gap-1">
+                   Longitude <span className="text-red-500">*</span>
+                 </label>
+                 <input 
+                   required
+                   type="number"
+                   step="any"
+                   value={centerForm.lng}
+                   onChange={e => setCenterForm({...centerForm, lng: parseFloat(e.target.value)})}
+                   className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400"
+                   placeholder="93.9368"
+                 />
+               </div>
+             </div>
+
              {/* Type Dropdown */}
              <div className="space-y-2">
                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1">Center Type</label>
@@ -1226,46 +1259,46 @@ const SupplierDashboard = () => {
       {/* 2) CRISIS ALERT CARD */}
       {currentCrisis && (
         <div className="px-4 mb-6 max-w-6xl mx-auto">
-          <div className="bg-white rounded-xl border border-red-100 shadow-sm overflow-hidden flex flex-col md:flex-row items-center md:max-h-[110px]">
-            <div className="bg-red-50 px-5 py-3 md:w-64 border-r border-red-100 flex flex-col justify-center h-full">
-              <div className="flex items-center gap-2 text-red-600">
-                <ShieldAlert size={18} className="animate-pulse" />
-                <span className="font-bold text-sm uppercase tracking-wider">Crisis Alert</span>
+          <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl border-2 border-red-400 shadow-2xl shadow-red-500/30 overflow-hidden flex flex-col md:flex-row items-center md:max-h-[110px] animate-pulse">
+            <div className="bg-red-800/50 px-5 py-3 md:w-64 border-r-2 border-red-400 flex flex-col justify-center h-full">
+              <div className="flex items-center gap-2 text-white">
+                <ShieldAlert size={20} className="animate-bounce" />
+                <span className="font-black text-sm uppercase tracking-wider">🚨 Crisis Alert</span>
               </div>
-              <div className="font-black text-slate-900 text-lg leading-none mt-1 truncate">{currentCrisis.type}</div>
+              <div className="font-black text-white text-xl leading-none mt-1 truncate drop-shadow-lg">{currentCrisis.type}</div>
             </div>
             <div className="flex-1 px-5 py-3 flex flex-col md:flex-row items-center justify-between gap-4 w-full">
               <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm w-full">
                 <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Location</div>
-                  <div className="font-semibold text-slate-700 truncate">{currentCrisis.location || 'Unknown'}</div>
+                  <div className="text-[10px] font-bold text-red-200 uppercase">Location</div>
+                  <div className="font-bold text-white truncate">{currentCrisis.location || 'Unknown'}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Severity</div>
-                  <div className="font-bold text-red-600">{currentCrisis.severity?.toUpperCase() || 'UNKNOWN'}</div>
+                  <div className="text-[10px] font-bold text-red-200 uppercase">Severity</div>
+                  <div className="font-black text-yellow-300 text-lg">{currentCrisis.severity?.toUpperCase() || 'UNKNOWN'}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Affected</div>
-                  <div className="font-semibold text-slate-700">{currentCrisis.affected || 'N/A'}</div>
+                  <div className="text-[10px] font-bold text-red-200 uppercase">Affected</div>
+                  <div className="font-bold text-white">{currentCrisis.affected || 'N/A'}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Time</div>
-                  <div className="font-semibold text-slate-700">{currentCrisis.time || 'Just now'}</div>
+                  <div className="text-[10px] font-bold text-red-200 uppercase">Time</div>
+                  <div className="font-bold text-white">{currentCrisis.time || 'Just now'}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Source</div>
-                  <div className="font-semibold text-slate-700 truncate">{currentCrisis.source || 'System'}</div>
+                  <div className="text-[10px] font-bold text-red-200 uppercase">Source</div>
+                  <div className="font-bold text-white truncate">{currentCrisis.source || 'System'}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Confidence</div>
-                  <div className={`font-bold ${currentCrisis.confidence === 'High' ? 'text-emerald-600' : 'text-amber-600'}`}>{currentCrisis.confidence || 'Medium'}</div>
+                  <div className="text-[10px] font-bold text-red-200 uppercase">Confidence</div>
+                  <div className={`font-black ${currentCrisis.confidence === 'High' ? 'text-green-300' : 'text-yellow-300'}`}>{currentCrisis.confidence || 'Medium'}</div>
                 </div>
               </div>
               <button 
                 onClick={() => setShowCrisisMap(true)} 
-                className="w-full md:w-auto px-4 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors whitespace-nowrap"
+                className="w-full md:w-auto px-6 py-3 bg-white text-red-600 rounded-xl text-sm font-black hover:bg-red-50 transition-all shadow-lg whitespace-nowrap border-2 border-white"
               >
-                View Map
+                🗺️ View Map
               </button>
             </div>
           </div>
@@ -1451,12 +1484,6 @@ const SupplierDashboard = () => {
             </div>
             <span className="text-[9px] md:text-[10px] font-bold text-slate-600">Chat</span>
           </button>
-          <button onClick={() => setShowBroadcast(true)} className="flex flex-col items-center gap-1.5 min-w-[70px] md:min-w-[80px]">
-            <div className="w-10 h-10 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-purple-600 hover:bg-purple-50 transition-colors">
-              <Radio className="w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            <span className="text-[9px] md:text-[10px] font-bold text-slate-600">Broadcast</span>
-          </button>
         </div>
       </div>
 
@@ -1556,12 +1583,7 @@ const SupplierDashboard = () => {
                     <Package size={16} className="md:w-5 md:h-5" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-0.5 md:mb-1">
-                      <h3 className="font-bold text-sm md:text-base text-slate-900">{item.name}</h3>
-                      <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[9px] md:text-[10px] font-bold uppercase tracking-wide rounded-full">
-                        High
-                      </span>
-                    </div>
+                    <h3 className="font-bold text-sm md:text-base text-slate-900 mb-0.5 md:mb-1">{item.name}</h3>
                     <p className="text-[10px] md:text-xs text-slate-500">Delivery Center • {item.quantity} {item.unit}</p>
                   </div>
                 </div>
