@@ -339,8 +339,23 @@ const Login = () => {
           family_members: parseInt(formData.familyMembers) || 1,
           role: activeTab 
         }, { timeout: 10000 });
-        alert("Account created! Please sign in.");
-        setIsRegistering(false);
+        
+        // Auto-login after registration
+        const res = await axios.post('http://localhost:8000/login', {
+          email: email,
+          password: formData.password
+        }, { timeout: 10000 });
+
+        if (res.data.success) {
+          localStorage.setItem('foodtech_user', JSON.stringify(res.data.user));
+          const userRole = (res.data.user.role || '').toLowerCase();
+          if (userRole === 'supplier') {
+            localStorage.setItem('supplier_email', res.data.user.email);
+            navigate('/supplier');
+          } else if (userRole === 'consumer') navigate('/consumer');
+          else if (userRole === 'emergency') navigate('/emergency');
+          else if (userRole === 'admin') navigate('/consumer');
+        }
       } else {
         const res = await axios.post('http://localhost:8000/login', {
           email: email,

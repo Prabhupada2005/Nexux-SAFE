@@ -195,6 +195,7 @@ function LiveStorageMonitoring({ iotData }) {
 }
 
 function SingleSensorUnit({ sensorData }) {
+  if (!sensorData) return null;
   const riskLevel = sensorData.status === "warning" || (typeof sensorData.temp === 'number' && sensorData.temp > 30) ? "CRITICAL" :
                     (typeof sensorData.temp === 'number' && sensorData.temp > 27) ? "WARNING" : "SAFE";
 
@@ -251,6 +252,44 @@ function SensorCard({ icon, label, value, status, statusColor, iconBg }) {
 
 // --- MAIN DASHBOARD COMPONENT ---
 const SupplierDashboard = () => {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+
+  // Toasts (Moved up to avoid reference errors)
+  const [toasts, setToasts] = useState([]);
+  const toast = (type, title, message = "") => {
+    const id = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+    setToasts((p) => [{ id, type, title, message }, ...p].slice(0, 4));
+    setTimeout(() => setToasts((p) => p.filter((x) => x.id !== id)), 2600);
+  };
+  const removeToast = (id) => setToasts((p) => p.filter((x) => x.id !== id));
+
+  const [loading, setLoading] = useState(true);
+  const [inventory, setInventory] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [centerInfo, setCenterInfo] = useState(null);
+  const [centerStatus, setCenterStatus] = useState({ isOpen: true, lastUpdated: null });
+  const [showCenterSetup, setShowCenterSetup] = useState(false);
+  const [centerForm, setCenterForm] = useState({ name: '', address: '', lat: 24.8170, lng: 93.9368, phone: '', type: 'Distribution Center' });
+  const [geocoding, setGeocoding] = useState(false);
+  const [mapClickEnabled, setMapClickEnabled] = useState(true);
+  const [supplierEmail, setSupplierEmail] = useState(localStorage.getItem('supplier_email') || '');
+  const [lastSync, setLastSync] = useState(null);
+  
+  // Modals
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [showRiskMap, setShowRiskMap] = useState(false);
+  const [showCrisisMap, setShowCrisisMap] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  
+  // Settings
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [lang, setLang] = useState(localStorage.getItem('foodtech_language') || 'en');
+
   const [crowdLevel, setCrowdLevel] = useState(() => {
     try {
       const saved = localStorage.getItem('crowd_level');
@@ -493,15 +532,6 @@ const SupplierDashboard = () => {
       toast('error', 'SOS Failed', 'Could not send alert. Check backend connection.');
     }
   };
-
-  // Toasts
-  const [toasts, setToasts] = useState([]);
-  const toast = (type, title, message = "") => {
-    const id = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
-    setToasts((p) => [{ id, type, title, message }, ...p].slice(0, 4));
-    setTimeout(() => setToasts((p) => p.filter((x) => x.id !== id)), 2600);
-  };
-  const removeToast = (id) => setToasts((p) => p.filter((x) => x.id !== id));
 
   const toggleCenterStatus = async () => {
     if (!centerInfo?.id) return toast("error", "No Center", "Please register your center first.");
@@ -999,6 +1029,9 @@ const SupplierDashboard = () => {
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
             Syncing IoT Nodes
           </div>
+          <button onClick={handleLogout} className="mt-8 text-slate-500 hover:text-slate-300 text-xs font-bold underline transition-colors z-20">
+            Logout / Cancel
+          </button>
         </div>
       </div>
     );
@@ -1134,6 +1167,13 @@ const SupplierDashboard = () => {
                  className="w-full text-slate-400 hover:text-slate-600 text-sm font-bold transition-colors flex items-center justify-center gap-1 py-2"
                >
                  Cancel and return home
+               </button>
+               <button 
+                 type="button"
+                 onClick={handleLogout}
+                 className="w-full text-red-400 hover:text-red-600 text-sm font-bold transition-colors flex items-center justify-center gap-1 py-2"
+               >
+                 Logout
                </button>
              </div>
           </form>
