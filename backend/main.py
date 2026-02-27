@@ -635,12 +635,21 @@ def get_alert_clusters(db: Session = Depends(get_db)):
     return clusters
 
 # IoT Simulation
+# Global state for IoT data (allows external updates)
+IOT_STATE = [
+    {"id": 1, "location": "Warehouse A", "temp": 24, "humidity": 50, "status": "normal", "food_quality": "Good"},
+    {"id": 2, "location": "Transit Truck 4", "temp": 26, "humidity": 55, "status": "normal", "food_quality": "Good"}
+]
+
 @app.get("/iot/spoilage")
 def get_iot_data():
-    return [
-        {"id": 1, "location": "Warehouse A", "temp": random.randint(20, 35), "humidity": random.randint(40, 80), "status": "normal", "food_quality": "Good"},
-        {"id": 2, "location": "Transit Truck 4", "temp": random.randint(30, 45), "humidity": random.randint(60, 90), "status": "warning", "food_quality": "Risk"}
-    ]
+    return IOT_STATE
+
+@app.post("/iot/update")
+def update_iot_data(data: list[dict]):
+    global IOT_STATE
+    IOT_STATE = data
+    return {"message": "IoT data updated"}
 
 @app.post("/send-otp")
 def send_otp(req: OTPRequest):

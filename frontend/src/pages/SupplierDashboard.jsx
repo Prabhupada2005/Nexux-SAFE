@@ -169,161 +169,88 @@ function Pill({ variant = "gray", children, className = "" }) {
   );
 }
 
-// --- CORRECTED LIVE STORAGE MONITORING COMPONENT ---
-export function LiveStorageMonitoring({ iotData }) {
-  const sensorData = useMemo(() => {
-    if (iotData && iotData.length > 0) {
-      return iotData[0];
-    }
-    return { temp: "--", humidity: "--", gas: "Normal", smoke: "Normal", status: "normal" };
-  }, [iotData]);
-
-  const riskLevel = useMemo(() => {
-    if (sensorData.status === "warning" || (typeof sensorData.temp === 'number' && sensorData.temp > 30)) {
-      return "CRITICAL";
-    }
-    if (typeof sensorData.temp === 'number' && sensorData.temp > 27) {
-      return "WARNING";
-    }
-    return "SAFE";
-  }, [sensorData]);
-
+// --- SUB-COMPONENTS ---
+function LiveStorageMonitoring({ iotData }) {
+  const dataToDisplay = iotData && iotData.length > 0 ? iotData : [
+    { temp: "--", humidity: "--", gas: "Normal", smoke: "Normal", status: "normal", location: "No Data" }
+  ];
+  
   return (
     <div className="px-4 mb-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-bold text-slate-900">Live Storage Monitoring</h3>
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Live</span>
-        </div>
-        <button className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
-          View Sensor History
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Live Storage Monitoring</h3>
+        <button className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-1">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+          IoT Active
         </button>
       </div>
 
+      <div className="grid grid-cols-1 gap-4">
+        {dataToDisplay.map((sensor, idx) => (
+          <SingleSensorUnit key={idx} sensorData={sensor} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SingleSensorUnit({ sensorData }) {
+  const riskLevel = sensorData.status === "warning" || (typeof sensorData.temp === 'number' && sensorData.temp > 30) ? "CRITICAL" :
+                    (typeof sensorData.temp === 'number' && sensorData.temp > 27) ? "WARNING" : "SAFE";
+
+  return (
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 md:p-5">
-        {/* Summary Banner */}
         <div className={`mb-3 md:mb-6 p-3 md:p-5 rounded-xl md:rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 md:gap-4 ${
           riskLevel === 'CRITICAL' ? 'bg-red-50 border-red-100 text-red-800' :
           riskLevel === 'WARNING' ? 'bg-amber-50 border-amber-100 text-amber-800' :
           'bg-emerald-50 border-emerald-100 text-emerald-800'
         }`}>
-          <div className="flex items-center gap-3 md:gap-4">
+          <div className="flex items-center gap-3">
             <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${
-               riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-600' :
-               riskLevel === 'WARNING' ? 'bg-amber-100 text-amber-600' :
-               'bg-emerald-100 text-emerald-600'
+              riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-600' :
+              riskLevel === 'WARNING' ? 'bg-amber-100 text-amber-600' :
+              'bg-emerald-100 text-emerald-600'
             }`}>
-              <Activity size={20} className="md:w-7 md:h-7" />
+              <Thermometer size={20} className="md:w-6 md:h-6" />
             </div>
             <div>
-              <h4 className="font-black text-sm md:text-xl tracking-tight">Spoilage Risk: {riskLevel}</h4>
-              <p className="text-[10px] md:text-sm opacity-80 font-medium">Source: {sensorData.location || "IoT Node 1"}</p>
+              <h4 className="font-black text-base md:text-lg uppercase tracking-tight">{sensorData.location || "Storage Unit"}</h4>
+              <p className="text-xs font-bold opacity-80">Status: {riskLevel}</p>
             </div>
           </div>
-          <div className={`px-2 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wider border ${
-             riskLevel === 'CRITICAL' ? 'bg-red-100 border-red-200 text-red-700' :
-             riskLevel === 'WARNING' ? 'bg-amber-100 border-amber-200 text-amber-700' :
-             'bg-emerald-100 border-emerald-200 text-emerald-700'
-          }`}>
-            Status: {riskLevel}
+          <div className="text-right">
+            <div className="text-2xl md:text-4xl font-black">{sensorData.temp}°C</div>
+            <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-70">Temperature</div>
           </div>
         </div>
 
-        {/* Sensor Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4">
-          <SensorCard icon={<Thermometer size={14} className="md:w-5 md:h-5" />} label="Temperature" value={`${sensorData.temp}°C`} status="Elevated" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-orange-100 text-orange-600" />
+        <div className="grid grid-cols-3 gap-2 md:gap-4">
           <SensorCard icon={<Droplets size={14} className="md:w-5 md:h-5" />} label="Humidity" value={`${sensorData.humidity}%`} status="Elevated" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-blue-100 text-blue-600" />
-          <SensorCard icon={<Wind size={14} className="md:w-5 md:h-5" />} label="Gas Level" value={sensorData.gas} status="Air quality risk" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-slate-100 text-slate-600" />
-          <SensorCard icon={<Flame size={14} className="md:w-5 md:h-5" />} label="Smoke Level" value={sensorData.smoke} status="No smoke detected" statusColor="text-emerald-700 bg-emerald-50 border-emerald-200" iconBg="bg-red-100 text-red-600" />
+          <SensorCard icon={<Wind size={14} className="md:w-5 md:h-5" />} label="Gas Level" value={sensorData.gas || "Normal"} status="Air quality risk" statusColor="text-amber-700 bg-amber-50 border-amber-200" iconBg="bg-slate-100 text-slate-600" />
+          <SensorCard icon={<Flame size={14} className="md:w-5 md:h-5" />} label="Smoke Level" value={sensorData.smoke || "Normal"} status="No smoke detected" statusColor="text-emerald-700 bg-emerald-50 border-emerald-200" iconBg="bg-red-100 text-red-600" />
         </div>
       </div>
-    </div>
   );
 }
 
 function SensorCard({ icon, label, value, status, statusColor, iconBg }) {
   return (
-    <div className="p-2 md:p-4 rounded-lg md:rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-between h-full">
-      <div className="flex items-center gap-1.5 md:gap-3 mb-1 md:mb-3">
-        <div className={`p-1 md:p-2 rounded-md md:rounded-lg ${iconBg}`}>{icon}</div>
-        <span className="text-[8px] md:text-xs font-bold uppercase text-slate-500 tracking-wider truncate">{label}</span>
+    <div className="bg-slate-50 rounded-xl p-2 md:p-4 border border-slate-100 flex flex-col justify-between">
+      <div className="flex justify-between items-start mb-1 md:mb-2">
+        <div className={`p-1.5 md:p-2 rounded-lg ${iconBg} bg-opacity-10 text-opacity-100`}>
+          {icon}
+        </div>
       </div>
       <div>
-        <div className="text-sm md:text-2xl font-black text-slate-900">{value}</div>
-        <div className={`inline-block mt-0.5 md:mt-2 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg text-[7px] md:text-[10px] font-bold border ${statusColor}`}>{status}</div>
+        <div className="text-lg md:text-2xl font-black text-slate-900">{value}</div>
+        <div className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</div>
       </div>
     </div>
   );
 }
 
-/* ------------------------------ Component ------------------------------ */
-export default function SupplierDashboard() {
-  const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
-  const lang = (i18n.language || "en").split("-")[0];
-
-  // Data
-  const [inventory, setInventory] = useState(() => {
-    try {
-      const saved = localStorage.getItem('supplier_inventory');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
-  });
-  const [requests, setRequests] = useState(() => {
-    try {
-      const saved = localStorage.getItem('supplier_requests');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
-  });
-  const [iotData, setIotData] = useState([]);
-  const [riskZones, setRiskZones] = useState([]);
-  const [lastSync, setLastSync] = useState(new Date());
-  const [loading, setLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  // Center registration
-  const [showCenterSetup, setShowCenterSetup] = useState(false);
-  const [centerForm, setCenterForm] = useState({
-    name: '',
-    address: '',
-    lat: 24.8170,
-    lng: 93.9368,
-    phone: '',
-    type: 'Distribution Center'
-  });
-  const [mapClickEnabled, setMapClickEnabled] = useState(false);
-  const [geocoding, setGeocoding] = useState(false);
-  const [centerInfo, setCenterInfo] = useState(null);
-  const [supplierEmail, setSupplierEmail] = useState(() => {
-    try {
-      return localStorage.getItem('supplier_email') || '';
-    } catch (e) { return ''; }
-  });
-
-  // Modals
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showRiskMap, setShowRiskMap] = useState(false);
-  const [showCrisisMap, setShowCrisisMap] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [showTeamModal, setShowTeamModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
-
-  // Center status
-  const [centerStatus, setCenterStatus] = useState(() => {
-    try {
-      const saved = localStorage.getItem('center_status');
-      return saved ? JSON.parse(saved) : { isOpen: true, lastUpdated: new Date().toISOString() };
-    } catch (e) { return { isOpen: true, lastUpdated: new Date().toISOString() }; }
-  });
-
-  // Crowd indicator
+// --- MAIN DASHBOARD COMPONENT ---
+const SupplierDashboard = () => {
   const [crowdLevel, setCrowdLevel] = useState(() => {
     try {
       const saved = localStorage.getItem('crowd_level');
@@ -339,6 +266,7 @@ export default function SupplierDashboard() {
     category: "Cooked Food",
   });
 
+  const [iotData, setIotData] = useState([]);
   const [aiInput, setAiInput] = useState("");
   const [aiMessages, setAiMessages] = useState([
     { sender: "AI", content: "Hi Supplier 👋 I'm your Nexus Smart Assistant. Ask me about low stock, incoming orders from the **Consumer Dashboard**, or spoilage risks.", type: "received" },
@@ -694,7 +622,7 @@ export default function SupplierDashboard() {
       // 1. Check Center Status
       const email = localStorage.getItem('supplier_email');
       if (email) {
-        const centerRes = await axios.get(`${API}/centers/supplier/${email}`).catch(() => null);
+        const centerRes = await axios.get(`${API}/centers/supplier/${email}`, { timeout: 5000 }).catch(() => null);
         if (centerRes && centerRes.data.exists) {
           setCenterInfo(centerRes.data.center);
         } else {
@@ -706,10 +634,11 @@ export default function SupplierDashboard() {
 
       // 2. Fetch Dashboard Data independently
       const results = await Promise.allSettled([
-        axios.get(`${API}/inventory`),
-        axios.get(`${API}/food-requests`),
-        axios.get(`${API}/risk-zones`),
-        axios.get(`${API}/alerts`) // This handles the 404 alert error
+        axios.get(`${API}/inventory`, { timeout: 5000 }),
+        axios.get(`${API}/food-requests`, { timeout: 5000 }),
+        axios.get(`${API}/risk-zones`, { timeout: 5000 }),
+        axios.get(`${API}/alerts`, { timeout: 5000 }), // This handles the 404 alert error
+        axios.get(`${API}/iot/spoilage`, { timeout: 5000 })
       ]);
 
       // Map results back to state only if successful
@@ -725,6 +654,7 @@ export default function SupplierDashboard() {
           confidence: a.confidence || 'High'
         })));
       }
+      if (results[4].status === 'fulfilled') setIotData(results[4].value.data || []);
 
       setLastSync(new Date());
       setLoading(false);
@@ -736,6 +666,9 @@ export default function SupplierDashboard() {
 
   // --- INTEGRATED FIREBASE LISTENER ---
   useEffect(() => {
+    // Safety timeout to prevent infinite loading
+    const safetyTimer = setTimeout(() => setLoading(false), 8000);
+
     fetchData(); // Initial load for your backend data
 
     // Connect to Firebase for the IoT cards
@@ -752,7 +685,7 @@ export default function SupplierDashboard() {
     //   console.error("Firebase Connection Error:", error);
     // });
 
-    // return () => unsubscribe(); // Clean up on page exit
+    return () => clearTimeout(safetyTimer); // Clean up
   }, []);
 
   useEffect(() => {
@@ -2287,3 +2220,5 @@ export default function SupplierDashboard() {
     </div>
   );
 }
+
+export default SupplierDashboard;

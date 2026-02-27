@@ -274,7 +274,6 @@ const Login = () => {
     setError('');
     try {
       const res = await axios.post('http://localhost:8000/send-otp', { phone: formData.phone });
-      setServerOtp(res.data.otp);
       setOtpSent(true);
       alert(`OTP Sent! Code: ${res.data.otp}`); // Show in alert for simulation
     } catch (err) {
@@ -339,16 +338,14 @@ const Login = () => {
           age: parseInt(formData.age) || 0,
           family_members: parseInt(formData.familyMembers) || 1,
           role: activeTab 
-        });
-        
+        }, { timeout: 10000 });
         alert("Account created! Please sign in.");
         setIsRegistering(false);
       } else {
         const res = await axios.post('http://localhost:8000/login', {
           email: email,
           password: formData.password
-        });
-
+        }, { timeout: 10000 });
         if (res.data.success) {
           const userRole = (res.data.user.role || '').toLowerCase();
           
@@ -429,10 +426,9 @@ const Login = () => {
         const res = await axios.put('http://localhost:8000/reset-password', {
             email: email,
             new_password: password
-        });
+        }, { timeout: 5000 });
         alert(res.data.message || t('pass_updated'));
-        setShowForgotModal(false);
-        setResetData({ email: '', newPassword: '' });
+        setShowForgotModal(false); setResetData({ email: '', newPassword: '' });
     } catch (err) {
         console.error("Reset Password Error:", err);
         const errorMsg = err.response?.data?.detail || "Connection error or Email not found";

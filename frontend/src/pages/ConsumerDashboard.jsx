@@ -293,12 +293,12 @@ const ConsumerDashboard = () => {
         // Safety timeout: Force loading to stop after 8 seconds if it gets stuck
         const safetyTimer = setTimeout(() => {
             if (isMounted) setLoading(false);
-        }, 8000);
+        }, 5000);
 
         const initDashboard = async () => {
             try {
                 // Fake loading delay for smooth transition
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 800));
 
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
@@ -313,7 +313,7 @@ const ConsumerDashboard = () => {
                     );
                     try {
                         const pos = await new Promise((resolve, reject) => {
-                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
                         });
                         setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                         setLocationError(false);
@@ -326,7 +326,7 @@ const ConsumerDashboard = () => {
 
                 // Fetch registered centers from backend
                 try {
-                    const res = await axios.get(`${API_BASE_URL}/centers`);
+                    const res = await axios.get(`${API_BASE_URL}/centers`, { timeout: 5000 });
                     const validData = validateCenters(res.data);
                     if (validData.length > 0) {
                         const newCenters = validData.map(c => ({
@@ -350,7 +350,7 @@ const ConsumerDashboard = () => {
 
                 // Fetch risk zones
                 try {
-                    const res = await axios.get(`${API_BASE_URL}/risk-zones`);
+                    const res = await axios.get(`${API_BASE_URL}/risk-zones`, { timeout: 5000 });
                     const validZones = validateCenters(res.data);
                     setRiskZones(validZones);
                     localStorage.setItem('consumer_riskZones', JSON.stringify(validZones));
@@ -360,7 +360,7 @@ const ConsumerDashboard = () => {
                 const user = JSON.parse(localStorage.getItem('foodtech_user'));
                 if (user) {
                     try {
-                        const reqRes = await axios.get(`${API_BASE_URL}/food-requests`);
+                        const reqRes = await axios.get(`${API_BASE_URL}/food-requests`, { timeout: 5000 });
                         const userRequests = reqRes.data.filter(r => r.consumer_name === user.name);
                         setMyRequests(userRequests);
                     } catch (e) { console.log('No requests'); }
