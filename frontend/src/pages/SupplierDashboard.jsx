@@ -733,11 +733,12 @@ const SupplierDashboard = () => {
     if (!newItem.name || newItem.quantity === "") return toast("error", "Missing fields", "Enter name + quantity.");
 
     try {
-      await axios.post(`${API}/inventory`, { ...newItem, quantity: parseFloat(newItem.quantity) });
+      if (!centerInfo?.id) return toast("error", "No Center", "Please register your center first.");
+      await axios.post(`${API}/inventory`, { ...newItem, quantity: parseFloat(newItem.quantity), center_id: centerInfo.id });
 
 
       // Optimistic update for offline feel
-      const updated = [...inventory, { ...newItem, id: Date.now(), quantity: parseFloat(newItem.quantity) }];
+      const updated = [...inventory, { ...newItem, id: Date.now(), quantity: parseFloat(newItem.quantity), center_id: centerInfo.id }];
       setInventory(updated);
       try { localStorage.setItem('supplier_inventory', JSON.stringify(updated)); } catch (e) {}
 
@@ -756,11 +757,13 @@ const SupplierDashboard = () => {
     if (newQty === "" || isNaN(newQty)) return toast("error", "Invalid quantity", "Enter a number.");
 
     try {
+      if (!centerInfo?.id) return toast("error", "No Center", "Please register your center first.");
       await axios.put(`${API}/inventory/${item.id}`, {
         name: item.name,
         quantity: parseFloat(newQty),
         unit: item.unit,
         category: item.category,
+        center_id: centerInfo.id,
       });
       toast("success", "Updated quantity");
       fetchData();
@@ -791,7 +794,8 @@ const SupplierDashboard = () => {
       { name: t("item.water", { defaultValue: "Water" }), quantity: 200, unit: "bottles", category: "Beverages" },
     ];
     try {
-      for (const it of defaults) await axios.post(`${API}/inventory`, it);
+      if (!centerInfo?.id) return toast("error", "No Center", "Please register your center first.");
+      for (const it of defaults) await axios.post(`${API}/inventory`, { ...it, center_id: centerInfo.id });
       toast("success", "Defaults added", "Onion + Ginger + Dal");
       fetchData();
     } catch (e) {

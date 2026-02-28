@@ -36,6 +36,7 @@ class Inventory(Base):
     quantity = Column(Float)
     unit = Column(String)
     category = Column(String)
+    center_id = Column(Integer, nullable=False)
 
 class FoodRequest(Base):
     __tablename__ = "food_requests"
@@ -99,6 +100,13 @@ def run_migrations():
     try:
         inspector = inspect(engine)
         with engine.connect() as conn:
+            # Inventory Table Migrations
+            if inspector.has_table("inventory"):
+                columns = [c['name'] for c in inspector.get_columns('inventory')]
+                if 'center_id' not in columns:
+                    print("--- MIGRATION: Adding 'center_id' to inventory ---")
+                    conn.execute(text("ALTER TABLE inventory ADD COLUMN center_id INTEGER DEFAULT 1"))
+
             # Users Table Migrations
             if inspector.has_table("users"):
                 columns = [c['name'] for c in inspector.get_columns('users')]
@@ -157,6 +165,7 @@ class InventoryItem(BaseModel):
     quantity: float
     unit: str = "kg"
     category: str = "General"
+    center_id: int
 
 class RequestItem(BaseModel):
     consumer_name: str
@@ -319,26 +328,41 @@ def delete_supplier(creds: DeleteAccountRequest, db: Session = Depends(get_db)):
     return {"message": "Account and Center deleted successfully"}
 
 # Inventory
+
 @app.get("/inventory")
-def get_inventory(db: Session = Depends(get_db)):
+def get_inventory(center_id: int = None, db: Session = Depends(get_db)):
+    if center_id is not None:
+        return db.query(Inventory).filter(Inventory.center_id == center_id).all()
     return db.query(Inventory).all()
 
 @app.get("/alerts")
 async def get_alerts():
     return [{"id": 1, "type": "Crisis", "location": "Ukhrul", "severity": "critical", "time": "18 min ago"}]
 
+
 @app.post("/inventory")
 def add_item(item: InventoryItem, db: Session = Depends(get_db)):
-    db_item = Inventory(name=item.name, quantity=item.quantity, unit=item.unit, category=item.category)
+    db_item = Inventory(
+        name=item.name,
+        quantity=item.quantity,
+        unit=item.unit,
+        category=item.category,
+        center_id=item.center_id
+    )
     db.add(db_item)
     db.commit()
     return db_item
 
+
 @app.put("/inventory/{item_id}")
-def update_item(item_id: int, data: InventoryItem, db: Session = Depends(get_db)): # Simplified update
+def update_item(item_id: int, data: InventoryItem, db: Session = Depends(get_db)):
     item = db.query(Inventory).filter(Inventory.id == item_id).first()
     if item:
+        item.name = data.name
         item.quantity = data.quantity
+        item.unit = data.unit
+        item.category = data.category
+        item.center_id = data.center_id
         db.commit()
     return item
 

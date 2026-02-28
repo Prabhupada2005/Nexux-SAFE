@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { groupInventoryByCenter, getMenuFromInventory } from '../utils/inventoryMenu';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
@@ -115,6 +116,8 @@ const MapComponent = ({ userLoc, centers, routePath, truckPosition, truckProgres
 };
 
 const ConsumerDashboard = () => {
+    const [inventory, setInventory] = useState([]);
+    const [centerMenus, setCenterMenus] = useState({});
     const { t, i18n } = useTranslation();
     const [userLoc, setUserLoc] = useState(null);
     const [centers, setCenters] = useState(FOOD_CENTERS);
@@ -281,14 +284,12 @@ const ConsumerDashboard = () => {
 
     useEffect(() => {
         let isMounted = true;
-        // Safety timeout: Force loading to stop after 8 seconds if it gets stuck
         const safetyTimer = setTimeout(() => {
             if (isMounted) setLoading(false);
         }, 5000);
 
         const initDashboard = async () => {
             try {
-                // Fake loading delay for smooth transition
                 await new Promise(resolve => setTimeout(resolve, 800));
 
                 if (navigator.geolocation) {
@@ -304,7 +305,6 @@ const ConsumerDashboard = () => {
                         setLocationError(false);
                     } catch (error) {
                         console.warn("Location timeout, using network location");
-                        // Fallback: try network-based location (faster but less accurate)
                         try {
                             const pos = await new Promise((resolve, reject) => {
                                 navigator.geolocation.getCurrentPosition(resolve, reject, { 
@@ -321,29 +321,38 @@ const ConsumerDashboard = () => {
                     }
                 }
 
-                // Fetch registered centers from backend and merge with hardcoded
-                try {
-                    const res = await axios.get(`${API_BASE_URL}/centers`, { timeout: 5000 });
-                    const validData = validateCenters(res.data);
-                    if (validData.length > 0) {
-                        const newCenters = validData.map(c => ({
-                            ...c,
-                            items: c.items || 50,
-                            cookedFood: true,
-                            menu: c.menu || ['Rice Meals', 'Dal Chawal']
-                        }));
-                        // Merge with hardcoded centers and deduplicate by ID
-                        const allCenters = [...FOOD_CENTERS, ...newCenters];
-                        const uniqueCenters = Array.from(new Map(allCenters.map(item => [String(item.id), item])).values());
-                        
-                        setCenters(uniqueCenters);
-                        localStorage.setItem('consumer_centers', JSON.stringify(uniqueCenters));
-                    }
-                } catch { 
-                    console.log('No registered centers yet');
+                // Fetch inventory and centers
+                const [invRes, centersRes] = await Promise.all([
+                    axios.get(`${API_BASE_URL}/inventory`, { timeout: 5000 }),
+                    axios.get(`${API_BASE_URL}/centers`, { timeout: 5000 })
+                ]);
+                const inventoryData = Array.isArray(invRes.data) ? invRes.data : [];
+                setInventory(inventoryData);
+
+                const validData = validateCenters(centersRes.data);
+                let newCenters = [];
+                if (validData.length > 0) {
+                    newCenters = validData.map(c => ({
+                        ...c,
+                        items: c.items || 50,
+                        cookedFood: true
+                    }));
+                    const allCenters = [...FOOD_CENTERS, ...newCenters];
+                    const uniqueCenters = Array.from(new Map(allCenters.map(item => [String(item.id), item])).values());
+                    setCenters(uniqueCenters);
+                    localStorage.setItem('consumer_centers', JSON.stringify(uniqueCenters));
+                } else {
                     setCenters(FOOD_CENTERS);
                     localStorage.removeItem('consumer_centers');
                 }
+
+                // Build menu for each center from inventory
+                const grouped = groupInventoryByCenter(inventoryData);
+                const menus = {};
+                for (const centerId in grouped) {
+                    menus[centerId] = getMenuFromInventory(grouped[centerId]);
+                }
+                setCenterMenus(menus);
 
                 // Fetch risk zones
                 try {
@@ -360,7 +369,7 @@ const ConsumerDashboard = () => {
         };
 
         initDashboard();
-        return () => { 
+        return () => {
             isMounted = false;
             clearTimeout(safetyTimer);
         };
@@ -1236,9 +1245,9 @@ const ConsumerDashboard = () => {
                                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{t('food_type')}</label>
                                 <select className="w-full border-2 border-slate-200 p-3 rounded-xl mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all" onChange={(e) => setReqItem({ ...reqItem, name: e.target.value })} value={reqItem.name}>
                                     <option value="">{t('select_food', '-- Select Food --')}</option>
-                                    {selectedCenter && selectedCenter.menu ? (
+                                    {selectedCenter && centerMenus[selectedCenter.id] && centerMenus[selectedCenter.id].length > 0 ? (
                                         <optgroup label={`📋 ${t('menu_available', 'Available')} at ${t(`center_names.${selectedCenter.id}`, selectedCenter.name)}`}>
-                                            {selectedCenter.menu.map((item, idx) => (
+                                            {centerMenus[selectedCenter.id].map((item, idx) => (
                                                 <option key={idx} value={item}>{item}</option>
                                             ))}
                                         </optgroup>

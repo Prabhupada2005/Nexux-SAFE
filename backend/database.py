@@ -27,6 +27,7 @@ class InventoryItem(Base):
     category = Column(String)
     quantity = Column(Float)
     unit = Column(String)
+    center_id = Column(Integer, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"))
     last_updated = Column(String, default=datetime.now().strftime("%Y-%m-%d"))
 
