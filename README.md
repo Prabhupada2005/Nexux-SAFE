@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # FoodTech Platform
 
 FoodTech Platform is a full-stack food ordering and management web application developed as a hackathon project.
