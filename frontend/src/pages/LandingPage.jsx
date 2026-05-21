@@ -549,10 +549,10 @@ const LandingPage = () => {
                   {t('hero_sub', 'Built for disaster response and humanitarian logistics across India')}
                 </p>
                 <div className="flex flex-wrap gap-2 md:gap-4">
-                  <button onClick={() => navigate('/login')} className="group px-3 py-2 md:px-8 md:py-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-lg md:rounded-2xl font-bold shadow-2xl shadow-emerald-400/50 hover:shadow-2xl hover:shadow-emerald-500/60 transition-all duration-300 flex items-center gap-1 md:gap-2 hover:scale-105 transform border border-emerald-400/20 text-[10px] md:text-base w-auto justify-center">
-                    {t('get_started', 'Get Started Free')}
-                    <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform md:w-5 md:h-5" />
-                  </button>
+                <button onClick={() => navigate('/Login', { state: { mode: 'register' } })} className="group px-3 py-2 md:px-8 md:py-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-lg md:rounded-2xl font-bold shadow-2xl shadow-emerald-400/50 hover:shadow-2xl hover:shadow-emerald-500/60 transition-all duration-300 flex items-center gap-1 md:gap-2 hover:scale-105 transform border border-emerald-400/20 text-[10px] md:text-base w-auto justify-center">
+  {t('get_started', 'Get Started Free')}
+  <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform md:w-5 md:h-5" />
+</button>
                 </div>
                 
                 {/* Trust Badges */}
